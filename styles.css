@@ -329,3 +329,39 @@ html[data-theme="pearl"] .tool-panel-copy p{color:#5f6778!important}
 @media(min-width:1020px){
   #homeApps.launcher-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
 }
+
+
+/* ToolCart V1.11 — Centered home tool panel content */
+#homeApps .tool-panel-card{
+  justify-content:center!important;
+  align-items:center!important;
+  text-align:center!important;
+}
+#homeApps .tool-panel-top{
+  width:100%!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:10px!important;
+}
+#homeApps .tool-panel-copy{
+  width:100%!important;
+  align-items:center!important;
+  justify-content:center!important;
+  text-align:center!important;
+  gap:6px!important;
+}
+#homeApps .tool-panel-copy h3,
+#homeApps .tool-panel-copy p{
+  text-align:center!important;
+  margin-left:auto!important;
+  margin-right:auto!important;
+}
+#homeApps .tool-panel-copy p{
+  max-width:100%!important;
+}
+@media(max-width:420px){
+  #homeApps .tool-panel-card{padding:12px 9px 12px!important}
+  #homeApps .tool-panel-top{gap:9px!important}
+  #homeApps .tool-panel-copy{gap:5px!important}
+}
