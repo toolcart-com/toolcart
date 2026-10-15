@@ -23,7 +23,7 @@
     }
   ],
   "vars": {
-    "APP_ORIGIN": "https://toolcart.baronbetterhelp.workers.dev",
+    "APP_ORIGIN": "https://toolcart.mgt-toolcart.workers.dev"
     "SESSION_TTL_DAYS": "30"
   }
 }
