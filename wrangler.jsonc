@@ -26,5 +26,11 @@
     "APP_ORIGIN": "https://toolcart.mgt-toolcart.workers.dev",
     "SESSION_TTL_DAYS": "30",
     "ALLOW_UNVERIFIED_SIGNUP": "true"
+  },
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
   }
 }

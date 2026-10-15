@@ -4,8 +4,8 @@
   "description": "Everything you use, in one place.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0c0d12",
-  "theme_color": "#0c0d12",
+  "background_color": "#eef3ff",
+  "theme_color": "#eef3ff",
   "icons": [
     {
       "src": "/icon-192.png",

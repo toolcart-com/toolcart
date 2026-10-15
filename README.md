@@ -1,4 +1,4 @@
-# ToolCart V1.1 - Brand Standardization
+# ToolCart V1.4 — Dashboard Visual Rebuild
 
 ToolCart is a mobile-first Cloudflare Workers application for launching and managing a growing family of independently hosted digital products. Apps are stored in D1 and can be added, edited, put into maintenance, hidden, reordered, or removed from `/admin` without changing source code.
 
@@ -11,8 +11,8 @@ This package is arranged in a CallFocus-style project folder. After extracting t
 
 - Customer email/password authentication with server-authoritative HttpOnly sessions
 - Email verification and password reset through Resend
-- Premium signed-out experience and animated signed-in ecosystem dashboard
-- Database-driven app launcher, favorites, recent app activity, categories and search
+- Premium signed-out experience and a rebuilt launcher-first signed-in dashboard
+- Database-driven compact app launcher, recent app activity, categories and search
 - Maintenance, coming-soon and subscription-gated app states
 - Updates center with unread tracking
 - Customer requests and staff responses
@@ -23,9 +23,14 @@ This package is arranged in a CallFocus-style project folder. After extracting t
 - Separate `/admin` portal with dashboard, customers, apps, subscriptions, payments, updates, requests, notifications, analytics, appearance, settings/promotions and diagnostics
 - R2 media upload structure for app icons and profile photos, with browser-side WebP resizing before upload plus server MIME/size validation
 - Admin audit log backend
-- Midnight and Pearl visual systems
+- Brighter Pearl-first visual system plus a refreshed navy Midnight theme
 - PWA manifest, service worker and standalone-ready shell
 - D1 migrations and optional starter seed
+
+
+## V1.4 visual direction
+
+V1.4 rebuilds the customer-facing dashboard around compact launcher tiles. App tiles show only the app icon, app name and ONLINE/OFFLINE state. The oversized V1.3 hero and app panels are removed. The bottom dock has also been rebuilt for iPhone Safari stability, including BFCache/page-return recovery after users open an external product and come back to ToolCart.
 
 ## Architecture
 
