@@ -47,7 +47,7 @@ async function enterApp(showIntro=false){
 function renderApp(){renderHeader();renderApps();renderRecent();renderUpdates();renderSubscription();renderPromos();renderSettingsProfile();renderDockVisibility();updateBadges()}
 function greeting(){const h=new Date().getHours();return h<12?'Good morning':h<18?'Good afternoon':'Good evening'}
 function renderHeader(){
-  $('#greeting').textContent=greeting();$('#firstName').textContent=state.user.firstName||'there';$('#heroName').innerHTML='<span>All working tools</span><span>in one place.</span>';const sub=$('#heroSubcopy');if(sub)sub.textContent='Easy access to all working tools. Launch products, catch updates and manage your tools in one account.';$('#planPill').textContent=state.currentPlan?.name||'Free';
+  $('#greeting').textContent=greeting();$('#firstName').textContent=state.user.firstName||'there';$('#heroName').innerHTML='<span>All working tools</span><span>in one place.</span>';const sub=$('#heroSubcopy');if(sub){sub.textContent='Easy access to all working tools. Launch products, catch updates and manage your tools in one account.';sub.hidden=false;sub.style.opacity='1';sub.style.transform='none';}$('#planPill').textContent=state.currentPlan?.name||'Free';
   const av=$('#avatar');if(state.user.profileImageUrl){av.style.backgroundImage=`url("${state.user.profileImageUrl}")`;av.textContent=''}else{av.style.backgroundImage='';av.textContent=initials(state.user.fullName)}
 }
 function appAvailability(a){return a.status==='online'?'online':'offline'}
