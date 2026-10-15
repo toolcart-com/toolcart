@@ -318,3 +318,99 @@ html[data-theme="pearl"] .btn-secondary:hover,html[data-theme="pearl"] .settings
 @media(max-width:480px){
   .app-topbar{padding-top:calc(3px + var(--safe-t))!important;margin-bottom:8px!important}
 }
+
+/* ToolCart V2.2 — Apple-style standard dark theme + hero launcher */
+:root{
+  --bg:#000000;
+  --bg-soft:#050505;
+  --surface:#111113;
+  --surface-2:#171719;
+  --surface-3:#1d1d1f;
+  --card:#111113;
+  --card-2:#1a1a1c;
+  --line:rgba(255,255,255,.10);
+  --line-strong:rgba(255,255,255,.18);
+  --text:#f5f5f7;
+  --muted:#86868b;
+  --faint:#6e6e73;
+  --accent:#2997ff;
+  --accent-2:#2997ff;
+  --accent-3:#30d158;
+  --shadow-lg:0 24px 70px rgba(0,0,0,.58);
+  --shadow-md:0 14px 34px rgba(0,0,0,.42);
+  --shadow-sm:0 8px 22px rgba(0,0,0,.32);
+}
+html,html[data-theme="midnight"],body{background:#000!important;color:var(--text)!important}
+.app-ambient,.noise-layer{display:none!important}
+.scroll-progress span{background:#2997ff!important;box-shadow:none!important}
+
+.hero-column,.hero-showcase,.home-hero,.view-header,.search-field,.request-callout,.settings-profile,.settings-group,.notification-card,.search-row,.feature-card,.showcase-panel,.public-app-card,.experience-card,.request-card,.subscription-card,.promo-card,.recent-card,.update-card,.empty-state,.modal,.notification-sheet,.search-sheet,.detail-sheet,.sheet,.spotlight-card,.metric-card,.tool-card,.catalog-card{
+  background:#111113!important;
+  border-color:rgba(255,255,255,.10)!important;
+  box-shadow:none!important;
+}
+.home-hero{background:#101012!important;grid-template-columns:1fr!important;gap:22px!important}
+.hero-column,.hero-showcase,.spotlight-card,.promo-card,.subscription-card,.request-callout{background:#111113!important}
+.showcase-panel,.feature-card,.experience-card,.metric-card,.feature-tile,.tool-card,.catalog-card,.recent-card,.update-card,.search-row,.notification-card,.request-card,.timeline-item,.settings-group,.settings-profile{background:#1c1c1e!important}
+.tool-card::after,.catalog-card::after{display:none!important}
+
+.text-btn{color:#2997ff!important}
+.btn-primary{background:#f5f5f7!important;color:#000!important}
+.btn-secondary,.icon-btn,.chip,.micro-btn,.field input,.field textarea,.field select{background:#1c1c1e!important;border-color:rgba(255,255,255,.11)!important}
+.chip.active{background:#f5f5f7!important;color:#000!important;border-color:#f5f5f7!important}
+.plan-pill{background:#1c1c1e!important;border-color:rgba(255,255,255,.14)!important}
+.eyebrow{color:#86868b!important}
+#heroSubcopy,.public-lede,.tool-card p,.catalog-card p,.showcase-panel p,.feature-card p,.experience-card p,.subscription-card p,.promo-card p,.request-callout p,.detail-hero p,.detail-body p,.notification-card p,.search-row p,.empty-state p{color:#a1a1a6!important}
+
+.hero-launcher{margin-top:8px;padding-top:24px;border-top:1px solid rgba(255,255,255,.10)}
+.hero-launcher-heading{margin-bottom:18px!important;align-items:center!important}
+.hero-launcher-heading h2{font-size:clamp(30px,5vw,46px)!important;letter-spacing:-.045em!important;margin-top:8px!important}
+.hero-tools-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:14px!important}
+.hero-tools-grid .tool-card{min-height:190px!important;padding:20px!important;border-radius:26px!important}
+.hero-tools-grid .tool-card-top{align-items:flex-start!important}
+.hero-tools-grid .app-icon{width:66px!important;height:66px!important;border-radius:20px!important}
+.hero-tools-grid .tool-card h3{font-size:24px!important}
+.hero-tools-grid .tool-card p{font-size:14px!important;line-height:1.5!important}
+.hero-tools-grid .availability{padding:8px 10px!important;font-size:9px!important;letter-spacing:.13em!important}
+
+.floating-dock{background:rgba(22,22,23,.88)!important;border-color:rgba(255,255,255,.11)!important;box-shadow:0 14px 38px rgba(0,0,0,.55)!important}
+.dock-home{background:#2c2c2e!important;border-color:rgba(255,255,255,.12)!important}
+.dock-item.active{background:#2c2c2e!important}
+.intro-screen{background:rgba(0,0,0,.94)!important}
+.intro-screen p{color:#a1a1a6!important}
+.auth-mark,.empty-state span{background:#1c1c1e!important}
+
+@media(max-width:780px){
+  .hero-tools-grid{grid-template-columns:1fr!important}
+  .hero-tools-grid .tool-card{
+    min-height:170px!important;
+    display:grid!important;
+    grid-template-columns:150px 1fr!important;
+    grid-template-rows:auto 1fr!important;
+    column-gap:18px!important;
+    row-gap:10px!important;
+    padding:22px!important;
+  }
+  .hero-tools-grid .tool-card-top{grid-column:1;grid-row:1 / span 2;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:14px!important}
+  .hero-tools-grid .tool-card-copy{grid-column:2;grid-row:1 / span 2;justify-content:center!important;align-self:center!important}
+  .hero-tools-grid .app-icon{width:92px!important;height:92px!important;border-radius:26px!important}
+  .hero-tools-grid .tool-card h3{font-size:30px!important}
+  .hero-tools-grid .tool-card p{font-size:16px!important;line-height:1.5!important}
+  .hero-tools-grid .availability{font-size:10px!important;padding:10px 13px!important}
+}
+@media(max-width:480px){
+  .home-hero{padding:22px!important}
+  .hero-launcher{padding-top:20px!important}
+  .hero-tools-grid .tool-card{
+    min-height:158px!important;
+    grid-template-columns:118px 1fr!important;
+    column-gap:14px!important;
+    padding:18px!important;
+    border-radius:24px!important;
+  }
+  .hero-tools-grid .app-icon{width:78px!important;height:78px!important;border-radius:22px!important}
+  .hero-tools-grid .tool-card h3{font-size:24px!important}
+  .hero-tools-grid .tool-card p{font-size:14px!important}
+  .hero-tools-grid .availability{font-size:9px!important;padding:8px 10px!important}
+  .hero-launcher-heading h2{font-size:30px!important}
+}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#05070c" />
+  <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="ToolCart" />
@@ -130,10 +130,15 @@
             </div>
             <h1 id="heroName" class="hero-message"><span>Everything you run.</span><span>One elevated workspace.</span></h1>
             <p id="heroSubcopy">Open your tools, catch updates and manage your account inside a more premium ToolCart experience.</p>
-            <div class="hero-metrics">
-              <article class="metric-card"><span>Working tools</span><strong id="heroToolCount">0</strong><small>available in your ecosystem</small></article>
-              <article class="metric-card"><span>Unread updates</span><strong id="heroUpdateCount">0</strong><small>fresh product news</small></article>
-              <article class="metric-card"><span>Support</span><strong id="heroRequestCount">0</strong><small>open or active requests</small></article>
+            <div class="hero-launcher">
+              <div class="section-heading hero-launcher-heading">
+                <div>
+                  <span class="eyebrow">CURATED TOOLS</span>
+                  <h2>Launch what matters.</h2>
+                </div>
+                <button class="text-btn" data-tab="apps">View all</button>
+              </div>
+              <div id="homeApps" class="home-tools-grid hero-tools-grid"></div>
             </div>
           </div>
           <div class="home-hero-side">
@@ -144,17 +149,6 @@
             </article>
             <div id="homeFeatureStrip" class="feature-strip"></div>
           </div>
-        </section>
-
-        <section class="content-section reveal-on-scroll">
-          <div class="section-heading compact-heading">
-            <div>
-              <span class="eyebrow">CURATED TOOLS</span>
-              <h2>Launch what matters.</h2>
-            </div>
-            <button class="text-btn" data-tab="apps">View all</button>
-          </div>
-          <div id="homeApps" class="home-tools-grid"></div>
         </section>
 
         <section id="recentSection" class="content-section reveal-on-scroll hidden">
@@ -221,7 +215,7 @@
         <div class="view-header reveal-on-scroll visible"><div><span class="eyebrow">ACCOUNT</span><h1>Settings</h1></div><button class="icon-btn" data-go-home aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 11 8-7 8 7"></path><path d="M6.5 10.5V20h11v-9.5"></path></svg></button></div>
         <div id="settingsProfileCard" class="settings-profile reveal-on-scroll visible"></div>
         <div class="settings-groups reveal-on-scroll visible">
-          <div class="settings-group"><button data-setting="profile"><span>Account</span><b>›</b></button><button data-setting="security"><span>Security</span><b>›</b></button><button data-setting="notifications"><span>Notifications</span><b>›</b></button><button data-setting="appearance"><span>Appearance</span><b>›</b></button><button data-setting="devices"><span>Devices</span><b>›</b></button></div>
+          <div class="settings-group"><button data-setting="profile"><span>Account</span><b>›</b></button><button data-setting="security"><span>Security</span><b>›</b></button><button data-setting="notifications"><span>Notifications</span><b>›</b></button><button data-setting="devices"><span>Devices</span><b>›</b></button></div>
           <div class="settings-group"><button data-setting="subscription"><span>Subscription</span><b>›</b></button><button data-setting="payments"><span>Payments</span><b>›</b></button><button data-setting="support"><span>Support</span><b>›</b></button><button data-setting="privacy"><span>Privacy</span><b>›</b></button></div>
           <button id="signOutBtn" class="danger-row">Sign out</button>
         </div>
