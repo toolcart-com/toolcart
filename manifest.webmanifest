@@ -1,11 +1,11 @@
 {
   "name": "ToolCart",
   "short_name": "ToolCart",
-  "description": "Everything you use, in one place.",
+  "description": "Everything you use, beautifully together.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#eef3ff",
-  "theme_color": "#eef3ff",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "icons": [
     {
       "src": "/icon-192.png",

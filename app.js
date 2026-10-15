@@ -16,7 +16,7 @@ async function api(path,opts={}){
 }
 function toast(message,type='ok'){const el=document.createElement('div');el.className=`toast ${type}`;el.textContent=message;$('#toastHost').append(el);setTimeout(()=>el.remove(),3600)}
 function setTheme(theme){theme=theme==='midnight'?'midnight':'pearl';document.documentElement.dataset.theme=theme;document.querySelector('meta[name="theme-color"]').setAttribute('content',theme==='pearl'?'#eef3ff':'#10182a');localStorage.setItem('toolcart_theme',theme)}
-function preferredVisualTheme(preferred,fallback='pearl'){if(preferred)return preferred;if(!localStorage.getItem('toolcart_v14_visual')){localStorage.setItem('toolcart_v14_visual','1');localStorage.setItem('toolcart_theme','pearl');return'pearl'}return localStorage.getItem('toolcart_theme')||fallback||'pearl'}
+function preferredVisualTheme(preferred,fallback='midnight'){if(preferred)return preferred;if(!localStorage.getItem('toolcart_v15_visual')){localStorage.setItem('toolcart_v15_visual','1');localStorage.setItem('toolcart_theme','midnight');return'midnight'}return localStorage.getItem('toolcart_theme')||fallback||'midnight'}
 function initials(name='ToolCart'){return name.trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'TC'}
 function iconHtml(app,cls='app-icon'){const style=`--accent:${esc(app.accent_color||app.accentColor||'#7b65ff')}`;return `<div class="${cls}" style="${style}">${app.icon_url?`<img src="${esc(app.icon_url)}" alt="">`:esc(initials(app.name))}</div>`}
 function empty(title,text,icon='◇'){return `<div class="empty-state"><span>${icon}</span><h3>${esc(title)}</h3><p>${esc(text)}</p></div>`}
@@ -31,7 +31,7 @@ async function boot(){
 
 async function enterPublic(){
   $('#appShell').classList.add('hidden');$('#signedOut').classList.remove('hidden');
-  try{const data=await api('/api/public/bootstrap');state.settings=data.settings||{};setTheme(preferredVisualTheme(null,state.settings.default_theme||'pearl'));renderPublicApps(data.apps||[])}catch{setTheme(preferredVisualTheme(null,'pearl'));renderPublicApps([])}
+  try{const data=await api('/api/public/bootstrap');state.settings=data.settings||{};setTheme(preferredVisualTheme(null,state.settings.default_theme||'midnight'));renderPublicApps(data.apps||[])}catch{setTheme(preferredVisualTheme(null,'midnight'));renderPublicApps([])}
 }
 function renderPublicApps(apps){
   $('#publicApps').innerHTML=apps.length?apps.slice(0,8).map(a=>`<article class="public-app-card reveal"><div>${iconHtml(a,'public-app-icon')}<h3>${esc(a.name)}</h3><p>${esc(a.short_description||'Available through ToolCart.')}</p></div><span class="eyebrow">${esc(a.category||humanStatus(a.status)||'APP')}</span></article>`).join(''):empty('A growing ecosystem','Available apps will appear here as they are published by the administrator.');
@@ -40,20 +40,20 @@ function renderPublicApps(apps){
 async function enterApp(showIntro=false){
   $('#signedOut').classList.add('hidden');$('#appShell').classList.remove('hidden');
   const data=await api('/api/bootstrap');Object.assign(state,{user:data.user,apps:data.apps||[],updates:data.updates||[],notifications:data.notifications||[],recentApps:data.recentApps||[],currentPlan:data.currentPlan,settings:data.settings||{},promos:data.promos||[]});
-  setTheme(preferredVisualTheme(state.user.preferredTheme,state.settings.default_theme||'pearl'));
+  setTheme(preferredVisualTheme(state.user.preferredTheme,state.settings.default_theme||'midnight'));
   renderApp();
   if(showIntro&&!sessionStorage.getItem('toolcart_intro_seen')){sessionStorage.setItem('toolcart_intro_seen','1');$('#introGreeting').textContent=`${greeting()}, ${state.user.firstName}.`;$('#introScreen').classList.remove('hidden');setTimeout(()=>$('#introScreen').classList.add('hidden'),2800)}
 }
 function renderApp(){renderHeader();renderApps();renderRecent();renderUpdates();renderSubscription();renderPromos();renderSettingsProfile();renderDockVisibility();updateBadges()}
 function greeting(){const h=new Date().getHours();return h<12?'Good morning':h<18?'Good afternoon':'Good evening'}
 function renderHeader(){
-  $('#greeting').textContent=greeting();$('#firstName').textContent=state.user.firstName||'there';$('#heroName').textContent='Everything you use.';$('#planPill').textContent=(state.currentPlan?.name||'Free').toUpperCase();
+  $('#greeting').textContent=greeting();$('#firstName').textContent=state.user.firstName||'there';$('#heroName').innerHTML='Everything you use,<br>beautifully together.';const sub=$('#heroSubcopy');if(sub)sub.textContent='Launch products, catch updates and manage your account in a more cinematic, Apple-inspired home.';$('#planPill').textContent=state.currentPlan?.name||'Free';
   const av=$('#avatar');if(state.user.profileImageUrl){av.style.backgroundImage=`url("${state.user.profileImageUrl}")`;av.textContent=''}else{av.style.backgroundImage='';av.textContent=initials(state.user.fullName)}
 }
 function appAvailability(a){return a.status==='online'?'online':'offline'}
 function appCard(a){const availability=appAvailability(a);return `<article class="app-card launcher-tile" data-app-id="${a.id}" aria-label="Open ${esc(a.name)}">${iconHtml(a,'app-icon launcher-icon')}<h3>${esc(a.name)}</h3><span class="availability ${availability}"><i></i>${availability.toUpperCase()}</span></article>`}
 function renderApps(){
-  $('#homeApps').innerHTML=state.apps.length?state.apps.slice(0,6).map(appCard).join(''):empty('No apps yet','Your administrator can add products from Admin → Apps.');
+  $('#homeApps').innerHTML=state.apps.length?state.apps.slice(0,8).map(appCard).join(''):empty('No apps yet','Your administrator can add products from Admin → Apps.');
   const categories=['all',...new Set(state.apps.map(a=>a.category).filter(Boolean))];$('#categoryChips').innerHTML=categories.map(c=>`<button class="chip ${state.appCategory===c?'active':''}" data-category="${esc(c)}">${c==='all'?'All':esc(c)}</button>`).join('');renderAppsPage();
 }
 function renderAppsPage(){const q=($('#appSearch')?.value||'').toLowerCase().trim();const filtered=state.apps.filter(a=>(state.appCategory==='all'||a.category===state.appCategory)&&(!q||`${a.name} ${a.short_description||''} ${a.category||''}`.toLowerCase().includes(q)));$('#appCount').textContent=`${filtered.length} app${filtered.length===1?'':'s'}`;$('#appsGrid').innerHTML=filtered.length?filtered.map(appCard).join(''):empty('Nothing found','Try another search or category.','⌕')}
