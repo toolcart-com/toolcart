@@ -1,7 +1,7 @@
 {
   "name": "ToolCart",
   "short_name": "ToolCart",
-  "description": "Everything you use, beautifully together.",
+  "description": "All working tools in one place.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

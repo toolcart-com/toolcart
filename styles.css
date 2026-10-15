@@ -130,3 +130,48 @@ html[data-theme="pearl"] .public-app-card,html[data-theme="pearl"] .feature-card
 @media(min-width:1020px){.app-grid,.launcher-grid{grid-template-columns:repeat(6,minmax(0,1fr))}.apps-page-grid{grid-template-columns:repeat(7,minmax(0,1fr))}.app-card.launcher-tile:hover{transform:translateY(-2px)}.app-card.launcher-tile:hover .launcher-icon{box-shadow:0 18px 40px color-mix(in srgb,var(--accent,#7b70ff) 28%,transparent),inset 0 1px rgba(255,255,255,.24)}}
 @media(max-width:720px){.public-app-grid,.public-feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.display{font-size:54px}.lede{font-size:17px}.hero-orbit{display:none}}
 @media(max-width:420px){.mobile-shell{padding-left:14px;padding-right:14px}.home-glance{min-height:258px;padding:20px 18px 22px;border-radius:30px}.home-glance h1{font-size:42px;max-width:300px}.home-glance p{font-size:15px;max-width:300px}.plan-pill{top:14px;right:14px;padding:10px 14px;font-size:15px;min-width:84px}.app-grid,.launcher-grid,.apps-page-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px 10px}.app-card.launcher-tile .launcher-icon{width:70px;height:70px;border-radius:20px}.app-card.launcher-tile h3{font-size:11px;min-height:25px}.floating-dock{width:min(94vw,410px);height:72px}.dock-home{width:56px;height:56px}.dock-home img{width:41px;height:41px}}
+
+
+/* ToolCart V1.6 — Tools Layout Perfection */
+.home-glance{
+  min-height:0!important;height:auto!important;padding:20px 20px 22px!important;display:block!important;
+  border-radius:30px!important;
+}
+.home-glance-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;position:relative;z-index:2}
+.home-glance-top .eyebrow{margin:0}
+.plan-pill{position:static!important;right:auto!important;top:auto!important;min-width:auto!important;padding:9px 15px!important;font-size:14px!important;line-height:1.15!important;flex:0 0 auto}
+.home-glance-copy{max-width:none!important;padding:0!important}
+.hero-message{display:grid;gap:0;margin:0 0 14px!important;max-width:760px!important;overflow:hidden}
+.hero-message>span{display:block;opacity:0;transform:translateY(34px);animation:toolHeroLine .88s cubic-bezier(.16,.84,.25,1) forwards;will-change:transform,opacity}
+.hero-message>span:nth-child(2){animation-delay:.10s;background:linear-gradient(105deg,#f5f5f7 0%,#c6c1ff 48%,#6bb1ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+html[data-theme="pearl"] .hero-message>span:nth-child(2){background:linear-gradient(105deg,#1d1d1f 0%,#5856d6 48%,#0071e3 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+@keyframes toolHeroLine{to{opacity:1;transform:translateY(0)}}
+#heroSubcopy{opacity:0;transform:translateY(16px);animation:toolHeroSub .72s .22s cubic-bezier(.16,.84,.25,1) forwards}
+@keyframes toolHeroSub{to{opacity:1;transform:none}}
+.home-glance h1{font-size:clamp(38px,7vw,68px)!important;line-height:.94!important;letter-spacing:-.062em!important}
+.home-glance p{font-size:16px!important;line-height:1.42!important;max-width:650px!important;margin:0!important}
+.launcher-section{margin-top:22px!important}.content-section{margin-top:24px}
+.app-card.launcher-tile h3{margin:7px 0 1px!important;min-height:0!important;line-height:1.08!important}
+.app-card.launcher-tile .availability{margin-top:1px!important;line-height:1!important}
+.app-card.launcher-tile{gap:0!important}
+.floating-dock{
+  position:fixed!important;z-index:80!important;left:50%!important;right:auto!important;bottom:calc(12px + env(safe-area-inset-bottom,0px))!important;
+  width:min(390px,calc(100vw - 28px))!important;max-width:390px!important;height:70px!important;margin:0!important;
+  transform:translate3d(-50%,0,0)!important;animation:none!important;contain:layout paint style;
+  grid-template-columns:1fr 1fr 56px 1fr 1fr!important;padding:6px!important;gap:3px!important;
+}
+.floating-dock.dock-reveal{animation:dockRevealV16 .72s .18s cubic-bezier(.16,.84,.25,1) both!important}
+@keyframes dockRevealV16{from{opacity:0;transform:translate3d(-50%,18px,0)}to{opacity:1;transform:translate3d(-50%,0,0)}}
+.floating-dock.keyboard-hidden{opacity:0!important;pointer-events:none!important;transform:translate3d(-50%,110%,0)!important;animation:none!important}
+.dock-item{min-width:0!important;padding:8px 1px!important}.dock-item em{font-size:8.5px!important;white-space:nowrap}.dock-home{width:56px!important;height:56px!important}.dock-home img{width:42px!important;height:42px!important}
+@media(max-width:420px){
+  .home-glance{padding:18px 17px 19px!important;min-height:0!important}
+  .home-glance-top{margin-bottom:14px}
+  .home-glance h1{font-size:39px!important;line-height:.95!important;max-width:100%!important}
+  .home-glance p{font-size:14.5px!important;line-height:1.42!important;max-width:100%!important}
+  .plan-pill{font-size:13px!important;padding:8px 13px!important}
+  .app-card.launcher-tile h3{font-size:11.5px!important;margin-bottom:1px!important}
+  .availability{font-size:7.8px!important}
+  .floating-dock{left:50%!important;right:auto!important;width:calc(100vw - 24px)!important;max-width:390px!important;border-radius:999px!important}
+}
+@media(prefers-reduced-motion:reduce){.hero-message>span,#heroSubcopy,.floating-dock.dock-reveal{animation:none!important;opacity:1!important;transform:none!important}.floating-dock.dock-reveal{transform:translate3d(-50%,0,0)!important}}

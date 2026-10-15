@@ -24,23 +24,23 @@
       <button class="btn btn-ghost compact" data-auth="login">Sign in</button>
     </header>
     <section class="public-hero">
-      <div class="eyebrow reveal delay-1"><span class="live-dot"></span> One account. Every product. Beautifully together.</div>
-      <h1 class="display reveal delay-2">Everything you use,<br><span>beautifully together.</span></h1>
-      <p class="lede reveal delay-3">Launch products, catch updates and manage your account from one elegant ecosystem home.</p>
+      <div class="eyebrow reveal delay-1"><span class="live-dot"></span> One account. Every tool. Beautifully together.</div>
+      <h1 class="display reveal delay-2">All working tools,<br><span>in one place.</span></h1>
+      <p class="lede reveal delay-3">Easy access to all working tools. Launch products, catch updates and manage your tools in one account.</p>
       <div class="hero-actions reveal delay-4">
         <button class="btn btn-primary" data-auth="register">Create account</button>
         <button class="btn btn-secondary" data-auth="login">Sign in</button>
       </div>
       <div class="hero-orbit reveal delay-5" aria-hidden="true">
         <div class="orbit-core"><img src="/toolcart-logo.png" alt="" /></div>
-        <div class="orbit-card orbit-1">Apps</div><div class="orbit-card orbit-2">Updates</div><div class="orbit-card orbit-3">Payments</div>
+        <div class="orbit-card orbit-1">Tools</div><div class="orbit-card orbit-2">Updates</div><div class="orbit-card orbit-3">Payments</div>
       </div>
     </section>
     <section class="public-preview shell">
-      <div class="section-heading"><div><span class="eyebrow">Inside ToolCart</span><h2>An ecosystem that feels premium.</h2></div></div>
+      <div class="section-heading"><div><span class="eyebrow">Inside ToolCart</span><h2>All your working tools, together.</h2></div></div>
       <div id="publicApps" class="public-app-grid"></div>
       <div class="public-feature-grid">
-        <article class="feature-card"><span class="mini-icon">01</span><h3>Launch instantly</h3><p>Open products from a database-driven launcher that grows without redeployment.</p></article>
+        <article class="feature-card"><span class="mini-icon">01</span><h3>Launch instantly</h3><p>Open working tools instantly from one clean launcher.</p></article>
         <article class="feature-card"><span class="mini-icon">02</span><h3>Stay current</h3><p>Updates, maintenance notices and ecosystem announcements arrive in one place.</p></article>
         <article class="feature-card"><span class="mini-icon">03</span><h3>Manage everything</h3><p>Subscriptions, payments, support requests, devices and preferences live under one account.</p></article>
       </div>
@@ -65,16 +65,18 @@
 
       <section id="homeView" class="view active">
         <section class="home-glance panel-enter delay-1">
-          <div class="home-glance-copy">
+          <div class="home-glance-top">
             <span class="eyebrow">YOUR ECOSYSTEM</span>
-            <h1 id="heroName">Everything you use,<br>beautifully together.</h1>
-            <p id="heroSubcopy">Launch your products, catch updates and manage your account in a more cinematic, Apple-inspired home.</p>
+            <button class="plan-pill" id="planPill">Free</button>
           </div>
-          <button class="plan-pill" id="planPill">FREE</button>
+          <div class="home-glance-copy">
+            <h1 id="heroName" class="hero-message"><span>All working tools</span><span>in one place.</span></h1>
+            <p id="heroSubcopy">Easy access to all working tools. Launch products, catch updates and manage your tools in one account.</p>
+          </div>
         </section>
 
         <section class="content-section launcher-section panel-enter delay-2">
-          <div class="section-heading compact-heading"><div><span class="eyebrow">YOUR APPS</span><h2>Apps</h2></div><button class="text-btn" data-tab="apps">View all</button></div>
+          <div class="section-heading compact-heading"><div><span class="eyebrow">YOUR TOOLS</span><h2>Tools</h2></div><button class="text-btn" data-tab="apps">View all</button></div>
           <div id="homeApps" class="app-grid launcher-grid"></div>
         </section>
 
@@ -95,10 +97,10 @@
       </section>
 
       <section id="appsView" class="view">
-        <div class="view-header"><div><span class="eyebrow">TOOLCART</span><h1>Apps</h1></div><button class="icon-btn" data-go-home aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 11 8-7 8 7"></path><path d="M6.5 10.5V20h11v-9.5"></path></svg></button></div>
-        <div class="search-field"><span>⌕</span><input id="appSearch" placeholder="Search apps" autocomplete="off" /></div>
+        <div class="view-header"><div><span class="eyebrow">TOOLCART</span><h1>Tools</h1></div><button class="icon-btn" data-go-home aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 11 8-7 8 7"></path><path d="M6.5 10.5V20h11v-9.5"></path></svg></button></div>
+        <div class="search-field"><span>⌕</span><input id="appSearch" placeholder="Search tools" autocomplete="off" /></div>
         <div id="categoryChips" class="chip-row"></div>
-        <div class="section-heading compact-heading"><h2>All Apps</h2><span id="appCount" class="muted"></span></div>
+        <div class="section-heading compact-heading"><h2>All Tools</h2><span id="appCount" class="muted"></span></div>
         <div id="appsGrid" class="app-grid apps-page-grid launcher-grid"></div>
       </section>
 
@@ -124,8 +126,8 @@
         </div>
       </section>
 
-      <nav id="dock" class="floating-dock panel-enter delay-5" aria-label="Primary navigation">
-        <button class="dock-item" data-tab="apps"><span class="dock-icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"></rect><rect x="14" y="4" width="6" height="6" rx="1.5"></rect><rect x="4" y="14" width="6" height="6" rx="1.5"></rect><rect x="14" y="14" width="6" height="6" rx="1.5"></rect></svg></span><em>Apps</em></button>
+      <nav id="dock" class="floating-dock dock-reveal" aria-label="Primary navigation">
+        <button class="dock-item" data-tab="apps"><span class="dock-icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"></rect><rect x="14" y="4" width="6" height="6" rx="1.5"></rect><rect x="4" y="14" width="6" height="6" rx="1.5"></rect><rect x="14" y="14" width="6" height="6" rx="1.5"></rect></svg></span><em>Tools</em></button>
         <button class="dock-item" data-tab="updates"><span class="dock-icon"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9"></path></svg></span><em>Updates</em><i id="dockUpdateBadge" class="dot-badge hidden"></i></button>
         <button class="dock-home active" data-tab="home" aria-label="Home"><img src="/toolcart-logo.png" alt="" /></button>
         <button class="dock-item" data-tab="requests"><span class="dock-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 3z"></path></svg></span><em>Requests</em></button>
@@ -142,7 +144,7 @@
   </section>
   <section id="detailModal" class="modal detail-sheet hidden" role="dialog" aria-modal="true"><button class="modal-close" data-close-modal>×</button><div id="detailContent"></div></section>
   <section id="notificationSheet" class="modal notification-sheet hidden" role="dialog" aria-modal="true"><div class="sheet-grab"></div><div class="view-header"><div><span class="eyebrow">INBOX</span><h1>Notifications</h1></div><button class="icon-btn" data-close-modal>×</button></div><div id="notificationFilters" class="chip-row"><button class="chip active" data-notif-filter="unread">Unread</button><button class="chip" data-notif-filter="all">All</button><button class="chip" data-notif-filter="important">Important</button></div><div id="notificationList" class="notification-list"></div></section>
-  <section id="searchSheet" class="modal search-sheet hidden" role="dialog" aria-modal="true"><div class="search-field large"><span>⌕</span><input id="globalSearch" placeholder="Search ToolCart" autocomplete="off" /><button data-close-modal>×</button></div><div id="searchResults" class="search-results"><div class="empty-state compact"><span>⌕</span><h3>Search your ecosystem</h3><p>Find apps, updates, requests and settings.</p></div></div></section>
+  <section id="searchSheet" class="modal search-sheet hidden" role="dialog" aria-modal="true"><div class="search-field large"><span>⌕</span><input id="globalSearch" placeholder="Search ToolCart" autocomplete="off" /><button data-close-modal>×</button></div><div id="searchResults" class="search-results"><div class="empty-state compact"><span>⌕</span><h3>Search your ecosystem</h3><p>Find tools, updates, requests and settings.</p></div></div></section>
 
   <script type="module" src="/app.js"></script>
 </body>
