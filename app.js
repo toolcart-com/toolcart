@@ -21,12 +21,49 @@ function initials(name='ToolCart'){return name.trim().split(/\s+/).slice(0,2).ma
 function iconHtml(app,cls='app-icon'){const style=`--accent:${esc(app.accent_color||app.accentColor||'#7b65ff')}`;return `<div class="${cls}" style="${style}">${app.icon_url?`<img src="${esc(app.icon_url)}" alt="">`:esc(initials(app.name))}</div>`}
 function empty(title,text,icon='◇'){return `<div class="empty-state"><span>${icon}</span><h3>${esc(title)}</h3><p>${esc(text)}</p></div>`}
 
+function syncHeroMetrics(){
+  const unreadUpdates=state.updates.filter(x=>!x.is_read).length;
+  const openRequests=state.requests.filter(x=>!['resolved','closed'].includes(String(x.status||'').toLowerCase())).length||state.requests.length;
+  $('#heroToolCount')&&($('#heroToolCount').textContent=String(state.apps.length||0));
+  $('#heroUpdateCount')&&($('#heroUpdateCount').textContent=String(unreadUpdates));
+  $('#heroRequestCount')&&($('#heroRequestCount').textContent=String(openRequests));
+  $('#heroStatusLine')&&($('#heroStatusLine').textContent=`${state.apps.length||0} working tools, ${unreadUpdates} unread updates.`);
+  $('#heroSupportMail')&&($('#heroSupportMail').textContent=state.settings.support_email?`Support: ${state.settings.support_email}`:'Updates, launches and support live together here.');
+}
+function renderHomeFeatureStrip(){
+  const box=$('#homeFeatureStrip');
+  if(!box)return;
+  const items=[
+    {eyebrow:'LAUNCH',title:`${state.apps.length||0} working tools`,copy:'Open products from one beautifully arranged home screen.'},
+    {eyebrow:'UPDATES',title:`${state.updates.length||0} recent updates`,copy:'See release notes, announcements and important notices.'},
+    {eyebrow:'SUPPORT',title:`${state.requests.length||0} request threads`,copy:'Reach support and keep every request in one place.'}
+  ];
+  box.innerHTML=items.slice(0,2).map(item=>`<article class="feature-tile"><span class="eyebrow">${esc(item.eyebrow)}</span><strong>${esc(item.title)}</strong><p>${esc(item.copy)}</p></article>`).join('');
+}
+function activateMotion(){
+  const nodes=$$('.reveal-on-scroll');
+  if(!nodes.length)return;
+  if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches){nodes.forEach(n=>n.classList.add('visible'));return}
+  if(!window.__toolcartObserver){
+    window.__toolcartObserver=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('visible');window.__toolcartObserver.unobserve(entry.target)}})},{threshold:.14,rootMargin:'0px 0px -40px 0px'});
+  }
+  nodes.forEach(n=>{if(n.classList.contains('visible'))return;window.__toolcartObserver.observe(n)});
+}
+function updateScrollProgress(){
+  const bar=$('#scrollProgress');if(!bar)return;
+  const h=document.documentElement;const max=(h.scrollHeight-window.innerHeight);const progress=max>0?Math.min(1,Math.max(0,window.scrollY/max)):0;
+  bar.style.width=`${progress*100}%`;
+}
+
 async function boot(){
   if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
   bindGlobalEvents();
   try{const session=await api('/api/session');state.user=session.user;state.csrf=session.csrfToken;await enterApp(true)}catch{await enterPublic()}
   handleDeepLinks();
   setupViewportDock();
+  window.addEventListener('scroll',updateScrollProgress,{passive:true});
+  updateScrollProgress();
+  activateMotion();
 }
 
 async function enterPublic(){
@@ -34,7 +71,7 @@ async function enterPublic(){
   try{const data=await api('/api/public/bootstrap');state.settings=data.settings||{};setTheme(preferredVisualTheme(null,state.settings.default_theme||'midnight'));renderPublicApps(data.apps||[])}catch{setTheme(preferredVisualTheme(null,'midnight'));renderPublicApps([])}
 }
 function renderPublicApps(apps){
-  $('#publicApps').innerHTML=apps.length?apps.slice(0,8).map(a=>`<article class="public-app-card reveal"><div>${iconHtml(a,'public-app-icon')}<h3>${esc(a.name)}</h3><p>${esc(a.short_description||'Available through ToolCart.')}</p></div><span class="eyebrow">${esc(a.category||humanStatus(a.status)||'APP')}</span></article>`).join(''):empty('A growing ecosystem','Available tools will appear here as they are published by the administrator.');
+  $('#publicApps').innerHTML=apps.length?apps.slice(0,8).map(a=>`<article class="public-app-card reveal-on-scroll"><div>${iconHtml(a,'public-app-icon')}<h3>${esc(a.name)}</h3><p>${esc(a.short_description||'Available through ToolCart.')}</p></div><span class="eyebrow">${esc(a.category||humanStatus(a.status)||'APP')}</span></article>`).join(''):empty('A growing ecosystem','Available tools will appear here as they are published by the administrator.');activateMotion();
 }
 
 async function enterApp(showIntro=false){
@@ -44,27 +81,28 @@ async function enterApp(showIntro=false){
   renderApp();
   if(showIntro&&!sessionStorage.getItem('toolcart_intro_seen')){sessionStorage.setItem('toolcart_intro_seen','1');$('#introGreeting').textContent=`${greeting()}, ${state.user.firstName}.`;$('#introScreen').classList.remove('hidden');setTimeout(()=>$('#introScreen').classList.add('hidden'),2800)}
 }
-function renderApp(){renderHeader();renderApps();renderRecent();renderUpdates();renderSubscription();renderPromos();renderSettingsProfile();renderDockVisibility();updateBadges()}
+function renderApp(){renderHeader();renderApps();renderRecent();renderUpdates();renderSubscription();renderPromos();renderSettingsProfile();renderDockVisibility();updateBadges();renderHomeFeatureStrip();activateMotion();updateScrollProgress()}
 function greeting(){const h=new Date().getHours();return h<12?'Good morning':h<18?'Good afternoon':'Good evening'}
 function renderHeader(){
-  $('#greeting').textContent=greeting();$('#firstName').textContent=state.user.firstName||'there';$('#heroName').innerHTML='<span>All working tools</span><span>in one place.</span>';const sub=$('#heroSubcopy');if(sub){sub.textContent='Easy access to all working tools. Launch products, catch updates and manage your tools in one account.';sub.hidden=false;sub.style.opacity='1';sub.style.transform='none';}$('#planPill').textContent=state.currentPlan?.name||'Free';
+  $('#greeting').textContent=greeting();$('#firstName').textContent=state.user.firstName||'there';$('#heroName').innerHTML='<span>Everything you run.</span><span>One elevated workspace.</span>';const sub=$('#heroSubcopy');if(sub){sub.textContent='Open your tools, catch updates, manage requests and control your account inside a calmer, more premium ToolCart experience.';sub.hidden=false;sub.style.opacity='1';sub.style.transform='none';}$('#planPill').textContent=state.currentPlan?.name||'Free';
   const av=$('#avatar');if(state.user.profileImageUrl){av.style.backgroundImage=`url("${state.user.profileImageUrl}")`;av.textContent=''}else{av.style.backgroundImage='';av.textContent=initials(state.user.fullName)}
+  syncHeroMetrics();
 }
 function appAvailability(a){return a.status==='online'?'online':'offline'}
 function toolCardDescription(a,max=78){const raw=String(a.short_description||'Available through ToolCart.').trim();return raw.length>max?`${raw.slice(0,max-1).trimEnd()}…`:raw}
-function homeAppCard(a){const availability=appAvailability(a);return `<article class="app-card tool-panel-card home-tool-card" data-app-id="${a.id}" aria-label="Open tool ${esc(a.name)}"><div class="tool-panel-top">${iconHtml(a,'app-icon tool-panel-icon')}<span class="availability ${availability}"><i></i>${availability.toUpperCase()}</span></div><div class="tool-panel-copy"><h3>${esc(a.name)}</h3><p>${esc(toolCardDescription(a,82))}</p></div></article>`}
-function appsPageCard(a){const availability=appAvailability(a);return `<article class="app-card tool-panel-card catalog-tool-card" data-app-id="${a.id}" aria-label="Open tool ${esc(a.name)}"><div class="tool-panel-top">${iconHtml(a,'app-icon tool-panel-icon')}<span class="availability ${availability}"><i></i>${availability.toUpperCase()}</span></div><div class="tool-panel-copy"><h3>${esc(a.name)}</h3><p>${esc(toolCardDescription(a,96))}</p></div></article>`}
+function homeAppCard(a){const availability=appAvailability(a);return `<article class="app-card tool-card home-tool-card reveal-on-scroll" data-app-id="${a.id}" aria-label="Open tool ${esc(a.name)}"><div class="tool-card-top">${iconHtml(a,'app-icon')}<span class="availability ${availability}"><i></i>${availability.toUpperCase()}</span></div><div class="tool-card-copy"><h3>${esc(a.name)}</h3><p>${esc(toolCardDescription(a,110))}</p></div></article>`}
+function appsPageCard(a){const availability=appAvailability(a);return `<article class="app-card catalog-card reveal-on-scroll" data-app-id="${a.id}" aria-label="Open tool ${esc(a.name)}"><div class="tool-card-top">${iconHtml(a,'app-icon')}<span class="availability ${availability}"><i></i>${availability.toUpperCase()}</span></div><div class="tool-card-copy"><h3>${esc(a.name)}</h3><p>${esc(toolCardDescription(a,120))}</p></div></article>`}
 function renderApps(){
-  $('#homeApps').innerHTML=state.apps.length?state.apps.slice(0,6).map(homeAppCard).join(''):empty('No tools yet','Your administrator can add tools from Admin → Tools.');
+  $('#homeApps').innerHTML=state.apps.length?state.apps.slice(0,4).map(homeAppCard).join(''):empty('No tools yet','Your administrator can add tools from Admin → Tools.');
   const categories=['all',...new Set(state.apps.map(a=>a.category).filter(Boolean))];$('#categoryChips').innerHTML=categories.map(c=>`<button class="chip ${state.appCategory===c?'active':''}" data-category="${esc(c)}">${c==='all'?'All':esc(c)}</button>`).join('');renderAppsPage();
 }
 function renderAppsPage(){const q=($('#appSearch')?.value||'').toLowerCase().trim();const filtered=state.apps.filter(a=>(state.appCategory==='all'||a.category===state.appCategory)&&(!q||`${a.name} ${a.short_description||''} ${a.category||''}`.toLowerCase().includes(q)));$('#appCount').textContent=`${filtered.length} tool${filtered.length===1?'':'s'}`;$('#appsGrid').innerHTML=filtered.length?filtered.map(appsPageCard).join(''):empty('Nothing found','Try another search or category.','⌕')}
-function renderRecent(){const sec=$('#recentSection');if(!state.recentApps.length){sec.classList.add('hidden');return}sec.classList.remove('hidden');$('#recentApps').innerHTML=state.recentApps.slice(0,5).map(a=>{const availability=appAvailability(a);return `<article class="recent-card" data-app-id="${a.id}">${iconHtml(a,'app-icon')}<div><strong>${esc(a.name)}</strong><span class="availability ${availability}"><i></i>${availability.toUpperCase()}</span></div></article>`}).join('')}
-function updateCard(u){const unread=!u.is_read;return `<article class="update-card" data-update-id="${u.id}"><div class="update-type">${u.update_type==='security'?'!' : u.update_type==='maintenance'?'M':'U'}</div><div><h3>${esc(u.title)}</h3><p>${esc(u.summary||u.content?.slice(0,120)||'')}</p></div><div>${unread?'<i class="unread-mark"></i>':`<time>${fmtDate(u.publish_at)}</time>`}</div></article>`}
+function renderRecent(){const sec=$('#recentSection');if(!state.recentApps.length){sec.classList.add('hidden');return}sec.classList.remove('hidden');$('#recentApps').innerHTML=state.recentApps.slice(0,4).map(a=>{const availability=appAvailability(a);return `<article class="recent-card reveal-on-scroll" data-app-id="${a.id}">${iconHtml(a,'app-icon')}<div><strong>${esc(a.name)}</strong><span class="availability ${availability}"><i></i>${availability.toUpperCase()}</span><p>${esc(toolCardDescription(a,86))}</p></div></article>`}).join('')}
+function updateCard(u){const unread=!u.is_read;return `<article class="update-card reveal-on-scroll" data-update-id="${u.id}"><div class="update-type">${u.update_type==='security'?'!' : u.update_type==='maintenance'?'M':'U'}</div><div><h3>${esc(u.title)}</h3><p>${esc(u.summary||u.content?.slice(0,150)||'')}</p></div><div>${unread?'<i class="unread-mark"></i>':`<time>${fmtDate(u.publish_at)}</time>`}</div></article>`}
 function renderUpdates(){const home=state.updates.slice(0,3);$('#homeUpdates').innerHTML=home.length?home.map(updateCard).join(''):empty('You are up to date','New ecosystem and product updates will appear here.');renderUpdatesPage()}
 function renderUpdatesPage(){let items=state.updates;if(state.updateFilter==='unread')items=items.filter(x=>!x.is_read);if(state.updateFilter==='important')items=items.filter(x=>x.priority==='important'||x.priority==='urgent'||x.update_type==='important'||x.update_type==='security');$('#updatesList').innerHTML=items.length?items.map(updateCard).join(''):empty('Nothing here','No updates match this filter.')}
-function renderSubscription(){const p=state.currentPlan;$('#subscriptionCard').innerHTML=`<div class="subscription-meta"><div class="subscription-icon">${esc((p?.name||'F')[0])}</div><div><span class="eyebrow">CURRENT PLAN</span><h3>${esc(p?.name||'Free')}</h3><p>${p?.current_period_end?`Renews or ends ${fmtDate(p.current_period_end)}`:'Manage your ecosystem access'}</p></div></div><button class="btn btn-secondary compact" data-setting="subscription">Manage</button>`}
-function renderPromos(){if(!state.promos.length||state.settings.floating_promo_enabled===false){$('#promoArea').innerHTML='';return}const p=state.promos[0];$('#promoArea').innerHTML=`<article class="promo-card" ${p.destination_url?`data-promo-url="${esc(p.destination_url)}"`:''}><span class="eyebrow">FEATURED</span><h3>${esc(p.title)}</h3><p>${esc(p.message)}</p></article>`}
+function renderSubscription(){const p=state.currentPlan;$('#subscriptionCard').innerHTML=`<div class="subscription-meta"><div class="subscription-icon">${esc((p?.name||'F')[0])}</div><div><span class="eyebrow">CURRENT PLAN</span><h3>${esc(p?.name||'Free')}</h3><p>${p?.current_period_end?`Renews or ends ${fmtDate(p.current_period_end)}`:'Manage access, billing and premium features from one refined subscription center.'}</p></div></div><button class="btn btn-secondary compact" data-setting="subscription">Manage</button>`}
+function renderPromos(){if(!state.promos.length||state.settings.floating_promo_enabled===false){$('#promoArea').innerHTML=`<article class="promo-card reveal-on-scroll"><span class="eyebrow">PREMIUM EXPERIENCE</span><h3>ToolCart now feels more deliberate.</h3><p>More room, deeper contrast and smoother motion give your ecosystem a cleaner, more premium presence.</p></article>`;return}const p=state.promos[0];$('#promoArea').innerHTML=`<article class="promo-card reveal-on-scroll" ${p.destination_url?`data-promo-url="${esc(p.destination_url)}"`:''}><span class="eyebrow">FEATURED</span><h3>${esc(p.title)}</h3><p>${esc(p.message)}</p></article>`}
 function renderSettingsProfile(){const u=state.user;const appearanceBtn=document.querySelector('[data-setting="appearance"]');if(appearanceBtn)appearanceBtn.classList.toggle('hidden',state.settings.allow_user_theme===false);$('#settingsProfileCard').innerHTML=`<div class="avatar" style="${u.profileImageUrl?`background-image:url('${esc(u.profileImageUrl)}')`:''}">${u.profileImageUrl?'':esc(initials(u.fullName))}</div><div><h3>${esc(u.fullName)}</h3><p>${esc(u.email)} · ${esc(state.currentPlan?.name||'Free')}</p></div>`}
 function renderDockVisibility(){const map={apps:'dock_apps_enabled',updates:'dock_updates_enabled',requests:'dock_requests_enabled',settings:'dock_settings_enabled'};for(const [tab,key]of Object.entries(map)){const btn=$(`[data-tab="${tab}"]`,$('#dock'));if(btn)btn.classList.toggle('hidden',state.settings[key]===false)}}
 function updateBadges(){const unread=state.notifications.filter(n=>!n.read_at).length;$('#notifBadge').classList.toggle('hidden',!unread);$('#notifBadge').textContent=unread>99?'99+':unread;const updates=state.updates.filter(u=>!u.is_read).length;$('#dockUpdateBadge').classList.toggle('hidden',!updates)}
