@@ -177,3 +177,7 @@ ToolCart V1.0 implements the requested Foundation architecture. Phase 2 cross-pr
 ## Flat GitHub upload edition
 
 This package is the simplified flat-layout edition prepared for phone/GitHub uploading. Static frontend files and D1 migration SQL files live at the repository root. `wrangler.jsonc` points Workers Static Assets to the root, while `.assetsignore` excludes backend/config/database/documentation files from public asset upload. D1 `migrations_dir` is also set to the repository root.
+
+
+## V1.2 temporary signup mode
+This build contains `ALLOW_UNVERIFIED_SIGNUP=true` so accounts can be created without Resend during development. Registration is still server-authoritative and passwords are still securely hashed. When Resend is configured, change this variable to `false` in `wrangler.jsonc` and redeploy. Forgot-password email remains unavailable until Resend is connected.

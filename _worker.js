@@ -153,7 +153,8 @@ async function handleAdminApi(request, env, ctx, url, admin) {
 // ---------- Authentication ----------
 
 async function register(request, env) {
-  if (!mailConfigured(env)) return apiError('Email delivery is not configured yet. Add Resend secrets before registration.', 503);
+  const temporarySignupMode = allowUnverifiedSignup(env);
+  if (!mailConfigured(env) && !temporarySignupMode) return apiError('Email delivery is not configured yet. Add Resend secrets before registration.', 503);
   const limit = await enforceRateLimit(request, env, 'register', 6, 600);
   if (limit) return limit;
   const body = await readJson(request);
@@ -169,9 +170,28 @@ async function register(request, env) {
   const { hash, salt } = await hashPassword(password);
   const firstName = fullName.trim().split(/\s+/)[0].slice(0, 60);
   const customerId = await uniqueCustomerId(env);
-  const result = await env.DB.prepare(`INSERT INTO users(customer_id,email,password_hash,password_salt,full_name,first_name) VALUES(?,?,?,?,?,?)`)
-    .bind(customerId, email, hash, salt, fullName, firstName).run();
+  const verifiedAt = temporarySignupMode ? new Date().toISOString() : null;
+  const result = await env.DB.prepare(`INSERT INTO users(customer_id,email,password_hash,password_salt,full_name,first_name,email_verified_at) VALUES(?,?,?,?,?,?,?)`)
+    .bind(customerId, email, hash, salt, fullName, firstName, verifiedAt).run();
   const userId = result.meta.last_row_id;
+
+  if (temporarySignupMode) {
+    const session = await createSession(env, request, userId, false);
+    await env.DB.prepare('UPDATE users SET last_active_at=CURRENT_TIMESTAMP WHERE id=?').bind(userId).run();
+    const user = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(userId).first();
+    return new Response(JSON.stringify({
+      ok: true,
+      message: 'Account created. Temporary email-verification bypass is enabled for development.',
+      user: sanitizeUser(user),
+      csrfToken: session.csrf,
+      emailVerificationRequired: false,
+      temporarySignupMode: true,
+    }), {
+      status: 201,
+      headers: { ...jsonHeaders, 'set-cookie': session.cookie },
+    });
+  }
+
   const token = randomToken(32);
   const tokenHash = await sha256Hex(token);
   const expires = isoInHours(24);
@@ -1000,6 +1020,7 @@ async function readImageUpload(request,env,prefix){if(!env.MEDIA)return{response
 
 async function sendEmail(env,{to,subject,html}){if(!mailConfigured(env))return{ok:false,error:'not_configured'};try{const res=await fetch('https://api.resend.com/emails',{method:'POST',headers:{authorization:`Bearer ${env.RESEND_API_KEY}`,'content-type':'application/json'},body:JSON.stringify({from:env.RESEND_FROM,to:[to],subject,html})});if(!res.ok)return{ok:false,error:await res.text()};return{ok:true};}catch(err){return{ok:false,error:String(err)}}}
 function mailConfigured(env){return !!(env.RESEND_API_KEY&&env.RESEND_FROM);}
+function allowUnverifiedSignup(env){return String(env.ALLOW_UNVERIFIED_SIGNUP||'').trim().toLowerCase()==='true';}
 function emailShell(title,body){return`<!doctype html><html><body style="margin:0;background:#0c0d12;color:#f4f5fb;font-family:Arial,sans-serif"><div style="max-width:560px;margin:auto;padding:32px 20px"><div style="font-weight:800;font-size:22px;margin-bottom:28px">ToolCart</div><div style="background:#151720;border:1px solid #292c39;border-radius:18px;padding:26px"><h1 style="font-size:24px">${escapeHtml(title)}</h1>${body}<p style="color:#a6a9b5;font-size:12px;margin-top:28px">ToolCart</p></div></div></body></html>`;}
 
 async function audit(env,adminId,action,targetType,targetId,details={},request=null){try{const ip=request?await hashIpHint(request.headers.get('cf-connecting-ip')||'unknown'):null;const safe=JSON.stringify(redactAuditDetails(details));await env.DB.prepare(`INSERT INTO audit_logs(admin_user_id,action,target_type,target_id,details_json,ip_hint) VALUES(?,?,?,?,?,?)`).bind(adminId,action,targetType,targetId,safe,ip).run();}catch(err){console.error('Audit write failed',err)}}
