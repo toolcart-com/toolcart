@@ -12,7 +12,7 @@
     {
       "binding": "DB",
       "database_name": "toolcart",
-      "database_id": "ae533220-e89e-4700-a20b-093c2d2d4e58",
+      "database_id": "ef8f71eb-dd5a-41dd-b049-bfe85066aa98",
       "migrations_dir": "."
     }
   ],
