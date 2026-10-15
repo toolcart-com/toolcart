@@ -310,3 +310,11 @@ html[data-theme="pearl"] .btn-secondary:hover,html[data-theme="pearl"] .settings
   *,*:before,*:after{scroll-behavior:auto!important;animation:none!important;transition:none!important}
   .reveal-on-scroll{opacity:1!important;transform:none!important}
 }
+
+/* ToolCart V2.1 — navigation persistence + top spacing refinement */
+.mobile-shell{padding-top:0!important}
+.app-topbar{padding-top:calc(6px + var(--safe-t))!important;margin-bottom:10px!important}
+.view.active .reveal-on-scroll{will-change:transform,opacity}
+@media(max-width:480px){
+  .app-topbar{padding-top:calc(3px + var(--safe-t))!important;margin-bottom:8px!important}
+}
