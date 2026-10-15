@@ -9,13 +9,13 @@
     "run_worker_first": true
   },
   "d1_databases": [
-  {
-    "binding": "DB",
-    "database_name": "toolcart",
-    "database_id": "ef8f71eb-dd5a-41dd-b049-bfe85066aa98",
-    "migrations_dir": "."
-  }
-],
+    {
+      "binding": "DB",
+      "database_name": "toolcart",
+      "database_id": "ef8f71eb-dd5a-41dd-b049-bfe85066aa98",
+      "migrations_dir": "."
+    }
+  ],
   "r2_buckets": [
     {
       "binding": "MEDIA",
@@ -23,7 +23,8 @@
     }
   ],
   "vars": {
-  "APP_ORIGIN": "https://toolcart.mgt-toolcart.workers.dev",
-  "SESSION_TTL_DAYS": "30",
-  "ALLOW_UNVERIFIED_SIGNUP": "true"
+    "APP_ORIGIN": "https://toolcart.mgt-toolcart.workers.dev",
+    "SESSION_TTL_DAYS": "30",
+    "ALLOW_UNVERIFIED_SIGNUP": "true"
+  }
 }
