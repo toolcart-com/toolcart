@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en" data-theme="midnight">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0c0d12" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ToolCart" />
+  <meta name="description" content="ToolCart. Everything you use, in one place." />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon-192.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/styles.css" />
+  <title>ToolCart</title>
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div><div class="noise"></div>
+  <div id="toastHost" class="toast-host" aria-live="polite"></div>
+
+  <main id="signedOut" class="signed-out hidden">
+    <header class="public-nav reveal">
+      <a class="brand" href="/" aria-label="ToolCart home"><img src="/toolcart-logo.png" alt="" /><span>ToolCart</span></a>
+      <button class="btn btn-ghost compact" data-auth="login">Sign in</button>
+    </header>
+    <section class="public-hero">
+      <div class="eyebrow reveal delay-1"><span class="live-dot"></span> One account. A growing ecosystem.</div>
+      <h1 class="display reveal delay-2">Your digital world,<br><span>beautifully organized.</span></h1>
+      <p class="lede reveal delay-3">Discover, launch and manage the products you use from one premium account.</p>
+      <div class="hero-actions reveal delay-4">
+        <button class="btn btn-primary" data-auth="register">Create account</button>
+        <button class="btn btn-secondary" data-auth="login">Sign in</button>
+      </div>
+      <div class="hero-orbit reveal delay-5" aria-hidden="true">
+        <div class="orbit-core"><img src="/toolcart-logo.png" alt="" /></div>
+        <div class="orbit-card orbit-1">Apps</div><div class="orbit-card orbit-2">Updates</div><div class="orbit-card orbit-3">Payments</div>
+      </div>
+    </section>
+    <section class="public-preview shell">
+      <div class="section-heading"><div><span class="eyebrow">Inside ToolCart</span><h2>One home for every product.</h2></div></div>
+      <div id="publicApps" class="public-app-grid"></div>
+      <div class="public-feature-grid">
+        <article class="feature-card"><span class="mini-icon">01</span><h3>Launch instantly</h3><p>Open products from a database-driven launcher that grows without redeployment.</p></article>
+        <article class="feature-card"><span class="mini-icon">02</span><h3>Stay current</h3><p>Updates, maintenance notices and ecosystem announcements arrive in one place.</p></article>
+        <article class="feature-card"><span class="mini-icon">03</span><h3>Manage everything</h3><p>Subscriptions, payments, support requests, devices and preferences live under one account.</p></article>
+      </div>
+    </section>
+    <footer class="public-footer"><div class="brand"><img src="/toolcart-logo.png" alt=""/><span>ToolCart</span></div><p>Premium access to your digital ecosystem.</p></footer>
+  </main>
+
+  <main id="appShell" class="app-shell hidden">
+    <section id="introScreen" class="intro-screen hidden">
+      <div class="intro-mark"><img src="/toolcart-logo.png" alt="" /></div>
+      <p id="introGreeting">Welcome back.</p><h1>Everything you use,<br>in one place.</h1>
+    </section>
+
+    <div class="mobile-shell">
+      <header class="app-topbar panel-enter">
+        <button id="profileBtn" class="profile-chip" aria-label="Profile"><div id="avatar" class="avatar">T</div><div><span id="greeting">Good evening</span><strong id="firstName">there</strong></div></button>
+        <div class="top-actions">
+          <button id="searchBtn" class="icon-btn" aria-label="Search">⌕</button>
+          <button id="notificationsBtn" class="icon-btn notification-btn" aria-label="Notifications"><span>◌</span><i id="notifBadge" class="count-badge hidden">0</i></button>
+        </div>
+      </header>
+
+      <section id="homeView" class="view active">
+        <div class="hero-panel panel-enter delay-1">
+          <div><span class="eyebrow">YOUR ECOSYSTEM</span><h1 id="heroName">Everything, together.</h1><p>Launch your products, catch updates and manage your account.</p></div>
+          <button class="plan-pill" id="planPill">FREE</button>
+          <div class="hero-sheen"></div>
+        </div>
+
+        <section id="recentSection" class="content-section panel-enter delay-2 hidden">
+          <div class="section-heading compact-heading"><div><span class="eyebrow">CONTINUE</span><h2>Recently opened</h2></div><button class="text-btn" data-tab="apps">See all</button></div>
+          <div id="recentApps" class="recent-strip"></div>
+        </section>
+
+        <section class="content-section panel-enter delay-3">
+          <div class="section-heading compact-heading"><div><span class="eyebrow">YOUR ECOSYSTEM</span><h2>Apps</h2></div><button class="text-btn" data-tab="apps">Manage</button></div>
+          <div id="homeApps" class="app-grid"></div>
+        </section>
+
+        <section class="content-section panel-enter delay-4">
+          <div class="section-heading compact-heading"><div><span class="eyebrow">LATEST</span><h2>Updates</h2></div><button class="text-btn" data-tab="updates">View all</button></div>
+          <div id="homeUpdates" class="update-stack"></div>
+        </section>
+
+        <section class="content-section panel-enter delay-5">
+          <div id="subscriptionCard" class="subscription-card"></div>
+        </section>
+        <div id="promoArea" class="content-section"></div>
+      </section>
+
+      <section id="appsView" class="view">
+        <div class="view-header"><div><span class="eyebrow">TOOLCART</span><h1>Apps</h1></div><button class="icon-btn" data-go-home>×</button></div>
+        <div class="search-field"><span>⌕</span><input id="appSearch" placeholder="Search apps" autocomplete="off" /></div>
+        <div id="categoryChips" class="chip-row"></div>
+        <div class="section-heading compact-heading"><h2>All Apps</h2><span id="appCount" class="muted"></span></div>
+        <div id="appsGrid" class="app-grid apps-page-grid"></div>
+      </section>
+
+      <section id="updatesView" class="view">
+        <div class="view-header"><div><span class="eyebrow">WHAT'S NEW</span><h1>Updates</h1></div><button class="icon-btn" data-go-home>×</button></div>
+        <div id="updateFilters" class="chip-row"><button class="chip active" data-update-filter="all">All</button><button class="chip" data-update-filter="unread">Unread</button><button class="chip" data-update-filter="important">Important</button></div>
+        <div id="updatesList" class="update-stack large"></div>
+      </section>
+
+      <section id="requestsView" class="view">
+        <div class="view-header"><div><span class="eyebrow">SUPPORT</span><h1>Requests</h1></div><button class="btn btn-primary compact" id="newRequestBtn">New request</button></div>
+        <div class="request-callout"><span class="mini-icon">↗</span><div><strong>Need something?</strong><p>Send a bug report, account issue, feature request or payment question.</p></div></div>
+        <div id="requestsList" class="request-list"></div>
+      </section>
+
+      <section id="settingsView" class="view">
+        <div class="view-header"><div><span class="eyebrow">ACCOUNT</span><h1>Settings</h1></div><button class="icon-btn" data-go-home>×</button></div>
+        <div id="settingsProfileCard" class="settings-profile"></div>
+        <div class="settings-groups">
+          <div class="settings-group"><button data-setting="profile"><span>Account</span><b>›</b></button><button data-setting="security"><span>Security</span><b>›</b></button><button data-setting="notifications"><span>Notifications</span><b>›</b></button><button data-setting="appearance"><span>Appearance</span><b>›</b></button><button data-setting="devices"><span>Devices</span><b>›</b></button></div>
+          <div class="settings-group"><button data-setting="subscription"><span>Subscription</span><b>›</b></button><button data-setting="payments"><span>Payments</span><b>›</b></button><button data-setting="support"><span>Support</span><b>›</b></button><button data-setting="privacy"><span>Privacy</span><b>›</b></button></div>
+          <button id="signOutBtn" class="danger-row">Sign out</button>
+        </div>
+      </section>
+
+      <nav id="dock" class="floating-dock panel-enter delay-5" aria-label="Primary navigation">
+        <button class="dock-item active" data-tab="apps"><span class="dock-icon">◫</span><em>Apps</em></button>
+        <button class="dock-item" data-tab="updates"><span class="dock-icon">◇</span><em>Updates</em><i id="dockUpdateBadge" class="dot-badge hidden"></i></button>
+        <button class="dock-home" data-tab="home" aria-label="Home"><img src="/toolcart-logo.png" alt="" /></button>
+        <button class="dock-item" data-tab="requests"><span class="dock-icon">↗</span><em>Requests</em></button>
+        <button class="dock-item" data-tab="settings"><span class="dock-icon">⚙</span><em>Settings</em></button>
+      </nav>
+    </div>
+  </main>
+
+  <div id="modalBackdrop" class="modal-backdrop hidden"></div>
+  <section id="authModal" class="modal sheet hidden" role="dialog" aria-modal="true">
+    <button class="modal-close" data-close-modal>×</button>
+    <div class="auth-mark"><img src="/toolcart-logo.png" alt="" /></div>
+    <div id="authContent"></div>
+  </section>
+  <section id="detailModal" class="modal detail-sheet hidden" role="dialog" aria-modal="true"><button class="modal-close" data-close-modal>×</button><div id="detailContent"></div></section>
+  <section id="notificationSheet" class="modal notification-sheet hidden" role="dialog" aria-modal="true"><div class="sheet-grab"></div><div class="view-header"><div><span class="eyebrow">INBOX</span><h1>Notifications</h1></div><button class="icon-btn" data-close-modal>×</button></div><div id="notificationFilters" class="chip-row"><button class="chip active" data-notif-filter="unread">Unread</button><button class="chip" data-notif-filter="all">All</button><button class="chip" data-notif-filter="important">Important</button></div><div id="notificationList" class="notification-list"></div></section>
+  <section id="searchSheet" class="modal search-sheet hidden" role="dialog" aria-modal="true"><div class="search-field large"><span>⌕</span><input id="globalSearch" placeholder="Search ToolCart" autocomplete="off" /><button data-close-modal>×</button></div><div id="searchResults" class="search-results"><div class="empty-state compact"><span>⌕</span><h3>Search your ecosystem</h3><p>Find apps, updates, requests and settings.</p></div></div></section>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

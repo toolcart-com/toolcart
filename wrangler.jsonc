@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "toolcart",
+  "main": "_worker.js",
+  "compatibility_date": "2026-10-14",
+  "assets": {
+    "directory": "./",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "toolcart",
+      "database_id": "ae533220-e89e-4700-a20b-093c2d2d4e58",
+      "migrations_dir": "."
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "toolcart-media"
+    }
+  ],
+  "vars": {
+    "APP_ORIGIN": "https://toolcart.baronbetterhelp.workers.dev",
+    "SESSION_TTL_DAYS": "30"
+  }
+}
