@@ -31,7 +31,7 @@ async function handleApi(request, env, ctx, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'OPTIONS') return new Response(null, { status: 204 });
-  if (pathname === '/api/health') return apiOk({ ok: true, service: 'ToolCart', version: '1.0.0' });
+  if (pathname === '/api/health') return apiOk({ ok: true, service: 'ToolCart', version: '1.8.0' });
 
   if (pathname === '/api/public/bootstrap' && method === 'GET') return publicBootstrap(env);
   if (pathname === '/api/auth/register' && method === 'POST') return register(request, env);
@@ -688,17 +688,78 @@ function subscriptionEnd(plan) {
 
 async function bootstrapAdmin(request, env) {
   const provided = request.headers.get('x-toolcart-bootstrap-token') || '';
-  if (!env.ADMIN_BOOTSTRAP_TOKEN || !constantTimeStringEqual(provided, env.ADMIN_BOOTSTRAP_TOKEN)) return apiError('Bootstrap authorization failed.', 403);
-  const exists = await env.DB.prepare('SELECT id FROM admin_users LIMIT 1').first();
-  if (exists) return apiError('An administrator already exists. Bootstrap is disabled.', 409);
+  if (!env.ADMIN_BOOTSTRAP_TOKEN) {
+    return apiError('ADMIN_BOOTSTRAP_TOKEN is not configured in Cloudflare. Add the Worker secret, redeploy ToolCart, then try again.', 503, { code: 'bootstrap_secret_missing' });
+  }
+  if (!provided) {
+    return apiError('Enter the bootstrap token you configured in Cloudflare.', 400, { code: 'bootstrap_token_required' });
+  }
+  if (!constantTimeStringEqual(provided, env.ADMIN_BOOTSTRAP_TOKEN)) {
+    return apiError('The bootstrap token is incorrect. It must exactly match the ADMIN_BOOTSTRAP_TOKEN Worker secret in Cloudflare.', 403, { code: 'bootstrap_token_incorrect' });
+  }
+  if (!env.DB) {
+    return apiError('The ToolCart D1 database binding is not available. Confirm the DB binding in Cloudflare and redeploy.', 503, { code: 'database_binding_missing' });
+  }
+
+  let exists;
+  try {
+    exists = await env.DB.prepare('SELECT id,email FROM admin_users LIMIT 1').first();
+  } catch (err) {
+    console.error('Admin bootstrap database check failed', err);
+    return apiError('ToolCart could not access the administrator database. Confirm the D1 database and migrations are deployed, then try again.', 503, { code: 'database_unavailable' });
+  }
+  if (exists) {
+    return apiError('An administrator already exists. First-time setup is disabled. Use the normal administrator sign-in instead.', 409, { code: 'administrator_exists' });
+  }
+
   const b = await readJson(request);
-  const email = normalizeEmail(b?.email);
-  const password = String(b?.password || '');
-  const fullName = cleanText(b?.fullName, 120);
-  if (!isEmail(email) || password.length < 12 || fullName.length < 2) return apiError('Use a valid email, name and password of at least 12 characters.', 400);
-  const pw = await hashPassword(password);
-  await env.DB.prepare(`INSERT INTO admin_users(email,password_hash,password_salt,full_name,role) VALUES(?,?,?,?,'owner')`).bind(email, pw.hash, pw.salt, fullName).run();
-  return apiOk({ message: 'Owner administrator created. Remove or rotate ADMIN_BOOTSTRAP_TOKEN now.' }, 201);
+  if (!b) return apiError('The setup request could not be read. Refresh the page and try again.', 400, { code: 'invalid_request' });
+  const email = normalizeEmail(b.email);
+  const password = String(b.password || '');
+  const fullName = cleanText(b.fullName, 120);
+  if (!isEmail(email) || password.length < 12 || fullName.length < 2) {
+    return apiError('Use a valid name, email and a password of at least 12 characters.', 400, { code: 'invalid_admin_details' });
+  }
+
+  let adminId;
+  try {
+    const pw = await hashPassword(password);
+    const result = await env.DB.prepare(`INSERT INTO admin_users(email,password_hash,password_salt,full_name,role) VALUES(?,?,?,?,'owner')`).bind(email, pw.hash, pw.salt, fullName).run();
+    adminId = Number(result?.meta?.last_row_id || 0);
+    if (!adminId) {
+      const created = await env.DB.prepare('SELECT id FROM admin_users WHERE email=?').bind(email).first();
+      adminId = Number(created?.id || 0);
+    }
+    if (!adminId) throw new Error('Administrator insert completed without an id.');
+  } catch (err) {
+    console.error('Admin bootstrap create failed', err);
+    return apiError('ToolCart could not create the owner administrator in D1. Confirm the database migrations are deployed, then try again.', 503, { code: 'administrator_create_failed' });
+  }
+
+  let admin;
+  try {
+    admin = await env.DB.prepare('SELECT * FROM admin_users WHERE id=?').bind(adminId).first();
+    const session = await createSession(env, request, adminId, true);
+    await env.DB.prepare('UPDATE admin_users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(adminId).run();
+    if (admin) admin.last_login_at = new Date().toISOString();
+    return new Response(JSON.stringify({
+      ok: true,
+      created: true,
+      message: 'Owner administrator created. Remove or rotate ADMIN_BOOTSTRAP_TOKEN now.',
+      admin: sanitizeAdmin(admin || { id: adminId, email, full_name: fullName, role: 'owner', last_login_at: null }),
+      csrfToken: session.csrf,
+    }), {
+      status: 201,
+      headers: { ...jsonHeaders, 'set-cookie': session.cookie },
+    });
+  } catch (err) {
+    console.error('Admin bootstrap automatic sign-in failed', err);
+    return apiOk({
+      created: true,
+      requiresLogin: true,
+      message: 'Owner administrator was created, but automatic sign-in could not start. Return to sign in with the email and password you just chose.',
+    }, 201);
+  }
 }
 
 async function adminLogin(request, env) {
@@ -1001,7 +1062,7 @@ async function adminPromos(env){const rows=await env.DB.prepare('SELECT * FROM p
 async function adminCreatePromo(request,env,admin){const b=await readJson(request);const title=cleanText(b?.title,120),message=cleanText(b?.message,500);if(!title||!message)return apiError('Title and message are required.',400);const mode=['card','popup','floating'].includes(b?.displayMode)?b.displayMode:'card';const r=await env.DB.prepare(`INSERT INTO promo_campaigns(title,message,image_key,icon_key,destination_url,enabled,target_audience,target_value_json,opening_delay_ms,closing_delay_ms,start_at,expires_at,display_mode,display_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(title,message,cleanText(b?.imageKey,500)||null,cleanText(b?.iconKey,500)||null,safeHttpUrl(b?.destinationUrl)?b.destinationUrl:null,boolInt(b?.enabled??1),cleanText(b?.targetAudience,40)||'all',JSON.stringify(Array.isArray(b?.targetValues)?b.targetValues:[]),Math.max(0,Number(b?.openingDelayMs||2500)),Number(b?.closingDelayMs)||null,dateOrNull(b?.startAt),dateOrNull(b?.expiresAt),mode,Number(b?.displayOrder||0)).run();await audit(env,admin.id,'promo_created','promo',String(r.meta.last_row_id),{title},request);return apiOk({id:r.meta.last_row_id,message:'Promotion created.'},201);}
 
 async function adminAudit(env,params){const page=Math.max(1,Number(params.get('page')||1));const rows=await env.DB.prepare(`SELECT l.*,a.full_name AS admin_name,a.email AS admin_email FROM audit_logs l LEFT JOIN admin_users a ON a.id=l.admin_user_id ORDER BY l.created_at DESC LIMIT 100 OFFSET ?`).bind((page-1)*100).all();return apiOk({logs:rows.results,page,hasMore:rows.results.length===100});}
-async function adminDiagnostics(env){const checks={d1:true,r2:!!env.MEDIA,resend:mailConfigured(env),paystack:!!env.PAYSTACK_SECRET_KEY,assets:!!env.ASSETS};try{await env.DB.prepare('SELECT 1').first()}catch{checks.d1=false}return apiOk({checks,version:'1.0.0',note:'This is a configuration check, not an external provider health guarantee.'});}
+async function adminDiagnostics(env){const checks={d1:true,r2:!!env.MEDIA,resend:mailConfigured(env),paystack:!!env.PAYSTACK_SECRET_KEY,assets:!!env.ASSETS};try{await env.DB.prepare('SELECT 1').first()}catch{checks.d1=false}return apiOk({checks,version:'1.8.0',note:'This is a configuration check, not an external provider health guarantee.'});}
 
 // ---------- Shared helpers ----------
 

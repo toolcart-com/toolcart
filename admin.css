@@ -9,3 +9,10 @@
 .admin-first-setup{margin-top:14px;padding-top:16px;border-top:1px solid var(--line)}
 .admin-setup-note{padding:13px 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface2);display:grid;gap:5px;color:var(--muted);font-size:12px;line-height:1.45}
 .admin-setup-note strong{color:var(--text);font-size:13px}
+
+/* ToolCart V1.8 — resilient first-time admin setup feedback */
+.admin-setup-status{border:1px solid var(--line);border-radius:14px;padding:12px 13px;font-size:12px;line-height:1.45;background:var(--surface2);color:var(--muted)}
+.admin-setup-status.error{border-color:rgba(255,124,140,.36);background:rgba(255,124,140,.07);color:var(--danger)}
+.admin-setup-status.success{border-color:rgba(83,214,144,.32);background:rgba(83,214,144,.07);color:var(--ok)}
+.admin-setup-status.info{border-color:rgba(88,166,255,.28);background:rgba(88,166,255,.07);color:var(--text)}
+.admin-first-setup .btn[disabled]{opacity:.62;cursor:wait}
