@@ -15,9 +15,10 @@ export default {
       if (url.pathname === '/admin' || url.pathname === '/admin/') {
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/admin.html';
-        assetUrl.search = '';
-        return env.ASSETS.fetch(new Request(assetUrl.toString(), { method: 'GET', headers: request.headers }));
+        assetUrl.search = `?v=2.5.0`;
+        return adminAsset(env,new Request(assetUrl.toString(),{method:'GET',headers:request.headers}));
       }
+      if(['/admin.html','/admin.js','/admin.css'].includes(url.pathname)) return adminAsset(env,request);
       return env.ASSETS.fetch(request);
     } catch (err) {
       console.error('Unhandled worker error', err);
@@ -26,12 +27,22 @@ export default {
   },
 };
 
+async function adminAsset(env,request){
+  const res=await env.ASSETS.fetch(request);
+  const headers=new Headers(res.headers);
+  headers.set('cache-control','no-store, no-cache, must-revalidate, max-age=0');
+  headers.set('pragma','no-cache');
+  headers.set('expires','0');
+  headers.set('x-toolcart-admin-build','2.5.0');
+  return new Response(res.body,{status:res.status,statusText:res.statusText,headers});
+}
+
 async function handleApi(request, env, ctx, url) {
   const { pathname } = url;
   const method = request.method.toUpperCase();
 
   if (method === 'OPTIONS') return new Response(null, { status: 204 });
-  if (pathname === '/api/health') return apiOk({ ok: true, service: 'ToolCart', version: '1.8.0' });
+  if (pathname === '/api/health') return apiOk({ ok: true, service: 'ToolCart', version: '2.5.0' });
 
   if (pathname === '/api/public/bootstrap' && method === 'GET') return publicBootstrap(env);
   if (pathname === '/api/auth/register' && method === 'POST') return register(request, env);
@@ -89,6 +100,7 @@ async function handleUserApi(request, env, ctx, url, auth) {
   if (path === '/api/products' && method === 'GET') return listProducts(env, user.id);
   if (path.match(/^\/api\/products\/\d+$/) && method === 'GET') return getProductDetail(env, user.id, Number(path.split('/')[3]));
   if (path.match(/^\/api\/products\/\d+\/file$/) && method === 'GET') return serveProductFile(request, env, user.id, Number(path.split('/')[3]));
+  if (path.match(/^\/api\/products\/\d+\/assets\/\d+\/file$/) && method === 'GET') return serveProductAssetFile(request, env, user.id, Number(path.split('/')[3]), Number(path.split('/')[5]));
   if (path.match(/^\/api\/products\/\d+\/buy$/) && method === 'POST') return buyProductNow(request, env, user, Number(path.split('/')[3]));
   if (path === '/api/cart' && method === 'GET') return getCart(env, user.id);
   if (path === '/api/cart/items' && method === 'POST') return addCartItem(request, env, user.id);
@@ -652,7 +664,11 @@ async function getProductDetail(env,userId,productId){
   const p=await env.DB.prepare(`SELECT p.*,COALESCE((SELECT SUM(quantity) FROM product_entitlements e WHERE e.user_id=? AND e.product_id=p.id),0) AS owned_quantity FROM products p WHERE p.id=?`).bind(userId,productId).first();
   if(!p||!p.active)return apiError('Product not found.',404);
   const hasAccess=Number(p.owned_quantity)>0;
-  return apiOk({product:{...mapProductMedia(p),has_access:hasAccess,owned_quantity:Number(p.owned_quantity||0)},wallet:await getWallet(env,userId),cartCount:await getCartCount(env,userId)});
+  const assetRows=await env.DB.prepare('SELECT id,file_name,file_type,mime_type,display_order FROM product_assets WHERE product_id=? ORDER BY display_order,id').bind(productId).all();
+  let assets=assetRows.results;
+  if(!assets.length&&p.file_key)assets=[{id:null,file_name:p.file_name,file_type:p.file_type,mime_type:p.mime_type,display_order:0}];
+  const visibleAssets=hasAccess?assets.map((a,i)=>({id:a.id,file_name:a.file_name,file_type:a.file_type,mime_type:a.mime_type,display_order:Number(a.display_order||i),open_url:a.id?`/api/products/${productId}/assets/${a.id}/file`:`/api/products/${productId}/file`})):[];
+  return apiOk({product:{...mapProductMedia(p),has_access:hasAccess,owned_quantity:Number(p.owned_quantity||0),asset_count:assets.length,assets:visibleAssets},wallet:await getWallet(env,userId),cartCount:await getCartCount(env,userId)});
 }
 async function addCartItem(request,env,userId){
   const b=await readJson(request);const productId=Number(b?.productId),quantity=Math.max(1,Math.min(99,Math.trunc(Number(b?.quantity||1))));
@@ -698,8 +714,17 @@ async function fulfillProductOrder(env,orderId,source){
   const items=(await env.DB.prepare(`SELECT i.*,p.name,p.stock_mode FROM product_order_items i JOIN products p ON p.id=i.product_id WHERE i.order_id=?`).bind(orderId).all()).results;if(!items.length)return{ok:false,error:'Order has no products.'};
   const stmts=[];for(const x of items){stmts.push(env.DB.prepare(`INSERT INTO product_entitlements(user_id,product_id,order_id,quantity) VALUES(?,?,?,?)`).bind(order.user_id,x.product_id,orderId,x.quantity));stmts.push(env.DB.prepare('DELETE FROM cart_items WHERE user_id=? AND product_id=?').bind(order.user_id,x.product_id))}stmts.push(env.DB.prepare(`UPDATE product_orders SET status='fulfilled',payment_source=?,inventory_reserved=0,paid_at=COALESCE(paid_at,CURRENT_TIMESTAMP),fulfilled_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(source,orderId));await env.DB.batch(stmts);return{ok:true}
 }
+async function serveProductStoredFile(request,env,asset){
+  if(!env.MEDIA)return new Response('Media unavailable',{status:503});if(!asset?.file_key)return new Response('Not found',{status:404});const obj=await env.MEDIA.get(asset.file_key);if(!obj)return new Response('Not found',{status:404});const h=new Headers();obj.writeHttpMetadata(h);h.set('cache-control','private, no-store');h.set('content-disposition',`${asset.file_type==='pdf'?'inline':'attachment'}; filename="${String(asset.file_name||'product').replace(/["\\]/g,'')}"`);return new Response(request.method==='HEAD'?null:obj.body,{headers:h})
+}
 async function serveProductFile(request,env,userId,productId){
-  if(!env.MEDIA)return new Response('Media unavailable',{status:503});const p=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(productId).first();if(!p||!p.file_key)return new Response('Not found',{status:404});const owned=!!(await env.DB.prepare('SELECT 1 FROM product_entitlements WHERE user_id=? AND product_id=? LIMIT 1').bind(userId,productId).first());if(!owned)return new Response('Purchase required',{status:403});const obj=await env.MEDIA.get(p.file_key);if(!obj)return new Response('Not found',{status:404});const h=new Headers();obj.writeHttpMetadata(h);h.set('cache-control','private, no-store');h.set('content-disposition',`${p.file_type==='pdf'?'inline':'attachment'}; filename="${String(p.file_name||'product').replace(/["\\]/g,'')}"`);return new Response(request.method==='HEAD'?null:obj.body,{headers:h})
+  const owned=!!(await env.DB.prepare('SELECT 1 FROM product_entitlements WHERE user_id=? AND product_id=? LIMIT 1').bind(userId,productId).first());if(!owned)return new Response('Purchase required',{status:403});
+  let asset=await env.DB.prepare('SELECT * FROM product_assets WHERE product_id=? ORDER BY display_order,id LIMIT 1').bind(productId).first();if(!asset){asset=await env.DB.prepare('SELECT file_key,file_name,file_type,mime_type FROM products WHERE id=?').bind(productId).first()}
+  return serveProductStoredFile(request,env,asset);
+}
+async function serveProductAssetFile(request,env,userId,productId,assetId){
+  const owned=!!(await env.DB.prepare('SELECT 1 FROM product_entitlements WHERE user_id=? AND product_id=? LIMIT 1').bind(userId,productId).first());if(!owned)return new Response('Purchase required',{status:403});
+  const asset=await env.DB.prepare('SELECT * FROM product_assets WHERE id=? AND product_id=?').bind(assetId,productId).first();if(!asset)return new Response('Not found',{status:404});return serveProductStoredFile(request,env,asset);
 }
 
 // ---------- Payments ----------
@@ -1051,13 +1076,72 @@ async function adminUploadIcon(request, env, admin) {
 
 // ---------- Admin products ----------
 
-async function adminProducts(env){await releaseExpiredProductOrders(env);const rows=await env.DB.prepare(`SELECT p.*,(SELECT COUNT(DISTINCT e.user_id) FROM product_entitlements e WHERE e.product_id=p.id) AS buyers,(SELECT COALESCE(SUM(i.quantity),0) FROM product_order_items i JOIN product_orders o ON o.id=i.order_id WHERE i.product_id=p.id AND o.status='fulfilled') AS sold_quantity FROM products p ORDER BY p.display_order,p.name`).all();return apiOk({products:rows.results.map(mapProductMedia)})}
-function parseProductInput(b={}){const name=cleanText(b.name,120),slug=slugify(b.slug||name);if(!name||!slug)return{error:'Product name is required.'};const displayImageKey=cleanText(b.displayImageKey??b.display_image_key,500),fileKey=cleanText(b.fileKey??b.file_key,500),fileName=cleanText(b.fileName??b.file_name,180),fileType=['pdf','image'].includes(b.fileType??b.file_type)?(b.fileType??b.file_type):null,mimeType=cleanText(b.mimeType??b.mime_type,100);if(!displayImageKey)return{error:'Upload a display image for this product.'};if(!fileKey||!fileName||!fileType||!mimeType)return{error:'Upload the PDF or image product file first.'};const accessType=b.accessType==='free'||b.access_type==='free'?'free':'paid';let priceMinor=Math.max(0,Math.trunc(Number(b.priceMinor??b.price_minor??0)));if(accessType==='free')priceMinor=0;const stockMode=b.stockMode==='unlimited'||b.stock_mode==='unlimited'?'unlimited':'finite';const stockQuantity=stockMode==='unlimited'?0:Math.max(0,Math.trunc(Number(b.stockQuantity??b.stock_quantity??0)));const currency=(cleanText(b.currency,3)||'NGN').toUpperCase();return{name,slug,values:[name,slug,displayImageKey,fileKey,fileName,fileType,mimeType,cleanText(b.shortDescription??b.short_description,280),cleanText(b.description,12000),priceMinor,currency,accessType,boolInt(b.premium),stockMode,stockQuantity,boolInt(b.active??1),boolInt(b.featured),Number((b.displayOrder??b.display_order)||0)]}}
-async function adminCreateProduct(request,env,admin){const b=await readJson(request),x=parseProductInput(b);if(x.error)return apiError(x.error,400);if(await env.DB.prepare('SELECT id FROM products WHERE slug=?').bind(x.slug).first())return apiError('A product already uses that name/slug.',409);const r=await env.DB.prepare(`INSERT INTO products(name,slug,display_image_key,file_key,file_name,file_type,mime_type,short_description,description,price_minor,currency,access_type,premium,stock_mode,stock_quantity,active,featured,display_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(...x.values).run();await audit(env,admin.id,'product_created','product',String(r.meta.last_row_id),{name:x.name},request);return apiOk({id:r.meta.last_row_id,message:'Product created.'},201)}
-async function adminUpdateProduct(request,env,admin,id){const old=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(id).first();if(!old)return apiError('Product not found.',404);const b=await readJson(request),x=parseProductInput({...old,...b});if(x.error)return apiError(x.error,400);await env.DB.prepare(`UPDATE products SET name=?,slug=?,display_image_key=?,file_key=?,file_name=?,file_type=?,mime_type=?,short_description=?,description=?,price_minor=?,currency=?,access_type=?,premium=?,stock_mode=?,stock_quantity=?,active=?,featured=?,display_order=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(...x.values,id).run();if(old.file_key&&old.file_key!==x.values[3])env.MEDIA?.delete(old.file_key).catch(console.error);if(old.display_image_key&&old.display_image_key!==x.values[2])env.MEDIA?.delete(old.display_image_key).catch(console.error);await audit(env,admin.id,'product_modified','product',String(id),{name:x.name},request);return apiOk({message:'Product updated.'})}
-async function adminDeleteProduct(env,admin,id){const p=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(id).first();if(!p)return apiError('Product not found.',404);const used=await env.DB.prepare('SELECT 1 FROM product_order_items WHERE product_id=? LIMIT 1').bind(id).first();if(used)return apiError('This product has purchase history. Mark it inactive instead of deleting it.',409);await env.DB.prepare('DELETE FROM products WHERE id=?').bind(id).run();if(p.file_key)env.MEDIA?.delete(p.file_key).catch(console.error);if(p.display_image_key)env.MEDIA?.delete(p.display_image_key).catch(console.error);await audit(env,admin.id,'product_deleted','product',String(id),{name:p.name});return apiOk({message:'Product deleted.'})}
+async function adminProducts(env){
+  await releaseExpiredProductOrders(env);
+  const rows=await env.DB.prepare(`SELECT p.*,(SELECT COUNT(DISTINCT e.user_id) FROM product_entitlements e WHERE e.product_id=p.id) AS buyers,(SELECT COALESCE(SUM(i.quantity),0) FROM product_order_items i JOIN product_orders o ON o.id=i.order_id WHERE i.product_id=p.id AND o.status='fulfilled') AS sold_quantity FROM products p ORDER BY p.display_order,p.name`).all();
+  const products=rows.results.map(mapProductMedia);
+  if(products.length){
+    const ids=products.map(p=>Number(p.id));
+    const marks=ids.map(()=>'?').join(',');
+    const assetRows=await env.DB.prepare(`SELECT * FROM product_assets WHERE product_id IN (${marks}) ORDER BY product_id,display_order,id`).bind(...ids).all();
+    const byProduct=new Map();
+    for(const asset of assetRows.results){if(!byProduct.has(Number(asset.product_id)))byProduct.set(Number(asset.product_id),[]);byProduct.get(Number(asset.product_id)).push(asset)}
+    for(const product of products){product.assets=byProduct.get(Number(product.id))||legacyProductAssets(product);product.asset_count=product.assets.length}
+  }
+  return apiOk({products});
+}
+function legacyProductAssets(p){
+  if(!p?.file_key)return[];
+  return[{id:null,product_id:Number(p.id||0),file_key:p.file_key,file_name:p.file_name,file_type:p.file_type,mime_type:p.mime_type,display_order:0}];
+}
+function normalizeProductAssets(input){
+  if(!Array.isArray(input))return[];
+  const seen=new Set(),out=[];
+  for(let i=0;i<input.length;i++){
+    const a=input[i]||{};
+    const key=cleanText(a.fileKey??a.file_key,500),name=cleanText(a.fileName??a.file_name,180),type=['pdf','image'].includes(a.fileType??a.file_type)?(a.fileType??a.file_type):null,mime=cleanText(a.mimeType??a.mime_type,100);
+    if(!key||!name||!type||!mime||seen.has(key))continue;
+    seen.add(key);out.push({fileKey:key,fileName:name,fileType:type,mimeType:mime,displayOrder:Number(a.displayOrder??a.display_order??i)||0});
+  }
+  return out;
+}
+function parseProductInput(b={}){
+  const name=cleanText(b.name,120),slug=slugify(b.slug||name);if(!name||!slug)return{error:'Product name is required.'};
+  const displayImageKey=cleanText(b.displayImageKey??b.display_image_key,500);if(!displayImageKey)return{error:'Upload a display image for this product.'};
+  let assets=normalizeProductAssets(b.assets);
+  if(!assets.length){const fallback=normalizeProductAssets([{fileKey:b.fileKey??b.file_key,fileName:b.fileName??b.file_name,fileType:b.fileType??b.file_type,mimeType:b.mimeType??b.mime_type,displayOrder:0}]);assets=fallback}
+  if(!assets.length)return{error:'Upload at least one PDF or image product file first.'};
+  const primary=assets[0],accessType=b.accessType==='free'||b.access_type==='free'?'free':'paid';let priceMinor=Math.max(0,Math.trunc(Number(b.priceMinor??b.price_minor??0)));if(accessType==='free')priceMinor=0;
+  const stockMode=b.stockMode==='unlimited'||b.stock_mode==='unlimited'?'unlimited':'finite';const stockQuantity=stockMode==='unlimited'?0:Math.max(0,Math.trunc(Number(b.stockQuantity??b.stock_quantity??0)));const currency=(cleanText(b.currency,3)||'NGN').toUpperCase();
+  return{name,slug,assets,values:[name,slug,displayImageKey,primary.fileKey,primary.fileName,primary.fileType,primary.mimeType,cleanText(b.shortDescription??b.short_description,280),cleanText(b.description,12000),priceMinor,currency,accessType,boolInt(b.premium),stockMode,stockQuantity,boolInt(b.active??1),boolInt(b.featured),Number((b.displayOrder??b.display_order)||0)]};
+}
+async function replaceProductAssets(env,productId,assets){
+  const stmts=[env.DB.prepare('DELETE FROM product_assets WHERE product_id=?').bind(productId)];
+  assets.forEach((a,i)=>stmts.push(env.DB.prepare(`INSERT INTO product_assets(product_id,file_key,file_name,file_type,mime_type,display_order) VALUES(?,?,?,?,?,?)`).bind(productId,a.fileKey,a.fileName,a.fileType,a.mimeType,Number(a.displayOrder??i)||0)));
+  await env.DB.batch(stmts);
+}
+async function adminCreateProduct(request,env,admin){
+  const b=await readJson(request),x=parseProductInput(b);if(x.error)return apiError(x.error,400);if(await env.DB.prepare('SELECT id FROM products WHERE slug=?').bind(x.slug).first())return apiError('A product already uses that name/slug.',409);
+  const r=await env.DB.prepare(`INSERT INTO products(name,slug,display_image_key,file_key,file_name,file_type,mime_type,short_description,description,price_minor,currency,access_type,premium,stock_mode,stock_quantity,active,featured,display_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(...x.values).run();
+  const productId=Number(r.meta.last_row_id);await replaceProductAssets(env,productId,x.assets);await audit(env,admin.id,'product_created','product',String(productId),{name:x.name,assetCount:x.assets.length},request);return apiOk({id:productId,message:'Product created.'},201);
+}
+async function adminUpdateProduct(request,env,admin,id){
+  const old=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(id).first();if(!old)return apiError('Product not found.',404);
+  const oldAssetRows=await env.DB.prepare('SELECT * FROM product_assets WHERE product_id=? ORDER BY display_order,id').bind(id).all();const oldAssets=oldAssetRows.results.length?oldAssetRows.results:legacyProductAssets(old);
+  const b=await readJson(request),x=parseProductInput({...old,...b});if(x.error)return apiError(x.error,400);
+  await env.DB.prepare(`UPDATE products SET name=?,slug=?,display_image_key=?,file_key=?,file_name=?,file_type=?,mime_type=?,short_description=?,description=?,price_minor=?,currency=?,access_type=?,premium=?,stock_mode=?,stock_quantity=?,active=?,featured=?,display_order=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(...x.values,id).run();
+  if(Array.isArray(b.assets))await replaceProductAssets(env,id,x.assets);
+  if(Array.isArray(b.assets)&&env.MEDIA){const keep=new Set(x.assets.map(a=>a.fileKey));for(const a of oldAssets){if(a.file_key&&!keep.has(a.file_key))env.MEDIA.delete(a.file_key).catch(console.error)}}
+  if(old.display_image_key&&old.display_image_key!==x.values[2])env.MEDIA?.delete(old.display_image_key).catch(console.error);
+  await audit(env,admin.id,'product_modified','product',String(id),{name:x.name,assetCount:x.assets.length},request);return apiOk({message:'Product updated.'});
+}
+async function adminDeleteProduct(env,admin,id){
+  const p=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(id).first();if(!p)return apiError('Product not found.',404);const used=await env.DB.prepare('SELECT 1 FROM product_order_items WHERE product_id=? LIMIT 1').bind(id).first();if(used)return apiError('This product has purchase history. Mark it inactive instead of deleting it.',409);
+  const rows=await env.DB.prepare('SELECT file_key FROM product_assets WHERE product_id=?').bind(id).all();const keys=new Set(rows.results.map(x=>x.file_key).filter(Boolean));if(p.file_key)keys.add(p.file_key);
+  await env.DB.prepare('DELETE FROM products WHERE id=?').bind(id).run();if(env.MEDIA)for(const key of keys)env.MEDIA.delete(key).catch(console.error);if(p.display_image_key)env.MEDIA?.delete(p.display_image_key).catch(console.error);await audit(env,admin.id,'product_deleted','product',String(id),{name:p.name});return apiOk({message:'Product deleted.'});
+}
 async function adminUploadProductCover(request,env,admin){const u=await readImageUpload(request,env,`product-covers/${new Date().getUTCFullYear()}`);if(u.response)return u.response;await audit(env,admin.id,'product_cover_uploaded','r2',u.key,{size:u.size},request);return apiOk({key:u.key,url:`/media/${u.key}`})}
-async function adminUploadProductFile(request,env,admin){if(!env.MEDIA)return apiError('R2 media storage is not configured.',503);let form;try{form=await request.formData()}catch{return apiError('Invalid upload.',400)}const file=form.get('file');if(!(file instanceof File))return apiError('Product file is required.',400);const allowed={'application/pdf':'pdf','image/webp':'image','image/png':'image','image/jpeg':'image'};const type=allowed[file.type];if(!type)return apiError('Upload a PDF, WebP, PNG or JPEG file.',400);if(file.size>25*1024*1024)return apiError('Product file is too large. Maximum size is 25 MB.',400);const ext=file.type==='application/pdf'?'pdf':file.type==='image/webp'?'webp':file.type==='image/png'?'png':'jpg';const safe=(file.name||`product.${ext}`).replace(/[^a-zA-Z0-9._-]/g,'-').slice(-160);const key=`product-files/${new Date().getUTCFullYear()}/${Date.now()}-${randomToken(8).replace(/[^a-zA-Z0-9]/g,'').slice(0,8)}.${ext}`;await env.MEDIA.put(key,file.stream(),{httpMetadata:{contentType:file.type,cacheControl:'private, no-store'}});await audit(env,admin.id,'product_file_uploaded','r2',key,{contentType:file.type,size:file.size},request);return apiOk({key,fileName:safe,fileType:type,mimeType:file.type,size:file.size})}
+async function adminUploadProductFile(request,env,admin){if(!env.MEDIA)return apiError('R2 media storage is not configured.',503);let form;try{form=await request.formData()}catch{return apiError('Invalid upload.',400)}const file=form.get('file');if(!(file instanceof File))return apiError('Product file is required.',400);const allowed={'application/pdf':'pdf','image/webp':'image','image/png':'image','image/jpeg':'image'};const type=allowed[file.type];if(!type)return apiError('Upload a PDF, WebP, PNG or JPEG file.',400);if(file.size>25*1024*1024)return apiError('Product file is too large. Maximum size is 25 MB per file.',400);const ext=file.type==='application/pdf'?'pdf':file.type==='image/webp'?'webp':file.type==='image/png'?'png':'jpg';const safe=(file.name||`product.${ext}`).replace(/[^a-zA-Z0-9._-]/g,'-').slice(-160);const key=`product-files/${new Date().getUTCFullYear()}/${Date.now()}-${randomToken(8).replace(/[^a-zA-Z0-9]/g,'').slice(0,8)}.${ext}`;await env.MEDIA.put(key,file.stream(),{httpMetadata:{contentType:file.type,cacheControl:'private, no-store'}});await audit(env,admin.id,'product_file_uploaded','r2',key,{contentType:file.type,size:file.size},request);return apiOk({key,fileName:safe,fileType:type,mimeType:file.type,size:file.size})}
 
 // ---------- Admin updates / requests / notifications ----------
 
@@ -1184,7 +1268,7 @@ async function adminPromos(env){const rows=await env.DB.prepare('SELECT * FROM p
 async function adminCreatePromo(request,env,admin){const b=await readJson(request);const title=cleanText(b?.title,120),message=cleanText(b?.message,500);if(!title||!message)return apiError('Title and message are required.',400);const mode=['card','popup','floating'].includes(b?.displayMode)?b.displayMode:'card';const r=await env.DB.prepare(`INSERT INTO promo_campaigns(title,message,image_key,icon_key,destination_url,enabled,target_audience,target_value_json,opening_delay_ms,closing_delay_ms,start_at,expires_at,display_mode,display_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(title,message,cleanText(b?.imageKey,500)||null,cleanText(b?.iconKey,500)||null,safeHttpUrl(b?.destinationUrl)?b.destinationUrl:null,boolInt(b?.enabled??1),cleanText(b?.targetAudience,40)||'all',JSON.stringify(Array.isArray(b?.targetValues)?b.targetValues:[]),Math.max(0,Number(b?.openingDelayMs||2500)),Number(b?.closingDelayMs)||null,dateOrNull(b?.startAt),dateOrNull(b?.expiresAt),mode,Number(b?.displayOrder||0)).run();await audit(env,admin.id,'promo_created','promo',String(r.meta.last_row_id),{title},request);return apiOk({id:r.meta.last_row_id,message:'Promotion created.'},201);}
 
 async function adminAudit(env,params){const page=Math.max(1,Number(params.get('page')||1));const rows=await env.DB.prepare(`SELECT l.*,a.full_name AS admin_name,a.email AS admin_email FROM audit_logs l LEFT JOIN admin_users a ON a.id=l.admin_user_id ORDER BY l.created_at DESC LIMIT 100 OFFSET ?`).bind((page-1)*100).all();return apiOk({logs:rows.results,page,hasMore:rows.results.length===100});}
-async function adminDiagnostics(env){const checks={d1:true,r2:!!env.MEDIA,resend:mailConfigured(env),paystack:!!env.PAYSTACK_SECRET_KEY,assets:!!env.ASSETS};try{await env.DB.prepare('SELECT 1').first()}catch{checks.d1=false}return apiOk({checks,version:'1.8.0',note:'This is a configuration check, not an external provider health guarantee.'});}
+async function adminDiagnostics(env){const checks={d1:true,r2:!!env.MEDIA,resend:mailConfigured(env),paystack:!!env.PAYSTACK_SECRET_KEY,assets:!!env.ASSETS};try{await env.DB.prepare('SELECT 1').first()}catch{checks.d1=false}return apiOk({checks,version:'2.5.0',note:'This is a configuration check, not an external provider health guarantee.'});}
 
 // ---------- Shared helpers ----------
 

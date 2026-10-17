@@ -469,3 +469,6 @@ html,html[data-theme="midnight"],body{background:#000!important;color:var(--text
   .product-actions{grid-template-columns:1fr}
   .quantity-stepper{width:160px}
 }
+
+/* ToolCart V2.3 — purchased multi-file product access */
+.product-owned-assets{display:grid;gap:9px;margin-top:2px}.product-owned-assets>.eyebrow{margin-bottom:2px}.product-owned-asset{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:17px;background:#1c1c1e;color:var(--text);text-decoration:none}.product-owned-asset span{min-width:0}.product-owned-asset strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}.product-owned-asset small{display:block;margin-top:4px;color:var(--muted);font-size:9px;letter-spacing:.08em}.product-owned-asset b{color:#0a84ff;font-size:12px}
