@@ -1,1 +1,10 @@
-Upload all files from ToolCart-V1.9-Changes-Only to the root of the GitHub repository and replace matching files. The Cloudflare deploy command must keep running npm run db:migrate:remote before wrangler deploy so 0004_product_assets.sql is applied.
+ToolCart V1.9 applies on top of V1.8.
+
+Replace these files:
+- app.js
+- styles.css
+- VERSION
+- CHANGES-V1.9.md
+- APPLY-V1.9.txt
+
+No D1 migration required.

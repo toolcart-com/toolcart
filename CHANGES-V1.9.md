@@ -1,19 +1,15 @@
-# ToolCart V1.9 — Unified Tool / Product Uploads + Multi-File Products
+# ToolCart V1.9 — Expanded Tool Panels
 
-## New
-- Tools and Products now share one Admin management page with a two-way switch.
-- The Add button opens a combined **Add tool / Add product** flow so the administrator can switch immediately between the two content types.
-- Product uploads now support selecting any number of protected PDF/image files in one selection.
-- Additional protected files can be added later while editing a product.
-- Individual protected files can be removed before saving.
-- Purchased customers see a secure list of every file belonging to the product.
-- Each protected asset remains private in R2 and is served only after entitlement checks.
+Built on top of V1.8.
 
-## Database
-- Adds `0004_product_assets.sql`.
-- Existing single-file products are migrated automatically into the new product-assets table.
-- Legacy product file columns remain for backward compatibility.
+## What changed
+- Redesigned the customer-facing tool cards on Home and Tools pages into larger rounded panels.
+- Added room for each tool's short description directly on the card.
+- Reduced the mobile grid density so the cards have more horizontal space.
+- Introduced a darker premium panel treatment inspired by Apple-style product tiles while keeping ToolCart branding.
+- Kept tap-to-open behavior unchanged.
 
-## Unchanged
-- Display image remains a separate single cover image.
-- Pricing, free/paid status, premium status, stock controls, cart, ToolCart balance and Paystack logic remain intact.
+## Notes
+- Home now shows up to 6 tools in the main launcher section.
+- If a tool has no short description, ToolCart shows a safe fallback message.
+- No database migration required.

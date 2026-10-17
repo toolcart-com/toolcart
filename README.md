@@ -1,13 +1,17 @@
-# ToolCart V1.9
+# ToolCart V1.8
 
-ToolCart V1.9 combines Tools and Products in one Admin workflow and adds multi-file digital products.
+Upload the contents of the **Changes Only** package to the root of the existing ToolCart GitHub repository and replace matching files.
 
-## Existing deployment
-Use **ToolCart-V1.9-Changes-Only.zip** and upload its contents to the root of the existing GitHub repository.
+No D1 migration is required.
 
-## Required migration
-V1.9 includes `0004_product_assets.sql`. Keep the deploy command:
+## First administrator
 
-`npm run db:migrate:remote && npx wrangler deploy`
+1. In Cloudflare, add a Worker secret named `ADMIN_BOOTSTRAP_TOKEN` with a long temporary random value.
+2. Deploy/redeploy ToolCart.
+3. Open `/admin` and choose **First-time administrator setup**.
+4. Enter the same temporary bootstrap token, your administrator name, email and a password of at least 12 characters.
+5. On success, ToolCart automatically signs you in and opens the Admin dashboard.
+6. Remove or rotate `ADMIN_BOOTSTRAP_TOKEN` in Cloudflare after the owner administrator is created.
+7. Use the normal `/admin` sign-in form from then on.
 
-After deployment, confirm `0004_product_assets.sql` shows as applied in the Cloudflare build log.
+If setup cannot continue, V1.8 keeps a clear error message visible inside the setup form instead of relying only on a temporary toast.

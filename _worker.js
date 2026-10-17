@@ -31,7 +31,7 @@ async function handleApi(request, env, ctx, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'OPTIONS') return new Response(null, { status: 204 });
-  if (pathname === '/api/health') return apiOk({ ok: true, service: 'ToolCart', version: '1.0.0' });
+  if (pathname === '/api/health') return apiOk({ ok: true, service: 'ToolCart', version: '1.8.0' });
 
   if (pathname === '/api/public/bootstrap' && method === 'GET') return publicBootstrap(env);
   if (pathname === '/api/auth/register' && method === 'POST') return register(request, env);
@@ -89,7 +89,6 @@ async function handleUserApi(request, env, ctx, url, auth) {
   if (path === '/api/products' && method === 'GET') return listProducts(env, user.id);
   if (path.match(/^\/api\/products\/\d+$/) && method === 'GET') return getProductDetail(env, user.id, Number(path.split('/')[3]));
   if (path.match(/^\/api\/products\/\d+\/file$/) && method === 'GET') return serveProductFile(request, env, user.id, Number(path.split('/')[3]));
-  if (path.match(/^\/api\/products\/\d+\/assets\/\d+$/) && method === 'GET') return serveProductAsset(request, env, user.id, Number(path.split('/')[3]), Number(path.split('/')[5]));
   if (path.match(/^\/api\/products\/\d+\/buy$/) && method === 'POST') return buyProductNow(request, env, user, Number(path.split('/')[3]));
   if (path === '/api/cart' && method === 'GET') return getCart(env, user.id);
   if (path === '/api/cart/items' && method === 'POST') return addCartItem(request, env, user.id);
@@ -652,8 +651,8 @@ async function listProducts(env,userId){return apiOk({products:await listProduct
 async function getProductDetail(env,userId,productId){
   const p=await env.DB.prepare(`SELECT p.*,COALESCE((SELECT SUM(quantity) FROM product_entitlements e WHERE e.user_id=? AND e.product_id=p.id),0) AS owned_quantity FROM products p WHERE p.id=?`).bind(userId,productId).first();
   if(!p||!p.active)return apiError('Product not found.',404);
-  const hasAccess=Number(p.owned_quantity)>0;const assetRows=(await env.DB.prepare('SELECT id,file_name,file_type,mime_type,display_order FROM product_assets WHERE product_id=? ORDER BY display_order,id').bind(productId).all()).results;const assetCount=assetRows.length||(p.file_key?1:0);const assets=hasAccess?(assetRows.length?assetRows.map(a=>({id:a.id,fileName:a.file_name,fileType:a.file_type,mimeType:a.mime_type,displayOrder:Number(a.display_order||0),url:`/api/products/${productId}/assets/${a.id}`})):[{id:null,fileName:p.file_name,fileType:p.file_type,mimeType:p.mime_type,displayOrder:0,url:`/api/products/${productId}/file`}]) : [];
-  return apiOk({product:{...mapProductMedia(p),has_access:hasAccess,owned_quantity:Number(p.owned_quantity||0),asset_count:assetCount,assets},wallet:await getWallet(env,userId),cartCount:await getCartCount(env,userId)});
+  const hasAccess=Number(p.owned_quantity)>0;
+  return apiOk({product:{...mapProductMedia(p),has_access:hasAccess,owned_quantity:Number(p.owned_quantity||0)},wallet:await getWallet(env,userId),cartCount:await getCartCount(env,userId)});
 }
 async function addCartItem(request,env,userId){
   const b=await readJson(request);const productId=Number(b?.productId),quantity=Math.max(1,Math.min(99,Math.trunc(Number(b?.quantity||1))));
@@ -699,10 +698,9 @@ async function fulfillProductOrder(env,orderId,source){
   const items=(await env.DB.prepare(`SELECT i.*,p.name,p.stock_mode FROM product_order_items i JOIN products p ON p.id=i.product_id WHERE i.order_id=?`).bind(orderId).all()).results;if(!items.length)return{ok:false,error:'Order has no products.'};
   const stmts=[];for(const x of items){stmts.push(env.DB.prepare(`INSERT INTO product_entitlements(user_id,product_id,order_id,quantity) VALUES(?,?,?,?)`).bind(order.user_id,x.product_id,orderId,x.quantity));stmts.push(env.DB.prepare('DELETE FROM cart_items WHERE user_id=? AND product_id=?').bind(order.user_id,x.product_id))}stmts.push(env.DB.prepare(`UPDATE product_orders SET status='fulfilled',payment_source=?,inventory_reserved=0,paid_at=COALESCE(paid_at,CURRENT_TIMESTAMP),fulfilled_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(source,orderId));await env.DB.batch(stmts);return{ok:true}
 }
-async function hasProductAccess(env,userId,productId){return !!(await env.DB.prepare('SELECT 1 FROM product_entitlements WHERE user_id=? AND product_id=? LIMIT 1').bind(userId,productId).first())}
-async function streamProductObject(request,env,key,fileName,fileType){if(!env.MEDIA)return new Response('Media unavailable',{status:503});const obj=await env.MEDIA.get(key);if(!obj)return new Response('Not found',{status:404});const h=new Headers();obj.writeHttpMetadata(h);h.set('cache-control','private, no-store');h.set('content-disposition',`inline; filename="${String(fileName||'product').replace(/["\\]/g,'')}"`);return new Response(request.method==='HEAD'?null:obj.body,{headers:h})}
-async function serveProductFile(request,env,userId,productId){const p=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(productId).first();if(!p)return new Response('Not found',{status:404});if(!(await hasProductAccess(env,userId,productId)))return new Response('Purchase required',{status:403});const first=await env.DB.prepare('SELECT * FROM product_assets WHERE product_id=? ORDER BY display_order,id LIMIT 1').bind(productId).first();if(first)return streamProductObject(request,env,first.r2_key,first.file_name,first.file_type);if(!p.file_key)return new Response('Not found',{status:404});return streamProductObject(request,env,p.file_key,p.file_name,p.file_type)}
-async function serveProductAsset(request,env,userId,productId,assetId){if(!(await hasProductAccess(env,userId,productId)))return new Response('Purchase required',{status:403});const a=await env.DB.prepare('SELECT * FROM product_assets WHERE id=? AND product_id=?').bind(assetId,productId).first();if(!a)return new Response('Not found',{status:404});return streamProductObject(request,env,a.r2_key,a.file_name,a.file_type)}
+async function serveProductFile(request,env,userId,productId){
+  if(!env.MEDIA)return new Response('Media unavailable',{status:503});const p=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(productId).first();if(!p||!p.file_key)return new Response('Not found',{status:404});const owned=!!(await env.DB.prepare('SELECT 1 FROM product_entitlements WHERE user_id=? AND product_id=? LIMIT 1').bind(userId,productId).first());if(!owned)return new Response('Purchase required',{status:403});const obj=await env.MEDIA.get(p.file_key);if(!obj)return new Response('Not found',{status:404});const h=new Headers();obj.writeHttpMetadata(h);h.set('cache-control','private, no-store');h.set('content-disposition',`${p.file_type==='pdf'?'inline':'attachment'}; filename="${String(p.file_name||'product').replace(/["\\]/g,'')}"`);return new Response(request.method==='HEAD'?null:obj.body,{headers:h})
+}
 
 // ---------- Payments ----------
 
@@ -791,17 +789,78 @@ function subscriptionEnd(plan) {
 
 async function bootstrapAdmin(request, env) {
   const provided = request.headers.get('x-toolcart-bootstrap-token') || '';
-  if (!env.ADMIN_BOOTSTRAP_TOKEN || !constantTimeStringEqual(provided, env.ADMIN_BOOTSTRAP_TOKEN)) return apiError('Bootstrap authorization failed.', 403);
-  const exists = await env.DB.prepare('SELECT id FROM admin_users LIMIT 1').first();
-  if (exists) return apiError('An administrator already exists. Bootstrap is disabled.', 409);
+  if (!env.ADMIN_BOOTSTRAP_TOKEN) {
+    return apiError('ADMIN_BOOTSTRAP_TOKEN is not configured in Cloudflare. Add the Worker secret, redeploy ToolCart, then try again.', 503, { code: 'bootstrap_secret_missing' });
+  }
+  if (!provided) {
+    return apiError('Enter the bootstrap token you configured in Cloudflare.', 400, { code: 'bootstrap_token_required' });
+  }
+  if (!constantTimeStringEqual(provided, env.ADMIN_BOOTSTRAP_TOKEN)) {
+    return apiError('The bootstrap token is incorrect. It must exactly match the ADMIN_BOOTSTRAP_TOKEN Worker secret in Cloudflare.', 403, { code: 'bootstrap_token_incorrect' });
+  }
+  if (!env.DB) {
+    return apiError('The ToolCart D1 database binding is not available. Confirm the DB binding in Cloudflare and redeploy.', 503, { code: 'database_binding_missing' });
+  }
+
+  let exists;
+  try {
+    exists = await env.DB.prepare('SELECT id,email FROM admin_users LIMIT 1').first();
+  } catch (err) {
+    console.error('Admin bootstrap database check failed', err);
+    return apiError('ToolCart could not access the administrator database. Confirm the D1 database and migrations are deployed, then try again.', 503, { code: 'database_unavailable' });
+  }
+  if (exists) {
+    return apiError('An administrator already exists. First-time setup is disabled. Use the normal administrator sign-in instead.', 409, { code: 'administrator_exists' });
+  }
+
   const b = await readJson(request);
-  const email = normalizeEmail(b?.email);
-  const password = String(b?.password || '');
-  const fullName = cleanText(b?.fullName, 120);
-  if (!isEmail(email) || password.length < 12 || fullName.length < 2) return apiError('Use a valid email, name and password of at least 12 characters.', 400);
-  const pw = await hashPassword(password);
-  await env.DB.prepare(`INSERT INTO admin_users(email,password_hash,password_salt,full_name,role) VALUES(?,?,?,?,'owner')`).bind(email, pw.hash, pw.salt, fullName).run();
-  return apiOk({ message: 'Owner administrator created. Remove or rotate ADMIN_BOOTSTRAP_TOKEN now.' }, 201);
+  if (!b) return apiError('The setup request could not be read. Refresh the page and try again.', 400, { code: 'invalid_request' });
+  const email = normalizeEmail(b.email);
+  const password = String(b.password || '');
+  const fullName = cleanText(b.fullName, 120);
+  if (!isEmail(email) || password.length < 12 || fullName.length < 2) {
+    return apiError('Use a valid name, email and a password of at least 12 characters.', 400, { code: 'invalid_admin_details' });
+  }
+
+  let adminId;
+  try {
+    const pw = await hashPassword(password);
+    const result = await env.DB.prepare(`INSERT INTO admin_users(email,password_hash,password_salt,full_name,role) VALUES(?,?,?,?,'owner')`).bind(email, pw.hash, pw.salt, fullName).run();
+    adminId = Number(result?.meta?.last_row_id || 0);
+    if (!adminId) {
+      const created = await env.DB.prepare('SELECT id FROM admin_users WHERE email=?').bind(email).first();
+      adminId = Number(created?.id || 0);
+    }
+    if (!adminId) throw new Error('Administrator insert completed without an id.');
+  } catch (err) {
+    console.error('Admin bootstrap create failed', err);
+    return apiError('ToolCart could not create the owner administrator in D1. Confirm the database migrations are deployed, then try again.', 503, { code: 'administrator_create_failed' });
+  }
+
+  let admin;
+  try {
+    admin = await env.DB.prepare('SELECT * FROM admin_users WHERE id=?').bind(adminId).first();
+    const session = await createSession(env, request, adminId, true);
+    await env.DB.prepare('UPDATE admin_users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(adminId).run();
+    if (admin) admin.last_login_at = new Date().toISOString();
+    return new Response(JSON.stringify({
+      ok: true,
+      created: true,
+      message: 'Owner administrator created. Remove or rotate ADMIN_BOOTSTRAP_TOKEN now.',
+      admin: sanitizeAdmin(admin || { id: adminId, email, full_name: fullName, role: 'owner', last_login_at: null }),
+      csrfToken: session.csrf,
+    }), {
+      status: 201,
+      headers: { ...jsonHeaders, 'set-cookie': session.cookie },
+    });
+  } catch (err) {
+    console.error('Admin bootstrap automatic sign-in failed', err);
+    return apiOk({
+      created: true,
+      requiresLogin: true,
+      message: 'Owner administrator was created, but automatic sign-in could not start. Return to sign in with the email and password you just chose.',
+    }, 201);
+  }
 }
 
 async function adminLogin(request, env) {
@@ -992,12 +1051,11 @@ async function adminUploadIcon(request, env, admin) {
 
 // ---------- Admin products ----------
 
-async function adminProducts(env){await releaseExpiredProductOrders(env);const rows=await env.DB.prepare(`SELECT p.*,(SELECT COUNT(DISTINCT e.user_id) FROM product_entitlements e WHERE e.product_id=p.id) AS buyers,(SELECT COALESCE(SUM(i.quantity),0) FROM product_order_items i JOIN product_orders o ON o.id=i.order_id WHERE i.product_id=p.id AND o.status='fulfilled') AS sold_quantity,(SELECT COUNT(*) FROM product_assets pa WHERE pa.product_id=p.id) AS asset_count FROM products p ORDER BY p.display_order,p.name`).all();const assetRows=(await env.DB.prepare('SELECT * FROM product_assets ORDER BY product_id,display_order,id').all()).results;const byProduct=new Map();for(const a of assetRows){if(!byProduct.has(a.product_id))byProduct.set(a.product_id,[]);byProduct.get(a.product_id).push(a)}return apiOk({products:rows.results.map(p=>({...mapProductMedia(p),assets:byProduct.get(p.id)||[]}))})}
-function parseProductAssets(b={}){let raw=Array.isArray(b.assets)?b.assets:[];if(!raw.length&&(b.fileKey||b.file_key))raw=[{key:b.fileKey||b.file_key,fileName:b.fileName||b.file_name,fileType:b.fileType||b.file_type,mimeType:b.mimeType||b.mime_type,displayOrder:0}];const assets=[];for(let i=0;i<raw.length;i++){const a=raw[i]||{},key=cleanText(a.key??a.r2_key,500),fileName=cleanText(a.fileName??a.file_name,180),fileType=['pdf','image'].includes(a.fileType??a.file_type)?(a.fileType??a.file_type):null,mimeType=cleanText(a.mimeType??a.mime_type,100);if(!key||!fileName||!fileType||!mimeType)return{error:`Protected file ${i+1} is incomplete.`};assets.push({key,fileName,fileType,mimeType,displayOrder:i})}if(!assets.length)return{error:'Upload at least one PDF or image product file first.'};return{assets}}
-function parseProductInput(b={}){const name=cleanText(b.name,120),slug=slugify(b.slug||name);if(!name||!slug)return{error:'Product name is required.'};const displayImageKey=cleanText(b.displayImageKey??b.display_image_key,500);if(!displayImageKey)return{error:'Upload a display image for this product.'};const parsedAssets=parseProductAssets(b);if(parsedAssets.error)return parsedAssets;const assets=parsedAssets.assets,first=assets[0];const accessType=b.accessType==='free'||b.access_type==='free'?'free':'paid';let priceMinor=Math.max(0,Math.trunc(Number(b.priceMinor??b.price_minor??0)));if(accessType==='free')priceMinor=0;const stockMode=b.stockMode==='unlimited'||b.stock_mode==='unlimited'?'unlimited':'finite';const stockQuantity=stockMode==='unlimited'?0:Math.max(0,Math.trunc(Number(b.stockQuantity??b.stock_quantity??0)));const currency=(cleanText(b.currency,3)||'NGN').toUpperCase();return{name,slug,assets,values:[name,slug,displayImageKey,first.key,first.fileName,first.fileType,first.mimeType,cleanText(b.shortDescription??b.short_description,280),cleanText(b.description,12000),priceMinor,currency,accessType,boolInt(b.premium),stockMode,stockQuantity,boolInt(b.active??1),boolInt(b.featured),Number((b.displayOrder??b.display_order)||0)]}}
-async function adminCreateProduct(request,env,admin){const b=await readJson(request),x=parseProductInput(b);if(x.error)return apiError(x.error,400);if(await env.DB.prepare('SELECT id FROM products WHERE slug=?').bind(x.slug).first())return apiError('A product already uses that name/slug.',409);const r=await env.DB.prepare(`INSERT INTO products(name,slug,display_image_key,file_key,file_name,file_type,mime_type,short_description,description,price_minor,currency,access_type,premium,stock_mode,stock_quantity,active,featured,display_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(...x.values).run();const id=Number(r.meta.last_row_id);await env.DB.batch(x.assets.map((a,i)=>env.DB.prepare('INSERT INTO product_assets(product_id,r2_key,file_name,file_type,mime_type,display_order) VALUES(?,?,?,?,?,?)').bind(id,a.key,a.fileName,a.fileType,a.mimeType,i)));await audit(env,admin.id,'product_created','product',String(id),{name:x.name,assetCount:x.assets.length},request);return apiOk({id,message:'Product created.'},201)}
-async function adminUpdateProduct(request,env,admin,id){const old=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(id).first();if(!old)return apiError('Product not found.',404);const oldAssets=(await env.DB.prepare('SELECT * FROM product_assets WHERE product_id=?').bind(id).all()).results;const b=await readJson(request),x=parseProductInput({...old,...b});if(x.error)return apiError(x.error,400);await env.DB.prepare(`UPDATE products SET name=?,slug=?,display_image_key=?,file_key=?,file_name=?,file_type=?,mime_type=?,short_description=?,description=?,price_minor=?,currency=?,access_type=?,premium=?,stock_mode=?,stock_quantity=?,active=?,featured=?,display_order=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(...x.values,id).run();const stmts=[env.DB.prepare('DELETE FROM product_assets WHERE product_id=?').bind(id),...x.assets.map((a,i)=>env.DB.prepare('INSERT INTO product_assets(product_id,r2_key,file_name,file_type,mime_type,display_order) VALUES(?,?,?,?,?,?)').bind(id,a.key,a.fileName,a.fileType,a.mimeType,i))];await env.DB.batch(stmts);const keep=new Set(x.assets.map(a=>a.key));for(const a of oldAssets)if(a.r2_key&&!keep.has(a.r2_key))env.MEDIA?.delete(a.r2_key).catch(console.error);if(!oldAssets.length&&old.file_key&&!keep.has(old.file_key))env.MEDIA?.delete(old.file_key).catch(console.error);if(old.display_image_key&&old.display_image_key!==x.values[2])env.MEDIA?.delete(old.display_image_key).catch(console.error);await audit(env,admin.id,'product_modified','product',String(id),{name:x.name,assetCount:x.assets.length},request);return apiOk({message:'Product updated.'})}
-async function adminDeleteProduct(env,admin,id){const p=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(id).first();if(!p)return apiError('Product not found.',404);const used=await env.DB.prepare('SELECT 1 FROM product_order_items WHERE product_id=? LIMIT 1').bind(id).first();if(used)return apiError('This product has purchase history. Mark it inactive instead of deleting it.',409);const assets=(await env.DB.prepare('SELECT r2_key FROM product_assets WHERE product_id=?').bind(id).all()).results;await env.DB.prepare('DELETE FROM products WHERE id=?').bind(id).run();for(const a of assets)if(a.r2_key)env.MEDIA?.delete(a.r2_key).catch(console.error);if(!assets.length&&p.file_key)env.MEDIA?.delete(p.file_key).catch(console.error);if(p.display_image_key)env.MEDIA?.delete(p.display_image_key).catch(console.error);await audit(env,admin.id,'product_deleted','product',String(id),{name:p.name});return apiOk({message:'Product deleted.'})}
+async function adminProducts(env){await releaseExpiredProductOrders(env);const rows=await env.DB.prepare(`SELECT p.*,(SELECT COUNT(DISTINCT e.user_id) FROM product_entitlements e WHERE e.product_id=p.id) AS buyers,(SELECT COALESCE(SUM(i.quantity),0) FROM product_order_items i JOIN product_orders o ON o.id=i.order_id WHERE i.product_id=p.id AND o.status='fulfilled') AS sold_quantity FROM products p ORDER BY p.display_order,p.name`).all();return apiOk({products:rows.results.map(mapProductMedia)})}
+function parseProductInput(b={}){const name=cleanText(b.name,120),slug=slugify(b.slug||name);if(!name||!slug)return{error:'Product name is required.'};const displayImageKey=cleanText(b.displayImageKey??b.display_image_key,500),fileKey=cleanText(b.fileKey??b.file_key,500),fileName=cleanText(b.fileName??b.file_name,180),fileType=['pdf','image'].includes(b.fileType??b.file_type)?(b.fileType??b.file_type):null,mimeType=cleanText(b.mimeType??b.mime_type,100);if(!displayImageKey)return{error:'Upload a display image for this product.'};if(!fileKey||!fileName||!fileType||!mimeType)return{error:'Upload the PDF or image product file first.'};const accessType=b.accessType==='free'||b.access_type==='free'?'free':'paid';let priceMinor=Math.max(0,Math.trunc(Number(b.priceMinor??b.price_minor??0)));if(accessType==='free')priceMinor=0;const stockMode=b.stockMode==='unlimited'||b.stock_mode==='unlimited'?'unlimited':'finite';const stockQuantity=stockMode==='unlimited'?0:Math.max(0,Math.trunc(Number(b.stockQuantity??b.stock_quantity??0)));const currency=(cleanText(b.currency,3)||'NGN').toUpperCase();return{name,slug,values:[name,slug,displayImageKey,fileKey,fileName,fileType,mimeType,cleanText(b.shortDescription??b.short_description,280),cleanText(b.description,12000),priceMinor,currency,accessType,boolInt(b.premium),stockMode,stockQuantity,boolInt(b.active??1),boolInt(b.featured),Number((b.displayOrder??b.display_order)||0)]}}
+async function adminCreateProduct(request,env,admin){const b=await readJson(request),x=parseProductInput(b);if(x.error)return apiError(x.error,400);if(await env.DB.prepare('SELECT id FROM products WHERE slug=?').bind(x.slug).first())return apiError('A product already uses that name/slug.',409);const r=await env.DB.prepare(`INSERT INTO products(name,slug,display_image_key,file_key,file_name,file_type,mime_type,short_description,description,price_minor,currency,access_type,premium,stock_mode,stock_quantity,active,featured,display_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(...x.values).run();await audit(env,admin.id,'product_created','product',String(r.meta.last_row_id),{name:x.name},request);return apiOk({id:r.meta.last_row_id,message:'Product created.'},201)}
+async function adminUpdateProduct(request,env,admin,id){const old=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(id).first();if(!old)return apiError('Product not found.',404);const b=await readJson(request),x=parseProductInput({...old,...b});if(x.error)return apiError(x.error,400);await env.DB.prepare(`UPDATE products SET name=?,slug=?,display_image_key=?,file_key=?,file_name=?,file_type=?,mime_type=?,short_description=?,description=?,price_minor=?,currency=?,access_type=?,premium=?,stock_mode=?,stock_quantity=?,active=?,featured=?,display_order=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(...x.values,id).run();if(old.file_key&&old.file_key!==x.values[3])env.MEDIA?.delete(old.file_key).catch(console.error);if(old.display_image_key&&old.display_image_key!==x.values[2])env.MEDIA?.delete(old.display_image_key).catch(console.error);await audit(env,admin.id,'product_modified','product',String(id),{name:x.name},request);return apiOk({message:'Product updated.'})}
+async function adminDeleteProduct(env,admin,id){const p=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(id).first();if(!p)return apiError('Product not found.',404);const used=await env.DB.prepare('SELECT 1 FROM product_order_items WHERE product_id=? LIMIT 1').bind(id).first();if(used)return apiError('This product has purchase history. Mark it inactive instead of deleting it.',409);await env.DB.prepare('DELETE FROM products WHERE id=?').bind(id).run();if(p.file_key)env.MEDIA?.delete(p.file_key).catch(console.error);if(p.display_image_key)env.MEDIA?.delete(p.display_image_key).catch(console.error);await audit(env,admin.id,'product_deleted','product',String(id),{name:p.name});return apiOk({message:'Product deleted.'})}
 async function adminUploadProductCover(request,env,admin){const u=await readImageUpload(request,env,`product-covers/${new Date().getUTCFullYear()}`);if(u.response)return u.response;await audit(env,admin.id,'product_cover_uploaded','r2',u.key,{size:u.size},request);return apiOk({key:u.key,url:`/media/${u.key}`})}
 async function adminUploadProductFile(request,env,admin){if(!env.MEDIA)return apiError('R2 media storage is not configured.',503);let form;try{form=await request.formData()}catch{return apiError('Invalid upload.',400)}const file=form.get('file');if(!(file instanceof File))return apiError('Product file is required.',400);const allowed={'application/pdf':'pdf','image/webp':'image','image/png':'image','image/jpeg':'image'};const type=allowed[file.type];if(!type)return apiError('Upload a PDF, WebP, PNG or JPEG file.',400);if(file.size>25*1024*1024)return apiError('Product file is too large. Maximum size is 25 MB.',400);const ext=file.type==='application/pdf'?'pdf':file.type==='image/webp'?'webp':file.type==='image/png'?'png':'jpg';const safe=(file.name||`product.${ext}`).replace(/[^a-zA-Z0-9._-]/g,'-').slice(-160);const key=`product-files/${new Date().getUTCFullYear()}/${Date.now()}-${randomToken(8).replace(/[^a-zA-Z0-9]/g,'').slice(0,8)}.${ext}`;await env.MEDIA.put(key,file.stream(),{httpMetadata:{contentType:file.type,cacheControl:'private, no-store'}});await audit(env,admin.id,'product_file_uploaded','r2',key,{contentType:file.type,size:file.size},request);return apiOk({key,fileName:safe,fileType:type,mimeType:file.type,size:file.size})}
 
@@ -1126,7 +1184,7 @@ async function adminPromos(env){const rows=await env.DB.prepare('SELECT * FROM p
 async function adminCreatePromo(request,env,admin){const b=await readJson(request);const title=cleanText(b?.title,120),message=cleanText(b?.message,500);if(!title||!message)return apiError('Title and message are required.',400);const mode=['card','popup','floating'].includes(b?.displayMode)?b.displayMode:'card';const r=await env.DB.prepare(`INSERT INTO promo_campaigns(title,message,image_key,icon_key,destination_url,enabled,target_audience,target_value_json,opening_delay_ms,closing_delay_ms,start_at,expires_at,display_mode,display_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(title,message,cleanText(b?.imageKey,500)||null,cleanText(b?.iconKey,500)||null,safeHttpUrl(b?.destinationUrl)?b.destinationUrl:null,boolInt(b?.enabled??1),cleanText(b?.targetAudience,40)||'all',JSON.stringify(Array.isArray(b?.targetValues)?b.targetValues:[]),Math.max(0,Number(b?.openingDelayMs||2500)),Number(b?.closingDelayMs)||null,dateOrNull(b?.startAt),dateOrNull(b?.expiresAt),mode,Number(b?.displayOrder||0)).run();await audit(env,admin.id,'promo_created','promo',String(r.meta.last_row_id),{title},request);return apiOk({id:r.meta.last_row_id,message:'Promotion created.'},201);}
 
 async function adminAudit(env,params){const page=Math.max(1,Number(params.get('page')||1));const rows=await env.DB.prepare(`SELECT l.*,a.full_name AS admin_name,a.email AS admin_email FROM audit_logs l LEFT JOIN admin_users a ON a.id=l.admin_user_id ORDER BY l.created_at DESC LIMIT 100 OFFSET ?`).bind((page-1)*100).all();return apiOk({logs:rows.results,page,hasMore:rows.results.length===100});}
-async function adminDiagnostics(env){const checks={d1:true,r2:!!env.MEDIA,resend:mailConfigured(env),paystack:!!env.PAYSTACK_SECRET_KEY,assets:!!env.ASSETS};try{await env.DB.prepare('SELECT 1').first()}catch{checks.d1=false}return apiOk({checks,version:'1.9.0',note:'This is a configuration check, not an external provider health guarantee.'});}
+async function adminDiagnostics(env){const checks={d1:true,r2:!!env.MEDIA,resend:mailConfigured(env),paystack:!!env.PAYSTACK_SECRET_KEY,assets:!!env.ASSETS};try{await env.DB.prepare('SELECT 1').first()}catch{checks.d1=false}return apiOk({checks,version:'1.8.0',note:'This is a configuration check, not an external provider health guarantee.'});}
 
 // ---------- Shared helpers ----------
 

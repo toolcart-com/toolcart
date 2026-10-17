@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="pearl">
+<html lang="en" data-theme="midnight">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="ToolCart" />
-  <meta name="description" content="ToolCart. Everything you use, beautifully together." />
+  <meta name="description" content="ToolCart. A premium ecosystem for every working tool you use." />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icon-192.png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -15,48 +15,106 @@
   <title>ToolCart</title>
 </head>
 <body>
-  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div><div class="noise"></div>
+  <div class="app-ambient ambient-one"></div>
+  <div class="app-ambient ambient-two"></div>
+  <div class="noise-layer"></div>
+  <div class="scroll-progress"><span id="scrollProgress"></span></div>
   <div id="toastHost" class="toast-host" aria-live="polite"></div>
 
-  <main id="signedOut" class="signed-out hidden">
-    <header class="public-nav reveal">
-      <a class="brand" href="/" aria-label="ToolCart home"><img src="/toolcart-logo.png" alt="" /><span>ToolCart</span></a>
-      <button class="btn btn-ghost compact" data-auth="login">Sign in</button>
+  <main id="signedOut" class="public-shell hidden">
+    <header class="public-nav shell-width reveal-on-scroll visible">
+      <a class="brand" href="/" aria-label="ToolCart home">
+        <img src="/toolcart-logo.png" alt="" />
+        <div>
+          <strong>ToolCart</strong>
+          <span>Premium ecosystem control</span>
+        </div>
+      </a>
+      <div class="public-actions">
+        <button class="btn btn-secondary compact" data-auth="login">Sign in</button>
+        <button class="btn btn-primary compact" data-auth="register">Create account</button>
+      </div>
     </header>
-    <section class="public-hero">
-      <div class="eyebrow reveal delay-1"><span class="live-dot"></span> One account. Every tool. Beautifully together.</div>
-      <h1 class="display reveal delay-2">All working tools,<br><span>in one place.</span></h1>
-      <p class="lede reveal delay-3">Easy access to all working tools. Launch products, catch updates and manage your tools in one account.</p>
-      <div class="hero-actions reveal delay-4">
-        <button class="btn btn-primary" data-auth="register">Create account</button>
-        <button class="btn btn-secondary" data-auth="login">Sign in</button>
+
+    <section class="public-hero shell-width">
+      <div class="hero-column reveal-on-scroll visible">
+        <span class="eyebrow">ONE ACCOUNT. EVERY TOOL. A PREMIUM HOME.</span>
+        <h1 class="public-title">Bring every working tool into one cinematic ecosystem.</h1>
+        <p class="public-lede">ToolCart turns your products, updates, support requests and subscriptions into one elegant destination with a premium dark interface, fluid motion and immediate access.</p>
+        <div class="hero-cta-row">
+          <button class="btn btn-primary" data-auth="register">Get started</button>
+          <button class="btn btn-secondary" data-auth="login">I already have an account</button>
+        </div>
+        <div class="hero-stat-row">
+          <article class="metric-card"><span>Unified launcher</span><strong>1</strong><small>beautiful control center</small></article>
+          <article class="metric-card"><span>Account space</span><strong>All</strong><small>products, updates and support</small></article>
+          <article class="metric-card"><span>Visual language</span><strong>Premium</strong><small>dark, minimal, alive</small></article>
+        </div>
       </div>
-      <div class="hero-orbit reveal delay-5" aria-hidden="true">
-        <div class="orbit-core"><img src="/toolcart-logo.png" alt="" /></div>
-        <div class="orbit-card orbit-1">Tools</div><div class="orbit-card orbit-2">Updates</div><div class="orbit-card orbit-3">Payments</div>
+      <div class="hero-showcase reveal-on-scroll visible">
+        <div class="showcase-panel showcase-panel-large">
+          <span class="eyebrow">TOOLCART EXPERIENCE</span>
+          <h2>Elegant. Responsive. Built to feel expensive.</h2>
+          <p>Designed with more breathing room, deeper contrast, subtle motion and a curated layout that feels closer to a premium product experience than a simple dashboard.</p>
+        </div>
+        <div class="showcase-grid">
+          <article class="showcase-panel">
+            <span class="eyebrow">TOOLS</span>
+            <h3>Launch instantly</h3>
+            <p>Jump into your products from a refined home screen.</p>
+          </article>
+          <article class="showcase-panel">
+            <span class="eyebrow">UPDATES</span>
+            <h3>Stay current</h3>
+            <p>See new releases, security notes and announcements in one place.</p>
+          </article>
+          <article class="showcase-panel">
+            <span class="eyebrow">REQUESTS</span>
+            <h3>Support, elevated</h3>
+            <p>Send requests and track replies inside your ecosystem account.</p>
+          </article>
+          <article class="showcase-panel">
+            <span class="eyebrow">SUBSCRIPTIONS</span>
+            <h3>Control access</h3>
+            <p>Manage plans, billing and premium access cleanly.</p>
+          </article>
+        </div>
       </div>
     </section>
-    <section class="public-preview shell">
-      <div class="section-heading"><div><span class="eyebrow">Inside ToolCart</span><h2>All your working tools, together.</h2></div></div>
+
+    <section class="public-story shell-width reveal-on-scroll">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">INSIDE TOOLCART</span>
+          <h2>A calmer, more premium product home.</h2>
+        </div>
+      </div>
       <div id="publicApps" class="public-app-grid"></div>
-      <div class="public-feature-grid">
-        <article class="feature-card"><span class="mini-icon">01</span><h3>Launch instantly</h3><p>Open working tools instantly from one clean launcher.</p></article>
-        <article class="feature-card"><span class="mini-icon">02</span><h3>Stay current</h3><p>Updates, maintenance notices and ecosystem announcements arrive in one place.</p></article>
-        <article class="feature-card"><span class="mini-icon">03</span><h3>Manage everything</h3><p>Subscriptions, payments, support requests, devices and preferences live under one account.</p></article>
-      </div>
     </section>
-    <footer class="public-footer"><div class="brand"><img src="/toolcart-logo.png" alt=""/><span>ToolCart</span></div><p>Premium access to your digital ecosystem.</p></footer>
+
+    <section class="public-feature-band shell-width reveal-on-scroll">
+      <article class="feature-card"><span class="eyebrow">ELEGANT NAVIGATION</span><h3>Long-form homepage</h3><p>More space, more storytelling, more polish. The homepage is no longer cramped or rushed.</p></article>
+      <article class="feature-card"><span class="eyebrow">LIVE MOTION</span><h3>Scrolling that feels alive</h3><p>Subtle reveal animations and motion cues make the interface feel more premium and responsive.</p></article>
+      <article class="feature-card"><span class="eyebrow">PREMIUM DARK THEME</span><h3>Inspired by modern hardware pages</h3><p>Rich blacks, soft gradients and controlled contrast deliver a more expensive feel.</p></article>
+    </section>
   </main>
 
   <main id="appShell" class="app-shell hidden">
     <section id="introScreen" class="intro-screen hidden">
       <div class="intro-mark"><img src="/toolcart-logo.png" alt="" /></div>
-      <p id="introGreeting">Welcome back.</p><h1>Everything you use,<br>in one place.</h1>
+      <p id="introGreeting">Welcome back.</p>
+      <h1>Everything you use.<br>Beautifully together.</h1>
     </section>
 
-    <div class="mobile-shell">
-      <header class="app-topbar panel-enter">
-        <button id="profileBtn" class="profile-chip" aria-label="Profile"><div id="avatar" class="avatar">T</div><div><span id="greeting">Good evening</span><strong id="firstName">there</strong></div></button>
+    <div class="mobile-shell shell-width">
+      <header class="app-topbar reveal-on-scroll visible">
+        <button id="profileBtn" class="profile-chip" aria-label="Profile">
+          <div id="avatar" class="avatar">T</div>
+          <div class="profile-copy">
+            <span id="greeting">Good evening</span>
+            <strong id="firstName">there</strong>
+          </div>
+        </button>
         <div class="top-actions">
           <button id="searchBtn" class="icon-btn" aria-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.25"></circle><path d="m16 16 4 4"></path></svg></button>
           <button id="cartBtn" class="icon-btn cart-btn" aria-label="Cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5h2l1.6 9.2h10.4l2-6.4H6.2"></path><circle cx="9" cy="18.5" r="1.2"></circle><circle cx="17" cy="18.5" r="1.2"></circle></svg><i id="cartBadge" class="count-badge hidden">0</i></button>
@@ -65,69 +123,106 @@
       </header>
 
       <section id="homeView" class="view active">
-        <section class="home-glance home-glance-stable">
-          <div class="home-glance-top">
-            <span class="eyebrow">YOUR ECOSYSTEM</span>
-            <button class="plan-pill" id="planPill">Free</button>
+        <section class="home-hero reveal-on-scroll visible">
+          <div class="home-hero-main">
+            <div class="home-hero-head">
+              <span class="eyebrow">TOOLCART ECOSYSTEM</span>
+              <button class="plan-pill" id="planPill">Free</button>
+            </div>
+            <h1 id="heroName" class="hero-message"><span>Everything you run.</span><span>One elevated workspace.</span></h1>
+            <p id="heroSubcopy">Open your tools, catch updates and manage your account inside a more premium ToolCart experience.</p>
+            <div class="hero-launcher">
+              <div class="section-heading hero-launcher-heading">
+                <div>
+                  <span class="eyebrow">CURATED TOOLS</span>
+                  <h2>Launch what matters.</h2>
+                </div>
+                <button class="text-btn" data-tab="apps">View all</button>
+              </div>
+              <div id="homeApps" class="home-tools-grid hero-tools-grid"></div>
+            </div>
           </div>
-          <div class="home-glance-copy">
-            <h1 id="heroName" class="hero-message"><span>All working tools</span><span>in one place.</span></h1>
-            <p id="heroSubcopy">Easy access to all working tools. Launch products, catch updates and manage your tools in one account.</p>
+          <div class="home-hero-side">
+            <article class="spotlight-card">
+              <span class="eyebrow">PREMIUM CONTROL</span>
+              <h3 id="heroStatusLine">Your ecosystem is ready.</h3>
+              <p id="heroSupportMail">Updates, launches and support live together here.</p>
+            </article>
+            <div id="homeFeatureStrip" class="feature-strip"></div>
           </div>
         </section>
 
-        <section class="content-section launcher-section panel-enter delay-2">
-          <div class="section-heading compact-heading"><div><span class="eyebrow">YOUR TOOLS</span><h2>Tools</h2></div><button class="text-btn" data-tab="apps">View all</button></div>
-          <div id="homeApps" class="app-grid launcher-grid"></div>
-        </section>
-
-        <section id="recentSection" class="content-section panel-enter delay-3 hidden">
-          <div class="section-heading compact-heading"><div><span class="eyebrow">RECENT</span><h2>Opened recently</h2></div></div>
+        <section id="recentSection" class="content-section reveal-on-scroll hidden">
+          <div class="section-heading compact-heading"><div><span class="eyebrow">RECENT ACTIVITY</span><h2>Continue where you left off.</h2></div></div>
           <div id="recentApps" class="recent-strip"></div>
         </section>
 
-        <section class="content-section panel-enter delay-4">
-          <div class="section-heading compact-heading"><div><span class="eyebrow">LATEST</span><h2>Updates</h2></div><button class="text-btn" data-tab="updates">View all</button></div>
+        <section class="content-section reveal-on-scroll">
+          <div class="section-heading compact-heading"><div><span class="eyebrow">EXPERIENCE</span><h2>Premium touches across your account.</h2></div></div>
+          <div class="experience-grid">
+            <article class="experience-card"><span class="eyebrow">TOOLS</span><h3>Cleaner hierarchy</h3><p>More whitespace and better spacing make the interface feel calmer and more expensive.</p></article>
+            <article class="experience-card"><span class="eyebrow">MOTION</span><h3>Alive scrolling</h3><p>Sections reveal as you move, giving the homepage a more polished, cinematic rhythm.</p></article>
+            <article class="experience-card"><span class="eyebrow">CONTROL</span><h3>Everything in one place</h3><p>Requests, settings, notifications and product access stay beautifully organized.</p></article>
+          </div>
+        </section>
+
+        <section class="content-section reveal-on-scroll">
+          <div class="section-heading compact-heading"><div><span class="eyebrow">LATEST</span><h2>What’s new.</h2></div><button class="text-btn" data-tab="updates">View all</button></div>
           <div id="homeUpdates" class="update-stack"></div>
         </section>
 
-        <section class="content-section compact-account-section panel-enter delay-5">
+        <section class="content-section reveal-on-scroll">
           <div id="subscriptionCard" class="subscription-card"></div>
         </section>
-        <div id="promoArea" class="content-section"></div>
+
+        <section class="content-section reveal-on-scroll">
+          <div class="request-callout">
+            <span class="mini-icon">↗</span>
+            <div>
+              <strong>Need help or want something new?</strong>
+              <p>Send a feature request, report an issue or contact support without leaving ToolCart.</p>
+            </div>
+            <button class="btn btn-secondary compact" data-tab="requests">Open Requests</button>
+          </div>
+        </section>
+
+        <div id="promoArea" class="content-section reveal-on-scroll"></div>
       </section>
 
       <section id="appsView" class="view">
-        <div class="view-header"><div><span class="eyebrow">TOOLCART</span><h1>Tools</h1></div><button class="icon-btn" data-go-home aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 11 8-7 8 7"></path><path d="M6.5 10.5V20h11v-9.5"></path></svg></button></div>
-        <div class="search-field"><span>⌕</span><input id="appSearch" placeholder="Search tools" autocomplete="off" /></div>
-        <div id="categoryChips" class="chip-row"></div>
-        <div class="section-heading compact-heading"><h2>All Tools</h2><span id="appCount" class="muted"></span></div>
-        <div id="appsGrid" class="app-grid apps-page-grid launcher-grid"></div>
+        <div class="view-header reveal-on-scroll visible">
+          <div><span class="eyebrow">PRODUCT LAUNCHER</span><h1>All tools</h1></div>
+          <button class="icon-btn" data-go-home aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 11 8-7 8 7"></path><path d="M6.5 10.5V20h11v-9.5"></path></svg></button>
+        </div>
+        <div class="search-field reveal-on-scroll visible"><span>⌕</span><input id="appSearch" placeholder="Search tools" autocomplete="off" /></div>
+        <div id="categoryChips" class="chip-row reveal-on-scroll visible"></div>
+        <div class="section-heading compact-heading reveal-on-scroll visible"><h2>Explore your ecosystem</h2><span id="appCount" class="muted"></span></div>
+        <div id="appsGrid" class="apps-grid"></div>
       </section>
 
       <section id="updatesView" class="view">
-        <div class="view-header"><div><span class="eyebrow">WHAT'S NEW</span><h1>Updates</h1></div><button class="icon-btn" data-go-home aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 11 8-7 8 7"></path><path d="M6.5 10.5V20h11v-9.5"></path></svg></button></div>
-        <div id="updateFilters" class="chip-row"><button class="chip active" data-update-filter="all">All</button><button class="chip" data-update-filter="unread">Unread</button><button class="chip" data-update-filter="important">Important</button></div>
+        <div class="view-header reveal-on-scroll visible"><div><span class="eyebrow">RELEASES & NEWS</span><h1>Updates</h1></div><button class="icon-btn" data-go-home aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 11 8-7 8 7"></path><path d="M6.5 10.5V20h11v-9.5"></path></svg></button></div>
+        <div id="updateFilters" class="chip-row reveal-on-scroll visible"><button class="chip active" data-update-filter="all">All</button><button class="chip" data-update-filter="unread">Unread</button><button class="chip" data-update-filter="important">Important</button></div>
         <div id="updatesList" class="update-stack large"></div>
       </section>
 
       <section id="requestsView" class="view">
-        <div class="view-header"><div><span class="eyebrow">SUPPORT</span><h1>Requests</h1></div><button class="btn btn-primary compact" id="newRequestBtn">New request</button></div>
-        <div class="request-callout"><span class="mini-icon">↗</span><div><strong>Need something?</strong><p>Send a bug report, account issue, feature request or payment question.</p></div></div>
+        <div class="view-header reveal-on-scroll visible"><div><span class="eyebrow">SUPPORT CENTER</span><h1>Requests</h1></div><button class="btn btn-primary compact" id="newRequestBtn">New request</button></div>
+        <div class="request-callout reveal-on-scroll visible"><span class="mini-icon">↗</span><div><strong>Direct line to support</strong><p>Track issues, ask questions and request features for every product in your ecosystem.</p></div></div>
         <div id="requestsList" class="request-list"></div>
       </section>
 
       <section id="settingsView" class="view">
-        <div class="view-header"><div><span class="eyebrow">ACCOUNT</span><h1>Settings</h1></div><button class="icon-btn" data-go-home aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 11 8-7 8 7"></path><path d="M6.5 10.5V20h11v-9.5"></path></svg></button></div>
-        <div id="settingsProfileCard" class="settings-profile"></div>
-        <div class="settings-groups">
-          <div class="settings-group"><button data-setting="profile"><span>Account</span><b>›</b></button><button data-setting="security"><span>Security</span><b>›</b></button><button data-setting="notifications"><span>Notifications</span><b>›</b></button><button data-setting="appearance"><span>Appearance</span><b>›</b></button><button data-setting="devices"><span>Devices</span><b>›</b></button></div>
+        <div class="view-header reveal-on-scroll visible"><div><span class="eyebrow">ACCOUNT</span><h1>Settings</h1></div><button class="icon-btn" data-go-home aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 11 8-7 8 7"></path><path d="M6.5 10.5V20h11v-9.5"></path></svg></button></div>
+        <div id="settingsProfileCard" class="settings-profile reveal-on-scroll visible"></div>
+        <div class="settings-groups reveal-on-scroll visible">
+          <div class="settings-group"><button data-setting="profile"><span>Account</span><b>›</b></button><button data-setting="security"><span>Security</span><b>›</b></button><button data-setting="notifications"><span>Notifications</span><b>›</b></button><button data-setting="devices"><span>Devices</span><b>›</b></button></div>
           <div class="settings-group"><button data-setting="subscription"><span>Subscription</span><b>›</b></button><button data-setting="payments"><span>Payments</span><b>›</b></button><button data-setting="support"><span>Support</span><b>›</b></button><button data-setting="privacy"><span>Privacy</span><b>›</b></button></div>
           <button id="signOutBtn" class="danger-row">Sign out</button>
         </div>
       </section>
 
-      <nav id="dock" class="floating-dock dock-reveal" aria-label="Primary navigation">
+      <nav id="dock" class="floating-dock" aria-label="Primary navigation">
         <button class="dock-item" data-tab="apps"><span class="dock-icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"></rect><rect x="14" y="4" width="6" height="6" rx="1.5"></rect><rect x="4" y="14" width="6" height="6" rx="1.5"></rect><rect x="14" y="14" width="6" height="6" rx="1.5"></rect></svg></span><em>Tools</em></button>
         <button class="dock-item" data-tab="updates"><span class="dock-icon"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9"></path></svg></span><em>Updates</em><i id="dockUpdateBadge" class="dot-badge hidden"></i></button>
         <button class="dock-home active" data-tab="home" aria-label="Home"><img src="/toolcart-logo.png" alt="" /></button>

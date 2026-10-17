@@ -1,6 +1,14 @@
-# ToolCart V1.10 — Admin Upload Switch Placement Fix
+# ToolCart V1.10 — Three-Up Home Tool Panels
 
-- The Add tool / Add product switch no longer uses sticky positioning inside the Admin form.
-- The switch now stays in the normal form layout and scrolls naturally with the form.
-- It no longer overlays Display image, protected product files, or other product fields on iPhone Safari.
-- No D1 migration is required.
+Built on top of V1.9.
+
+## What changed
+- Restored the Home tools section to a 3-cards-in-one-row mobile layout.
+- Kept the expanded panel-card design instead of reverting to the old plain icon tiles.
+- Preserved tool details by keeping the title, status badge, and a compact short description inside each card.
+- Rearranged spacing, icon size, badge size, and text scale so the cards fit neatly without looking crowded.
+
+## Notes
+- This update focuses on the Home tools section.
+- The larger detailed card style remains active, but the layout is more compact and balanced on mobile.
+- No database migration required.
