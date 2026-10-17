@@ -1,17 +1,21 @@
 # ToolCart V1.8
 
-Upload the contents of the **Changes Only** package to the root of the existing ToolCart GitHub repository and replace matching files.
+ToolCart V1.8 adds the Digital Products Marketplace.
 
-No D1 migration is required.
+## Updating an existing ToolCart project
 
-## First administrator
+Upload all files from `ToolCart-V1.8-Changes-Only` to the root of the existing GitHub repository and replace matching files.
 
-1. In Cloudflare, add a Worker secret named `ADMIN_BOOTSTRAP_TOKEN` with a long temporary random value.
-2. Deploy/redeploy ToolCart.
-3. Open `/admin` and choose **First-time administrator setup**.
-4. Enter the same temporary bootstrap token, your administrator name, email and a password of at least 12 characters.
-5. On success, ToolCart automatically signs you in and opens the Admin dashboard.
-6. Remove or rotate `ADMIN_BOOTSTRAP_TOKEN` in Cloudflare after the owner administrator is created.
-7. Use the normal `/admin` sign-in form from then on.
+Keep the Cloudflare deploy command exactly as:
 
-If setup cannot continue, V1.8 keeps a clear error message visible inside the setup form instead of relying only on a temporary toast.
+`npm run db:migrate:remote && npx wrangler deploy`
+
+Unlike the recent visual-only versions, **V1.8 includes a required D1 migration**: `0003_products_marketplace.sql`.
+
+## No new Cloudflare binding
+
+V1.8 uses the D1 and R2 bindings already configured for ToolCart. Paystack remains optional until paid checkout is needed. If Paystack is not configured, paid products can still be purchased using sufficient ToolCart wallet balance.
+
+## Product file security
+
+The protected product PDF/image is not exposed through the normal `/media/` route. Product access is checked server-side against the authenticated customer's entitlement before the file is streamed.

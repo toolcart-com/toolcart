@@ -10,9 +10,5 @@
 .admin-setup-note{padding:13px 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface2);display:grid;gap:5px;color:var(--muted);font-size:12px;line-height:1.45}
 .admin-setup-note strong{color:var(--text);font-size:13px}
 
-/* ToolCart V1.8 — resilient first-time admin setup feedback */
-.admin-setup-status{border:1px solid var(--line);border-radius:14px;padding:12px 13px;font-size:12px;line-height:1.45;background:var(--surface2);color:var(--muted)}
-.admin-setup-status.error{border-color:rgba(255,124,140,.36);background:rgba(255,124,140,.07);color:var(--danger)}
-.admin-setup-status.success{border-color:rgba(83,214,144,.32);background:rgba(83,214,144,.07);color:var(--ok)}
-.admin-setup-status.info{border-color:rgba(88,166,255,.28);background:rgba(88,166,255,.07);color:var(--text)}
-.admin-first-setup .btn[disabled]{opacity:.62;cursor:wait}
+/* ToolCart V1.8 — Product administration */
+.product-admin-grid{align-items:stretch}.product-admin-card{cursor:pointer}.product-admin-cover{width:76px;height:76px;border-radius:20px;overflow:hidden;background:linear-gradient(145deg,var(--surface3),var(--surface2));border:1px solid var(--line);display:grid;place-items:center;font-weight:850;font-size:22px}.product-admin-cover img{width:100%;height:100%;object-fit:cover}.product-admin-cover.preview{width:92px;height:92px;flex:0 0 92px}.product-admin-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.product-admin-meta span{font-size:10px;font-weight:750;padding:6px 8px;border-radius:999px;background:var(--surface3);border:1px solid var(--line);color:var(--muted)}.product-upload-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.product-upload-row input[type=file]{max-width:100%}

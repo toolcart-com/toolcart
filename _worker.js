@@ -31,7 +31,7 @@ async function handleApi(request, env, ctx, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'OPTIONS') return new Response(null, { status: 204 });
-  if (pathname === '/api/health') return apiOk({ ok: true, service: 'ToolCart', version: '1.8.0' });
+  if (pathname === '/api/health') return apiOk({ ok: true, service: 'ToolCart', version: '1.0.0' });
 
   if (pathname === '/api/public/bootstrap' && method === 'GET') return publicBootstrap(env);
   if (pathname === '/api/auth/register' && method === 'POST') return register(request, env);
@@ -86,6 +86,16 @@ async function handleUserApi(request, env, ctx, url, auth) {
   if (path.match(/^\/api\/apps\/\d+\/favorite$/) && method === 'POST') return toggleFavorite(env, user.id, Number(path.split('/')[3]));
   if (path.match(/^\/api\/apps\/\d+\/open$/) && method === 'POST') return openApp(env, user.id, Number(path.split('/')[3]));
 
+  if (path === '/api/products' && method === 'GET') return listProducts(env, user.id);
+  if (path.match(/^\/api\/products\/\d+$/) && method === 'GET') return getProductDetail(env, user.id, Number(path.split('/')[3]));
+  if (path.match(/^\/api\/products\/\d+\/file$/) && method === 'GET') return serveProductFile(request, env, user.id, Number(path.split('/')[3]));
+  if (path.match(/^\/api\/products\/\d+\/buy$/) && method === 'POST') return buyProductNow(request, env, user, Number(path.split('/')[3]));
+  if (path === '/api/cart' && method === 'GET') return getCart(env, user.id);
+  if (path === '/api/cart/items' && method === 'POST') return addCartItem(request, env, user.id);
+  if (path.match(/^\/api\/cart\/items\/\d+$/) && method === 'PATCH') return updateCartItem(request, env, user.id, Number(path.split('/')[4]));
+  if (path.match(/^\/api\/cart\/items\/\d+$/) && method === 'DELETE') return deleteCartItem(env, user.id, Number(path.split('/')[4]));
+  if (path === '/api/cart/checkout' && method === 'POST') return checkoutCart(request, env, user);
+
   if (path === '/api/updates' && method === 'GET') return listUpdates(env, user.id);
   if (path.match(/^\/api\/updates\/\d+\/read$/) && method === 'POST') return readUpdate(env, user.id, Number(path.split('/')[3]));
 
@@ -123,6 +133,13 @@ async function handleAdminApi(request, env, ctx, url, admin) {
   if (path.match(/^\/api\/admin\/apps\/\d+$/) && method === 'PATCH') return adminUpdateApp(request, env, admin, Number(path.split('/')[4]));
   if (path.match(/^\/api\/admin\/apps\/\d+$/) && method === 'DELETE') return adminDeleteApp(env, admin, Number(path.split('/')[4]));
   if (path === '/api/admin/uploads/icon' && method === 'POST') return adminUploadIcon(request, env, admin);
+
+  if (path === '/api/admin/products' && method === 'GET') return adminProducts(env);
+  if (path === '/api/admin/products' && method === 'POST') return adminCreateProduct(request, env, admin);
+  if (path.match(/^\/api\/admin\/products\/\d+$/) && method === 'PATCH') return adminUpdateProduct(request, env, admin, Number(path.split('/')[4]));
+  if (path.match(/^\/api\/admin\/products\/\d+$/) && method === 'DELETE') return adminDeleteProduct(env, admin, Number(path.split('/')[4]));
+  if (path === '/api/admin/uploads/product-cover' && method === 'POST') return adminUploadProductCover(request, env, admin);
+  if (path === '/api/admin/uploads/product-file' && method === 'POST') return adminUploadProductFile(request, env, admin);
 
   if (path === '/api/admin/updates' && method === 'GET') return adminUpdates(env);
   if (path === '/api/admin/updates' && method === 'POST') return adminCreateUpdate(request, env, admin);
@@ -402,16 +419,19 @@ async function publicBootstrap(env) {
 }
 
 async function userBootstrap(env, user) {
-  const [apps, updates, notifs, plan, recents, promos, settings] = await Promise.all([
+  const [apps, products, updates, notifs, plan, recents, promos, settings, wallet, cartCount] = await Promise.all([
     listAppsData(env, user.id),
+    listProductsData(env, user.id),
     listUpdatesData(env, user.id, 8),
     listNotificationsData(env, user.id, 'unread', 8),
     currentPlan(env, user.id),
     recentApps(env, user.id),
     activePromos(env, user.id),
     getPublicSettings(env),
+    getWallet(env, user.id),
+    getCartCount(env, user.id),
   ]);
-  return apiOk({ user: sanitizeUser(user), apps, updates, notifications: notifs, currentPlan: plan, recentApps: recents, promos, settings });
+  return apiOk({ user: sanitizeUser(user), apps, products, wallet, cartCount, updates, notifications: notifs, currentPlan: plan, recentApps: recents, promos, settings });
 }
 
 async function getProfile(env, userId) {
@@ -596,15 +616,90 @@ async function listPayments(env, userId) {
 
 async function searchEcosystem(env, userId, query) {
   const q = cleanText(query, 80).trim();
-  if (q.length < 2) return apiOk({ apps: [], updates: [], requests: [], settings: [] });
+  if (q.length < 2) return apiOk({ apps: [], products: [], updates: [], requests: [], settings: [] });
   const like = `%${q.replace(/[%_]/g, '')}%`;
-  const [apps, updates, requests] = await Promise.all([
+  const [apps, products, updates, requests] = await Promise.all([
     env.DB.prepare(`SELECT id,name,slug,short_description,icon_key,accent_color,status FROM apps WHERE enabled=1 AND visibility='public' AND (name LIKE ? OR short_description LIKE ?) ORDER BY display_order LIMIT 12`).bind(like, like).all(),
+    env.DB.prepare(`SELECT id,name,short_description,display_image_key,price_minor,currency,access_type,stock_mode,stock_quantity,premium FROM products WHERE active=1 AND (name LIKE ? OR short_description LIKE ? OR description LIKE ?) ORDER BY featured DESC,display_order LIMIT 12`).bind(like,like,like).all(),
     env.DB.prepare(`SELECT id,title,summary,update_type,publish_at FROM updates WHERE status='published' AND (title LIKE ? OR summary LIKE ?) ORDER BY publish_at DESC LIMIT 12`).bind(like, like).all(),
     env.DB.prepare(`SELECT id,reference_number,subject,status,updated_at FROM requests WHERE user_id=? AND (subject LIKE ? OR reference_number LIKE ?) ORDER BY updated_at DESC LIMIT 12`).bind(userId, like, like).all(),
   ]);
   const settings = ['Account','Security','Notifications','Appearance','Language','Subscription','Payments','Devices','Privacy','Support'].filter(x => x.toLowerCase().includes(q.toLowerCase())).map(name => ({ name }));
-  return apiOk({ apps: apps.results.map(mapAppMedia), updates: updates.results, requests: requests.results, settings });
+  return apiOk({ apps: apps.results.map(mapAppMedia), products: products.results.map(mapProductMedia), updates: updates.results, requests: requests.results, settings });
+}
+
+// ---------- Digital products marketplace ----------
+
+async function ensureWallet(env,userId,currency='NGN'){
+  currency=(currency||'NGN').toUpperCase().slice(0,3);
+  await env.DB.prepare(`INSERT OR IGNORE INTO wallet_accounts(user_id,balance_minor,currency) VALUES(?,0,?)`).bind(userId,currency).run();
+}
+async function getWallet(env,userId){
+  await ensureWallet(env,userId,'NGN');
+  const w=await env.DB.prepare('SELECT balance_minor,currency,updated_at FROM wallet_accounts WHERE user_id=?').bind(userId).first();
+  return {balanceMinor:Number(w?.balance_minor||0),currency:w?.currency||'NGN',updatedAt:w?.updated_at||null};
+}
+async function getCartCount(env,userId){const r=await env.DB.prepare('SELECT COALESCE(SUM(quantity),0) AS c FROM cart_items WHERE user_id=?').bind(userId).first();return Number(r?.c||0)}
+function productStockLabel(p){if(p.stock_mode==='unlimited')return'Unlimited stock';const n=Math.max(0,Number(p.stock_quantity||0));return n===0?'Out of stock':`${n} in stock`}
+function mapProductMedia(p){return{...p,display_image_url:p.display_image_key?`/media/${p.display_image_key}`:null,stock_label:productStockLabel(p),in_stock:p.stock_mode==='unlimited'||Number(p.stock_quantity)>0,price_minor:Number(p.price_minor||0)}}
+async function listProductsData(env,userId){
+  await releaseExpiredProductOrders(env);
+  const rows=await env.DB.prepare(`SELECT p.*,CASE WHEN EXISTS(SELECT 1 FROM product_entitlements e WHERE e.user_id=? AND e.product_id=p.id) THEN 1 ELSE 0 END AS owned FROM products p WHERE p.active=1 ORDER BY p.featured DESC,p.display_order,p.name`).bind(userId).all();
+  return rows.results.map(mapProductMedia);
+}
+async function listProducts(env,userId){return apiOk({products:await listProductsData(env,userId),wallet:await getWallet(env,userId),cartCount:await getCartCount(env,userId)})}
+async function getProductDetail(env,userId,productId){
+  const p=await env.DB.prepare(`SELECT p.*,COALESCE((SELECT SUM(quantity) FROM product_entitlements e WHERE e.user_id=? AND e.product_id=p.id),0) AS owned_quantity FROM products p WHERE p.id=?`).bind(userId,productId).first();
+  if(!p||!p.active)return apiError('Product not found.',404);
+  const hasAccess=Number(p.owned_quantity)>0;
+  return apiOk({product:{...mapProductMedia(p),has_access:hasAccess,owned_quantity:Number(p.owned_quantity||0)},wallet:await getWallet(env,userId),cartCount:await getCartCount(env,userId)});
+}
+async function addCartItem(request,env,userId){
+  const b=await readJson(request);const productId=Number(b?.productId),quantity=Math.max(1,Math.min(99,Math.trunc(Number(b?.quantity||1))));
+  const p=await env.DB.prepare('SELECT id,active,stock_mode,stock_quantity FROM products WHERE id=?').bind(productId).first();
+  if(!p||!p.active)return apiError('Product is not available.',404);if(p.stock_mode!=='unlimited'&&Number(p.stock_quantity)<quantity)return apiError('Not enough stock is available.',409);
+  await env.DB.prepare(`INSERT INTO cart_items(user_id,product_id,quantity,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id,product_id) DO UPDATE SET quantity=excluded.quantity,updated_at=CURRENT_TIMESTAMP`).bind(userId,productId,quantity).run();
+  return apiOk({message:'Added to cart.',cartCount:await getCartCount(env,userId)});
+}
+async function updateCartItem(request,env,userId,productId){
+  const b=await readJson(request);const quantity=Math.max(1,Math.min(99,Math.trunc(Number(b?.quantity||1))));
+  const p=await env.DB.prepare('SELECT id,active,stock_mode,stock_quantity FROM products WHERE id=?').bind(productId).first();if(!p||!p.active)return apiError('Product is not available.',404);if(p.stock_mode!=='unlimited'&&Number(p.stock_quantity)<quantity)return apiError('Not enough stock is available.',409);
+  await env.DB.prepare('UPDATE cart_items SET quantity=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND product_id=?').bind(quantity,userId,productId).run();return getCart(env,userId)
+}
+async function deleteCartItem(env,userId,productId){await env.DB.prepare('DELETE FROM cart_items WHERE user_id=? AND product_id=?').bind(userId,productId).run();return apiOk({message:'Removed from cart.',cartCount:await getCartCount(env,userId)})}
+async function getCart(env,userId){
+  const rows=await env.DB.prepare(`SELECT c.quantity,p.* FROM cart_items c JOIN products p ON p.id=c.product_id WHERE c.user_id=? ORDER BY c.updated_at DESC`).bind(userId).all();const items=rows.results.map(mapProductMedia);let total=0,currency='NGN';for(const x of items){if(x.access_type!=='free')total+=Number(x.price_minor)*Number(x.quantity);currency=x.currency||currency}return apiOk({items,totalMinor:total,currency,wallet:await getWallet(env,userId),cartCount:items.reduce((a,x)=>a+Number(x.quantity),0)})
+}
+async function buyProductNow(request,env,user,productId){const b=await readJson(request);const quantity=Math.max(1,Math.min(99,Math.trunc(Number(b?.quantity||1))));const p=await env.DB.prepare('SELECT * FROM products WHERE id=? AND active=1').bind(productId).first();if(!p)return apiError('Product not found.',404);return createProductCheckout(request,env,user,[{product:p,quantity}],false)}
+async function checkoutCart(request,env,user){
+  const rows=await env.DB.prepare(`SELECT c.quantity,p.* FROM cart_items c JOIN products p ON p.id=c.product_id WHERE c.user_id=? AND p.active=1 ORDER BY c.updated_at`).bind(user.id).all();if(!rows.results.length)return apiError('Your cart is empty.',400);return createProductCheckout(request,env,user,rows.results.map(x=>({product:x,quantity:Number(x.quantity)})),true)
+}
+async function createProductCheckout(request,env,user,items,fromCart){
+  await releaseExpiredProductOrders(env);if(!items.length)return apiError('No products selected.',400);const currency=String(items[0].product.currency||'NGN').toUpperCase();let total=0;
+  for(const item of items){const p=item.product,q=item.quantity;if(String(p.currency||'NGN').toUpperCase()!==currency)return apiError('Products in one checkout must use the same currency.',400);if(p.stock_mode!=='unlimited'&&Number(p.stock_quantity)<q)return apiError(`${p.name} does not have enough stock.`,409);if(p.access_type!=='free')total+=Number(p.price_minor||0)*q}
+  const orderNumber=`TCP-${Date.now()}-${randomToken(6).replace(/[^a-zA-Z0-9]/g,'').slice(0,6)}`;const expiresAt=new Date(Date.now()+30*60*1000).toISOString();const order=await env.DB.prepare(`INSERT INTO product_orders(order_number,user_id,status,total_minor,currency,expires_at) VALUES(?,?,'pending',?,?,?)`).bind(orderNumber,user.id,total,currency,expiresAt).run();const orderId=Number(order.meta.last_row_id);
+  await env.DB.batch(items.map(x=>env.DB.prepare(`INSERT INTO product_order_items(order_id,product_id,quantity,unit_price_minor,total_minor) VALUES(?,?,?,?,?)`).bind(orderId,x.product.id,x.quantity,x.product.access_type==='free'?0:Number(x.product.price_minor||0),x.product.access_type==='free'?0:Number(x.product.price_minor||0)*x.quantity)));
+  const reserved=[];for(const x of items){if(x.product.stock_mode==='unlimited')continue;const r=await env.DB.prepare('UPDATE products SET stock_quantity=stock_quantity-?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND stock_quantity>=?').bind(x.quantity,x.product.id,x.quantity).run();if(Number(r.meta.changes||0)!==1){for(const prev of reserved)await env.DB.prepare('UPDATE products SET stock_quantity=stock_quantity+?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(prev.quantity,prev.productId).run();await env.DB.prepare(`UPDATE product_orders SET status='failed',updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(orderId).run();return apiError(`${x.product.name} no longer has enough stock.`,409)}reserved.push({productId:x.product.id,quantity:x.quantity})}
+  await env.DB.prepare('UPDATE product_orders SET inventory_reserved=1,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(orderId).run();
+  if(total===0){const done=await fulfillProductOrder(env,orderId,'free');if(!done.ok){await releaseProductOrderStock(env,orderId,'failed');return apiError(done.error||'Could not fulfill this order.',409)}if(fromCart)await env.DB.prepare('DELETE FROM cart_items WHERE user_id=?').bind(user.id).run();return apiOk({method:'free',orderId,message:'Product unlocked.',cartCount:await getCartCount(env,user.id)})}
+  const wallet=await getWallet(env,user.id);if(wallet.currency===currency&&wallet.balanceMinor>=total){
+    const debit=await env.DB.prepare('UPDATE wallet_accounts SET balance_minor=balance_minor-?,updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND balance_minor>=?').bind(total,user.id,total).run();if(Number(debit.meta.changes||0)!==1){await releaseProductOrderStock(env,orderId,'cancelled');return apiError('Your balance changed. Please try again.',409)}
+    await env.DB.prepare(`INSERT INTO wallet_transactions(user_id,amount_minor,currency,transaction_type,reference,note) VALUES(?,?,?,'product_purchase',?,?)`).bind(user.id,-total,currency,orderNumber,`Product order ${orderNumber}`).run();const done=await fulfillProductOrder(env,orderId,'wallet');if(!done.ok){await env.DB.batch([env.DB.prepare('UPDATE wallet_accounts SET balance_minor=balance_minor+?,updated_at=CURRENT_TIMESTAMP WHERE user_id=?').bind(total,user.id),env.DB.prepare(`INSERT INTO wallet_transactions(user_id,amount_minor,currency,transaction_type,reference,note) VALUES(?,?,?,'refund',?,?)`).bind(user.id,total,currency,`${orderNumber}-REFUND`,done.error||'Automatic order refund')]);await releaseProductOrderStock(env,orderId,'failed');return apiError(done.error||'Could not fulfill this order.',409)}if(fromCart)await env.DB.prepare('DELETE FROM cart_items WHERE user_id=?').bind(user.id).run();return apiOk({method:'wallet',orderId,message:'Purchase complete.',wallet:await getWallet(env,user.id),cartCount:await getCartCount(env,user.id)})
+  }
+  if(!env.PAYSTACK_SECRET_KEY){await releaseProductOrderStock(env,orderId,'cancelled');return apiError('Your ToolCart balance is not enough and Paystack is not configured yet.',503)}
+  const ref=`TC-PROD-${Date.now()}-${randomToken(8).replace(/[^a-zA-Z0-9]/g,'').slice(0,8)}`;const origin=appOrigin(env,request);const callback=`${origin}/?payment=complete&order=${orderId}`;
+  await env.DB.prepare(`INSERT INTO payments(user_id,provider,provider_reference,amount_minor,currency,purpose,status,product_order_id) VALUES(?,'paystack',?,?,?,?, 'pending',?)`).bind(user.id,ref,total,currency,`ToolCart product order ${orderNumber}`,orderId).run();
+  const res=await fetch('https://api.paystack.co/transaction/initialize',{method:'POST',headers:{authorization:`Bearer ${env.PAYSTACK_SECRET_KEY}`,'content-type':'application/json'},body:JSON.stringify({email:user.email,amount:total,currency,reference:ref,callback_url:callback,metadata:{toolcart_user_id:user.id,product_order_id:orderId,order_number:orderNumber}})});const data=await res.json().catch(()=>null);if(!res.ok||!data?.status||!safeHttpUrl(data?.data?.authorization_url)){await env.DB.prepare(`UPDATE payments SET status='failed',updated_at=CURRENT_TIMESTAMP WHERE provider_reference=?`).bind(ref).run();await releaseProductOrderStock(env,orderId,'failed');return apiError('Payment could not be initialized.',502)}return apiOk({method:'paystack',authorizationUrl:data.data.authorization_url,reference:ref,orderId})
+}
+async function releaseProductOrderStock(env,orderId,status='cancelled'){const order=await env.DB.prepare('SELECT * FROM product_orders WHERE id=?').bind(orderId).first();if(!order||!order.inventory_reserved)return;const items=(await env.DB.prepare(`SELECT i.product_id,i.quantity,p.stock_mode FROM product_order_items i JOIN products p ON p.id=i.product_id WHERE i.order_id=?`).bind(orderId).all()).results;const stmts=[];for(const x of items)if(x.stock_mode!=='unlimited')stmts.push(env.DB.prepare('UPDATE products SET stock_quantity=stock_quantity+?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(x.quantity,x.product_id));stmts.push(env.DB.prepare('UPDATE product_orders SET inventory_reserved=0,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(status,orderId));await env.DB.batch(stmts)}
+async function releaseExpiredProductOrders(env){const rows=(await env.DB.prepare(`SELECT id FROM product_orders WHERE status='pending' AND inventory_reserved=1 AND expires_at IS NOT NULL AND datetime(expires_at)<datetime('now') LIMIT 50`).all()).results;for(const r of rows)await releaseProductOrderStock(env,r.id,'cancelled')}
+async function fulfillProductOrder(env,orderId,source){
+  const order=await env.DB.prepare('SELECT * FROM product_orders WHERE id=?').bind(orderId).first();if(!order)return{ok:false,error:'Order not found.'};if(order.status==='fulfilled')return{ok:true};if(order.status!=='pending'&&order.status!=='paid')return{ok:false,error:'This order is no longer available for fulfillment.'};
+  const items=(await env.DB.prepare(`SELECT i.*,p.name,p.stock_mode FROM product_order_items i JOIN products p ON p.id=i.product_id WHERE i.order_id=?`).bind(orderId).all()).results;if(!items.length)return{ok:false,error:'Order has no products.'};
+  const stmts=[];for(const x of items){stmts.push(env.DB.prepare(`INSERT INTO product_entitlements(user_id,product_id,order_id,quantity) VALUES(?,?,?,?)`).bind(order.user_id,x.product_id,orderId,x.quantity));stmts.push(env.DB.prepare('DELETE FROM cart_items WHERE user_id=? AND product_id=?').bind(order.user_id,x.product_id))}stmts.push(env.DB.prepare(`UPDATE product_orders SET status='fulfilled',payment_source=?,inventory_reserved=0,paid_at=COALESCE(paid_at,CURRENT_TIMESTAMP),fulfilled_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(source,orderId));await env.DB.batch(stmts);return{ok:true}
+}
+async function serveProductFile(request,env,userId,productId){
+  if(!env.MEDIA)return new Response('Media unavailable',{status:503});const p=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(productId).first();if(!p||!p.file_key)return new Response('Not found',{status:404});const owned=!!(await env.DB.prepare('SELECT 1 FROM product_entitlements WHERE user_id=? AND product_id=? LIMIT 1').bind(userId,productId).first());if(!owned)return new Response('Purchase required',{status:403});const obj=await env.MEDIA.get(p.file_key);if(!obj)return new Response('Not found',{status:404});const h=new Headers();obj.writeHttpMetadata(h);h.set('cache-control','private, no-store');h.set('content-disposition',`${p.file_type==='pdf'?'inline':'attachment'}; filename="${String(p.file_name||'product').replace(/["\\]/g,'')}"`);return new Response(request.method==='HEAD'?null:obj.body,{headers:h})
 }
 
 // ---------- Payments ----------
@@ -675,6 +770,12 @@ async function finalizeSuccessfulPayment(env, reference, providerData) {
   }
   await env.DB.prepare(`UPDATE payments SET status='success',subscription_id=?,payment_method=?,provider_payload_json=?,paid_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`)
     .bind(subscriptionId, cleanText(providerData?.channel || '', 40) || null, JSON.stringify(redactProviderPayload(providerData)), payment.id).run();
+  if (payment.product_order_id) {
+    const fulfilled = await fulfillProductOrder(env, Number(payment.product_order_id), 'paystack');
+    if (!fulfilled.ok) console.error('Product fulfillment failed after payment', reference, fulfilled.error);
+    await createSystemNotification(env, payment.user_id, 'Product purchase confirmed', fulfilled.ok ? 'Your ToolCart product is ready to open or download.' : 'Your payment was confirmed and your order is being reviewed.', 'product_purchase', 'important', 'product_order', String(payment.product_order_id));
+    return;
+  }
   await createSystemNotification(env, payment.user_id, 'Payment received', plan ? `${plan.name} is now active on your ToolCart account.` : 'Your payment was confirmed.', 'payment_received', 'important');
 }
 
@@ -688,78 +789,17 @@ function subscriptionEnd(plan) {
 
 async function bootstrapAdmin(request, env) {
   const provided = request.headers.get('x-toolcart-bootstrap-token') || '';
-  if (!env.ADMIN_BOOTSTRAP_TOKEN) {
-    return apiError('ADMIN_BOOTSTRAP_TOKEN is not configured in Cloudflare. Add the Worker secret, redeploy ToolCart, then try again.', 503, { code: 'bootstrap_secret_missing' });
-  }
-  if (!provided) {
-    return apiError('Enter the bootstrap token you configured in Cloudflare.', 400, { code: 'bootstrap_token_required' });
-  }
-  if (!constantTimeStringEqual(provided, env.ADMIN_BOOTSTRAP_TOKEN)) {
-    return apiError('The bootstrap token is incorrect. It must exactly match the ADMIN_BOOTSTRAP_TOKEN Worker secret in Cloudflare.', 403, { code: 'bootstrap_token_incorrect' });
-  }
-  if (!env.DB) {
-    return apiError('The ToolCart D1 database binding is not available. Confirm the DB binding in Cloudflare and redeploy.', 503, { code: 'database_binding_missing' });
-  }
-
-  let exists;
-  try {
-    exists = await env.DB.prepare('SELECT id,email FROM admin_users LIMIT 1').first();
-  } catch (err) {
-    console.error('Admin bootstrap database check failed', err);
-    return apiError('ToolCart could not access the administrator database. Confirm the D1 database and migrations are deployed, then try again.', 503, { code: 'database_unavailable' });
-  }
-  if (exists) {
-    return apiError('An administrator already exists. First-time setup is disabled. Use the normal administrator sign-in instead.', 409, { code: 'administrator_exists' });
-  }
-
+  if (!env.ADMIN_BOOTSTRAP_TOKEN || !constantTimeStringEqual(provided, env.ADMIN_BOOTSTRAP_TOKEN)) return apiError('Bootstrap authorization failed.', 403);
+  const exists = await env.DB.prepare('SELECT id FROM admin_users LIMIT 1').first();
+  if (exists) return apiError('An administrator already exists. Bootstrap is disabled.', 409);
   const b = await readJson(request);
-  if (!b) return apiError('The setup request could not be read. Refresh the page and try again.', 400, { code: 'invalid_request' });
-  const email = normalizeEmail(b.email);
-  const password = String(b.password || '');
-  const fullName = cleanText(b.fullName, 120);
-  if (!isEmail(email) || password.length < 12 || fullName.length < 2) {
-    return apiError('Use a valid name, email and a password of at least 12 characters.', 400, { code: 'invalid_admin_details' });
-  }
-
-  let adminId;
-  try {
-    const pw = await hashPassword(password);
-    const result = await env.DB.prepare(`INSERT INTO admin_users(email,password_hash,password_salt,full_name,role) VALUES(?,?,?,?,'owner')`).bind(email, pw.hash, pw.salt, fullName).run();
-    adminId = Number(result?.meta?.last_row_id || 0);
-    if (!adminId) {
-      const created = await env.DB.prepare('SELECT id FROM admin_users WHERE email=?').bind(email).first();
-      adminId = Number(created?.id || 0);
-    }
-    if (!adminId) throw new Error('Administrator insert completed without an id.');
-  } catch (err) {
-    console.error('Admin bootstrap create failed', err);
-    return apiError('ToolCart could not create the owner administrator in D1. Confirm the database migrations are deployed, then try again.', 503, { code: 'administrator_create_failed' });
-  }
-
-  let admin;
-  try {
-    admin = await env.DB.prepare('SELECT * FROM admin_users WHERE id=?').bind(adminId).first();
-    const session = await createSession(env, request, adminId, true);
-    await env.DB.prepare('UPDATE admin_users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(adminId).run();
-    if (admin) admin.last_login_at = new Date().toISOString();
-    return new Response(JSON.stringify({
-      ok: true,
-      created: true,
-      message: 'Owner administrator created. Remove or rotate ADMIN_BOOTSTRAP_TOKEN now.',
-      admin: sanitizeAdmin(admin || { id: adminId, email, full_name: fullName, role: 'owner', last_login_at: null }),
-      csrfToken: session.csrf,
-    }), {
-      status: 201,
-      headers: { ...jsonHeaders, 'set-cookie': session.cookie },
-    });
-  } catch (err) {
-    console.error('Admin bootstrap automatic sign-in failed', err);
-    return apiOk({
-      created: true,
-      requiresLogin: true,
-      message: 'Owner administrator was created, but automatic sign-in could not start. Return to sign in with the email and password you just chose.',
-    }, 201);
-  }
+  const email = normalizeEmail(b?.email);
+  const password = String(b?.password || '');
+  const fullName = cleanText(b?.fullName, 120);
+  if (!isEmail(email) || password.length < 12 || fullName.length < 2) return apiError('Use a valid email, name and password of at least 12 characters.', 400);
+  const pw = await hashPassword(password);
+  await env.DB.prepare(`INSERT INTO admin_users(email,password_hash,password_salt,full_name,role) VALUES(?,?,?,?,'owner')`).bind(email, pw.hash, pw.salt, fullName).run();
+  return apiOk({ message: 'Owner administrator created. Remove or rotate ADMIN_BOOTSTRAP_TOKEN now.' }, 201);
 }
 
 async function adminLogin(request, env) {
@@ -818,13 +858,13 @@ async function adminCustomers(env, params) {
 async function adminCustomerDetail(env, userId) {
   const user = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(userId).first();
   if (!user) return apiError('Customer not found.', 404);
-  const [payments, requests, notifications, recents, plan] = await Promise.all([
+  const [payments, requests, notifications, recents, plan, wallet] = await Promise.all([
     env.DB.prepare('SELECT * FROM payments WHERE user_id=? ORDER BY created_at DESC LIMIT 50').bind(userId).all(),
     env.DB.prepare('SELECT * FROM requests WHERE user_id=? ORDER BY updated_at DESC LIMIT 50').bind(userId).all(),
     env.DB.prepare(`SELECT n.*,r.read_at,r.dismissed_at FROM notification_receipts r JOIN notifications n ON n.id=r.notification_id WHERE r.user_id=? ORDER BY n.created_at DESC LIMIT 50`).bind(userId).all(),
-    recentApps(env, userId), currentPlan(env, userId),
+    recentApps(env, userId), currentPlan(env, userId), getWallet(env, userId),
   ]);
-  return apiOk({ user: sanitizeUser(user), payments: payments.results, requests: requests.results, notifications: notifications.results, recentApps: recents, currentPlan: plan });
+  return apiOk({ user: sanitizeUser(user), payments: payments.results, requests: requests.results, notifications: notifications.results, recentApps: recents, currentPlan: plan, wallet });
 }
 
 async function adminCustomerAction(request, env, admin, userId) {
@@ -861,6 +901,17 @@ async function adminCustomerAction(request, env, admin, userId) {
     const title = cleanText(b?.title, 120), message = cleanText(b?.message, 600);
     if (!title || !message) return apiError('Notification title and message are required.', 400);
     await createAdminNotification(env, admin.id, { title, message, type: 'admin_announcement', importance: b?.importance || 'normal', audienceType: 'single_user', audienceValues: [userId] });
+  } else if (action === 'wallet_adjust') {
+    const amountMinor = Math.trunc(Number(b?.amountMinor || 0));
+    const note = cleanText(b?.note, 240) || 'Administrator balance adjustment';
+    if (!amountMinor || Math.abs(amountMinor) > 100000000000) return apiError('Enter a valid non-zero balance adjustment.', 400);
+    await ensureWallet(env, userId, cleanText(b?.currency, 3).toUpperCase() || 'NGN');
+    const current = await getWallet(env, userId);
+    if (current.balanceMinor + amountMinor < 0) return apiError('This adjustment would make the customer balance negative.', 400);
+    await env.DB.batch([
+      env.DB.prepare('UPDATE wallet_accounts SET balance_minor=balance_minor+?,updated_at=CURRENT_TIMESTAMP WHERE user_id=?').bind(amountMinor,userId),
+      env.DB.prepare(`INSERT INTO wallet_transactions(user_id,amount_minor,currency,transaction_type,reference,note,admin_id) VALUES(?,?,?,'admin_adjustment',?,?,?)`).bind(userId,amountMinor,current.currency,`ADMIN-${Date.now()}`,note,admin.id),
+    ]);
   } else return apiError('Unsupported customer action.', 400);
   await audit(env, admin.id, `customer_${action}`, 'user', String(userId), b, request);
   return apiOk({ message: 'Customer updated.' });
@@ -936,6 +987,16 @@ async function adminUploadIcon(request, env, admin) {
   await audit(env, admin.id, 'media_uploaded', 'r2', uploaded.key, { contentType: uploaded.contentType, size: uploaded.size }, request);
   return apiOk({ key: uploaded.key, url: `/media/${uploaded.key}` });
 }
+
+// ---------- Admin products ----------
+
+async function adminProducts(env){await releaseExpiredProductOrders(env);const rows=await env.DB.prepare(`SELECT p.*,(SELECT COUNT(DISTINCT e.user_id) FROM product_entitlements e WHERE e.product_id=p.id) AS buyers,(SELECT COALESCE(SUM(i.quantity),0) FROM product_order_items i JOIN product_orders o ON o.id=i.order_id WHERE i.product_id=p.id AND o.status='fulfilled') AS sold_quantity FROM products p ORDER BY p.display_order,p.name`).all();return apiOk({products:rows.results.map(mapProductMedia)})}
+function parseProductInput(b={}){const name=cleanText(b.name,120),slug=slugify(b.slug||name);if(!name||!slug)return{error:'Product name is required.'};const displayImageKey=cleanText(b.displayImageKey??b.display_image_key,500),fileKey=cleanText(b.fileKey??b.file_key,500),fileName=cleanText(b.fileName??b.file_name,180),fileType=['pdf','image'].includes(b.fileType??b.file_type)?(b.fileType??b.file_type):null,mimeType=cleanText(b.mimeType??b.mime_type,100);if(!displayImageKey)return{error:'Upload a display image for this product.'};if(!fileKey||!fileName||!fileType||!mimeType)return{error:'Upload the PDF or image product file first.'};const accessType=b.accessType==='free'||b.access_type==='free'?'free':'paid';let priceMinor=Math.max(0,Math.trunc(Number(b.priceMinor??b.price_minor??0)));if(accessType==='free')priceMinor=0;const stockMode=b.stockMode==='unlimited'||b.stock_mode==='unlimited'?'unlimited':'finite';const stockQuantity=stockMode==='unlimited'?0:Math.max(0,Math.trunc(Number(b.stockQuantity??b.stock_quantity??0)));const currency=(cleanText(b.currency,3)||'NGN').toUpperCase();return{name,slug,values:[name,slug,displayImageKey,fileKey,fileName,fileType,mimeType,cleanText(b.shortDescription??b.short_description,280),cleanText(b.description,12000),priceMinor,currency,accessType,boolInt(b.premium),stockMode,stockQuantity,boolInt(b.active??1),boolInt(b.featured),Number((b.displayOrder??b.display_order)||0)]}}
+async function adminCreateProduct(request,env,admin){const b=await readJson(request),x=parseProductInput(b);if(x.error)return apiError(x.error,400);if(await env.DB.prepare('SELECT id FROM products WHERE slug=?').bind(x.slug).first())return apiError('A product already uses that name/slug.',409);const r=await env.DB.prepare(`INSERT INTO products(name,slug,display_image_key,file_key,file_name,file_type,mime_type,short_description,description,price_minor,currency,access_type,premium,stock_mode,stock_quantity,active,featured,display_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(...x.values).run();await audit(env,admin.id,'product_created','product',String(r.meta.last_row_id),{name:x.name},request);return apiOk({id:r.meta.last_row_id,message:'Product created.'},201)}
+async function adminUpdateProduct(request,env,admin,id){const old=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(id).first();if(!old)return apiError('Product not found.',404);const b=await readJson(request),x=parseProductInput({...old,...b});if(x.error)return apiError(x.error,400);await env.DB.prepare(`UPDATE products SET name=?,slug=?,display_image_key=?,file_key=?,file_name=?,file_type=?,mime_type=?,short_description=?,description=?,price_minor=?,currency=?,access_type=?,premium=?,stock_mode=?,stock_quantity=?,active=?,featured=?,display_order=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(...x.values,id).run();if(old.file_key&&old.file_key!==x.values[3])env.MEDIA?.delete(old.file_key).catch(console.error);if(old.display_image_key&&old.display_image_key!==x.values[2])env.MEDIA?.delete(old.display_image_key).catch(console.error);await audit(env,admin.id,'product_modified','product',String(id),{name:x.name},request);return apiOk({message:'Product updated.'})}
+async function adminDeleteProduct(env,admin,id){const p=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(id).first();if(!p)return apiError('Product not found.',404);const used=await env.DB.prepare('SELECT 1 FROM product_order_items WHERE product_id=? LIMIT 1').bind(id).first();if(used)return apiError('This product has purchase history. Mark it inactive instead of deleting it.',409);await env.DB.prepare('DELETE FROM products WHERE id=?').bind(id).run();if(p.file_key)env.MEDIA?.delete(p.file_key).catch(console.error);if(p.display_image_key)env.MEDIA?.delete(p.display_image_key).catch(console.error);await audit(env,admin.id,'product_deleted','product',String(id),{name:p.name});return apiOk({message:'Product deleted.'})}
+async function adminUploadProductCover(request,env,admin){const u=await readImageUpload(request,env,`product-covers/${new Date().getUTCFullYear()}`);if(u.response)return u.response;await audit(env,admin.id,'product_cover_uploaded','r2',u.key,{size:u.size},request);return apiOk({key:u.key,url:`/media/${u.key}`})}
+async function adminUploadProductFile(request,env,admin){if(!env.MEDIA)return apiError('R2 media storage is not configured.',503);let form;try{form=await request.formData()}catch{return apiError('Invalid upload.',400)}const file=form.get('file');if(!(file instanceof File))return apiError('Product file is required.',400);const allowed={'application/pdf':'pdf','image/webp':'image','image/png':'image','image/jpeg':'image'};const type=allowed[file.type];if(!type)return apiError('Upload a PDF, WebP, PNG or JPEG file.',400);if(file.size>25*1024*1024)return apiError('Product file is too large. Maximum size is 25 MB.',400);const ext=file.type==='application/pdf'?'pdf':file.type==='image/webp'?'webp':file.type==='image/png'?'png':'jpg';const safe=(file.name||`product.${ext}`).replace(/[^a-zA-Z0-9._-]/g,'-').slice(-160);const key=`product-files/${new Date().getUTCFullYear()}/${Date.now()}-${randomToken(8).replace(/[^a-zA-Z0-9]/g,'').slice(0,8)}.${ext}`;await env.MEDIA.put(key,file.stream(),{httpMetadata:{contentType:file.type,cacheControl:'private, no-store'}});await audit(env,admin.id,'product_file_uploaded','r2',key,{contentType:file.type,size:file.size},request);return apiOk({key,fileName:safe,fileType:type,mimeType:file.type,size:file.size})}
 
 // ---------- Admin updates / requests / notifications ----------
 
@@ -1075,7 +1136,7 @@ function mapAppMedia(a){return{...a,icon_url:a.icon_key?`/media/${a.icon_key}`:n
 function mapUpdateMedia(u){return{...u,image_url:u.image_key?`/media/${u.image_key}`:null,app_ids:safeJson(u.app_ids_json,[])};}
 function mapPromoMedia(p){return{...p,image_url:p.image_key?`/media/${p.image_key}`:null,icon_url:p.icon_key?`/media/${p.icon_key}`:null,target_values:safeJson(p.target_value_json,[])};}
 
-async function serveMedia(request,env,key){if(!env.MEDIA)return new Response('Media unavailable',{status:503});if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});key=decodeURIComponent(key);if(key.includes('..'))return new Response('Not found',{status:404});if(key.startsWith('avatars/')){const parts=key.split('/');const ownerId=Number(parts[1]);const ok=await canReadPrivateMedia(request,env,ownerId);if(!ok)return new Response('Not found',{status:404});}const obj=await env.MEDIA.get(key);if(!obj)return new Response('Not found',{status:404});const headers=new Headers();obj.writeHttpMetadata(headers);headers.set('etag',obj.httpEtag);headers.set('cache-control',key.startsWith('avatars/')?'private, max-age=300':'public, max-age=31536000, immutable');return new Response(request.method==='HEAD'?null:obj.body,{headers});}
+async function serveMedia(request,env,key){if(!env.MEDIA)return new Response('Media unavailable',{status:503});if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});key=decodeURIComponent(key);if(key.includes('..')||key.startsWith('product-files/'))return new Response('Not found',{status:404});if(key.startsWith('avatars/')){const parts=key.split('/');const ownerId=Number(parts[1]);const ok=await canReadPrivateMedia(request,env,ownerId);if(!ok)return new Response('Not found',{status:404});}const obj=await env.MEDIA.get(key);if(!obj)return new Response('Not found',{status:404});const headers=new Headers();obj.writeHttpMetadata(headers);headers.set('etag',obj.httpEtag);headers.set('cache-control',key.startsWith('avatars/')?'private, max-age=300':'public, max-age=31536000, immutable');return new Response(request.method==='HEAD'?null:obj.body,{headers});}
 async function canReadPrivateMedia(request,env,ownerId){const userToken=getCookie(request,'tc_session');if(userToken){const h=await sha256Hex(userToken);const row=await env.DB.prepare(`SELECT user_id,expires_at,revoked_at FROM sessions WHERE token_hash=?`).bind(h).first();if(row&&!row.revoked_at&&new Date(row.expires_at)>new Date()&&Number(row.user_id)===ownerId)return true;}const adminToken=getCookie(request,'tc_admin_session');if(adminToken){const h=await sha256Hex(adminToken);const row=await env.DB.prepare(`SELECT s.expires_at,s.revoked_at,a.enabled FROM admin_sessions s JOIN admin_users a ON a.id=s.admin_user_id WHERE s.token_hash=?`).bind(h).first();if(row&&!row.revoked_at&&row.enabled&&new Date(row.expires_at)>new Date())return true;}return false;}
 async function readImageUpload(request,env,prefix){if(!env.MEDIA)return{response:apiError('R2 media storage is not configured.',503)};let form;try{form=await request.formData()}catch{return{response:apiError('Invalid upload.',400)}}const file=form.get('file');if(!(file instanceof File))return{response:apiError('Image file is required.',400)};const allowed=['image/webp','image/png','image/jpeg'];if(!allowed.includes(file.type))return{response:apiError('Use WebP, PNG or JPEG images.',400)};if(file.size>4*1024*1024)return{response:apiError('Image is too large. Maximum size is 4 MB.',400)};const ext=file.type==='image/webp'?'webp':file.type==='image/png'?'png':'jpg';const key=`${prefix}/${Date.now()}-${randomToken(8).replace(/[^a-zA-Z0-9]/g,'').slice(0,8)}.${ext}`;await env.MEDIA.put(key,file.stream(),{httpMetadata:{contentType:file.type,cacheControl:'public, max-age=31536000'}});return{key,contentType:file.type,size:file.size};}
 
