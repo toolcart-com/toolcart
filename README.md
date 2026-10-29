@@ -1,17 +1,25 @@
-# ToolCart V1.8
+# ToolCart V1.11 — Tempo Storefront
 
-Upload the contents of the **Changes Only** package to the root of the existing ToolCart GitHub repository and replace matching files.
+Premium mobile-first ToolCart storefront based on the selected “06 Tempo” concept.
 
-No D1 migration is required.
+All actual products and tools are read from the existing D1 tables. No hardcoded demo products are shipped. ToolCart accounts, protected digital downloads, cart, wallet, subscriptions, notifications, updates, support, and Admin remain in place.
 
-## First administrator
+## Install this update
 
-1. In Cloudflare, add a Worker secret named `ADMIN_BOOTSTRAP_TOKEN` with a long temporary random value.
-2. Deploy/redeploy ToolCart.
-3. Open `/admin` and choose **First-time administrator setup**.
-4. Enter the same temporary bootstrap token, your administrator name, email and a password of at least 12 characters.
-5. On success, ToolCart automatically signs you in and opens the Admin dashboard.
-6. Remove or rotate `ADMIN_BOOTSTRAP_TOKEN` in Cloudflare after the owner administrator is created.
-7. Use the normal `/admin` sign-in form from then on.
+Extract **ToolCart-V1.11-Changes-Only.zip**, select the files **inside** its folder and upload to the **root of your current ToolCart GitHub repository**, replacing matching files. Cloudflare will run the existing build/deploy pipeline. No new migration is required.
 
-If setup cannot continue, V1.8 keeps a clear error message visible inside the setup form instead of relying only on a temporary toast.
+## Existing configuration retained
+
+- D1 binding: `DB` (`toolcart`)
+- D1 database ID: `ef8f71eb-dd5a-41dd-b049-bfe85066aa98`
+- R2 binding: `MEDIA` (`toolcart-media`)
+- APP_ORIGIN: `https://toolcart.mgt-toolcart.workers.dev`
+- Admin: `/admin` or `/admin.html`
+
+## Security
+
+Public product browse only reveals public listing metadata; it does **not** expose protected product files or download entitlements. Downloads remain gated by the existing backend purchase checks.
+
+## Reference fidelity
+
+The shared `chatgpt.site` reference returned an access error for unauthenticated retrieval. This implementation draws on the saved design description of **06 Tempo — The modern goods counter** (bold letterforms, compact shopping cards, white, black and gold), and is not a guaranteed exact visual export of the reference.

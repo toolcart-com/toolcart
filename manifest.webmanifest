@@ -1,11 +1,11 @@
 {
   "name": "ToolCart",
   "short_name": "ToolCart",
-  "description": "All working tools in one place.",
+  "description": "Digital finds. Distinct taste.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#f8f7f3",
+  "theme_color": "#f8f7f3",
   "icons": [
     {
       "src": "/icon-192.png",

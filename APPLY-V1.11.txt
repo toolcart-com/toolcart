@@ -1,9 +1,2 @@
-ToolCart V1.11 applies on top of V1.10.
-
-Replace these files:
-- styles.css
-- VERSION
-- CHANGES-V1.11.md
-- APPLY-V1.11.txt
-
-No D1 migration required.
+ToolCart V1.11: TEMPO Storefront
+Upload every file from Changes Only to your GitHub repository root. Keep the actual files in the root, not nested inside the zip folder. Let Cloudflare deploy. No new D1 migration is needed. The existing migrations will safely recheck for already-applied versions.

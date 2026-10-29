@@ -1,13 +1,23 @@
-# ToolCart V1.11 — Centered Home Tool Panel Content
+# ToolCart V1.11 — TEMPO Storefront
 
-Built on top of V1.10.
+Based on the user-selected design 06 “Tempo — The modern goods counter” concept.
 
-## What changed
-- Centered the Home tools panel content properly inside each card.
-- Aligned the icon, online status, tool title, and short description to sit neatly in the middle of each panel.
-- Kept the 3-cards-per-row mobile layout from V1.10.
-- Preserved the detailed panel style while improving balance and visual alignment.
+## Changes
+- Replaces the signed-in ecosystem dashboard with a mobile-first, product-led ToolCart storefront.
+- Replaces the signed-out landing page with the same ToolCart store identity.
+- Rebuilds visual identity in warm ivory, black, and muted gold with bold typography.
+- Adds an editorial hero and compact shopping-product tiles with live prices and actual stock.
+- Keeps CallFocus, ChatFocus, LodgeFinder, and all Admin-defined tools, using actual D1 product/tool names. No invented sample inventory.
+- Adds browsing filters for all finds, digital products, and working tools.
+- Updates the signed-out public catalog to safely show active product listing metadata (not downloadable files or entitlements).
+- Restyles the primary fixed mobile navigation; removes the legacy drifting animation.
+- Preserves existing authentication, Admin, wallet, R2 file protection, checkout, requests, updates, subscriptions, and receipts.
 
-## Notes
-- This update affects the Home tools section layout and alignment only.
-- No database migration required.
+## Deployment
+- Upload Changes Only to root of your existing GitHub repository.
+- No D1 migration is required for V1.11.
+- Service worker cache version incremented and `tempo.css` included.
+- The existing Cloudflare bindings and APP_ORIGIN remain unchanged.
+
+## Visual reference limitation
+The provided ChatGPT-hosted preview required authorization when retrieved. This build implements the known selected Tempo design direction, not a guaranteed pixel-perfect transcription of the inaccessible preview.

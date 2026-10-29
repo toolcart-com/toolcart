@@ -1,0 +1,202 @@
+/* ToolCart V1.11 — TEMPO: the modern digital goods counter.
+   New storefront styling. All existing endpoints and admin functions remain unchanged. */
+:root,html[data-theme="pearl"]{
+  --bg:#f8f7f3;--bg2:#fff;--surface:#fff;--surface2:#f3f0e8;--surface3:#eee8db;
+  --line:rgba(32,29,24,.13);--text:#1b1b1a;--muted:#77746e;--faint:#99958c;
+  --violet:#ae8145;--violet2:#8b683d;--blue:#8b683d;--lav:#9b7540;--ok:#22774b;
+  --warn:#ba7e37;--danger:#c03943;--shadow:0 14px 55px rgba(32,29,24,.09);
+  --tempo-black:#181818;--tempo-gold:#d0a665;--tempo-cream:#f8f7f3;--tempo-border:#e6e3dc;
+}
+html[data-theme="midnight"]{
+  --bg:#171715;--bg2:#20201d;--surface:#262622;--surface2:#292821;--surface3:#363228;
+  --line:rgba(255,255,255,.14);--text:#f8f7f3;--muted:#b6b0a4;--faint:#938b80;
+  --violet:#d0a665;--violet2:#ddba84;--blue:#d0a665;--lav:#d0a665;--ok:#81c995;
+  --warn:#e3b477;--danger:#ef767a;--shadow:0 18px 50px rgba(0,0,0,.24);
+  --tempo-black:#0d0d0c;--tempo-gold:#d0a665;--tempo-cream:#f8f7f3;--tempo-border:rgba(255,255,255,.15);
+}
+html,body{overflow-x:clip;background:var(--bg)!important;scrollbar-gutter:stable;color:var(--text)}
+body{background-image:none!important;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+.signed-out,.app-shell,.mobile-shell{background:transparent!important}
+.ambient,.noise{display:none!important}
+button{touch-action:manipulation}
+button:focus-visible,[role="button"]:focus-visible,input:focus-visible{outline:2px solid var(--tempo-gold);outline-offset:3px}
+.btn{border-radius:999px}.btn-primary{color:#fff;background:#1b1b1a;box-shadow:none}.btn-secondary,.btn-ghost{color:var(--text);background:transparent;border-color:var(--line);box-shadow:none}
+.eyebrow{color:var(--muted)}
+/* BRAND AND HEADER */
+.tempo-top-strip{background:#181818;color:#d6c5a5;min-height:32px;padding:9px clamp(18px,4vw,45px);display:flex;justify-content:space-between;gap:12px;align-items:center;font-weight:800;letter-spacing:.17em;font-size:9px;line-height:1.4}
+.tempo-top-strip span:last-child{color:#faf9f5;font-weight:600;letter-spacing:.09em;text-align:right}
+.tempo-wordmark{color:#151515;display:flex;align-items:center;gap:10px;text-decoration:none;white-space:nowrap}
+html[data-theme="midnight"] .tempo-wordmark{color:#f8f7f3}
+.tempo-wordmark>img{width:29px;height:29px;object-fit:cover;border-radius:9px}
+.tempo-wordmark strong{font-weight:900;font-size:25px;line-height:1;letter-spacing:-.082em}
+.tempo-wordmark-stop{color:#c9a36b}
+.tempo-public-nav{max-width:1120px;padding:20px 0 16px;width:min(1120px,calc(100% - 38px))}
+.tempo-public-actions{display:flex;align-items:center;gap:10px}
+.tempo-icon-button{width:40px;height:40px;border:1px solid var(--tempo-border);border-radius:50%;background:var(--surface);display:grid;place-items:center;color:var(--text);cursor:pointer}
+.tempo-icon-button svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.65}
+.tempo-header-action{font-size:11px;letter-spacing:.02em;font-weight:800;border:0;padding:0 14px;min-height:40px;border-radius:999px;background:#1b1b1a;color:#fff;display:flex;align-items:center;gap:12px;cursor:pointer}
+.tempo-header-action span{color:var(--tempo-gold)}
+.tempo-public-search,.tempo-search-row{max-width:1120px;width:min(1120px,calc(100% - 38px));margin:0 auto 20px}
+.tempo-public-search{height:50px;border:1px solid var(--tempo-border);background:var(--surface);display:flex;align-items:center;padding:0 16px;gap:12px;border-radius:16px}
+.tempo-public-search>span:first-child{font-size:28px;font-weight:300;color:var(--muted)}
+.tempo-public-search button{border:0;cursor:pointer;flex:1;text-align:left;color:var(--faint);font-size:13px;background:transparent}
+.tempo-search-key{font-weight:800;font-size:9px;letter-spacing:.13em;color:var(--muted)}
+.mobile-shell{max-width:1120px;width:100%;padding:0 20px calc(114px + env(safe-area-inset-bottom,0px))!important;min-height:100dvh}
+.tempo-internal-strip{margin:0 -20px 0;min-height:31px;padding-left:20px;padding-right:20px}
+.tempo-app-header{position:relative!important;top:auto!important;z-index:3!important;animation:none!important;background:none!important;backdrop-filter:none!important;border:0!important;margin:0;min-height:78px;padding:16px 0!important;display:flex;gap:10px;align-items:center}
+.tempo-app-brand{position:absolute;left:50%;transform:translateX(-50%)}
+.tempo-app-brand strong{font-size:22px}
+.tempo-app-brand img{width:27px;height:27px}
+.tempo-profile{gap:7px;padding:0;min-width:0}
+.tempo-profile .avatar{width:36px;height:36px;border-radius:11px;background:#222;color:#fff;box-shadow:none;font-size:13px;flex:none}
+.tempo-profile span{font-size:10px;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.15}
+.tempo-profile strong{font-size:11px;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tempo-app-header .top-actions{margin-left:auto;gap:5px}
+.tempo-app-header .icon-btn{height:36px;width:36px;border:1px solid var(--tempo-border);border-radius:50%;background:var(--surface);box-shadow:none;flex:none}
+.tempo-app-header .icon-btn svg{width:18px;height:18px;color:var(--text)}
+.tempo-app-header .count-badge{top:-6px;right:-5px;border-color:var(--bg);background:#b48d54}
+.tempo-search-row{width:100%;margin-bottom:18px}
+.tempo-search-trigger{width:100%;height:51px;border:1px solid var(--tempo-border);border-radius:16px;background:var(--surface);display:flex;align-items:center;gap:11px;padding:0 15px;color:var(--muted);cursor:pointer}
+.tempo-search-trigger svg{height:19px;width:19px;stroke:currentColor;stroke-width:1.7;fill:none}
+.tempo-search-trigger span{flex:1;text-align:left;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tempo-search-trigger b{border:1px solid var(--tempo-border);border-radius:6px;font-size:9px;font-weight:700;padding:5px 7px;white-space:nowrap}
+/* SIGNATURE TEMPO HERO: a product-first campaign, not an ecosystem dashboard */
+.tempo-hero{position:relative;overflow:hidden;border-radius:27px;background:#1b1b1a;color:#fcfaf4;min-height:318px;padding:26px 26px 0;display:flex;flex-direction:column;isolation:isolate;box-shadow:none}
+.tempo-hero:before{content:"";z-index:-1;position:absolute;width:280px;height:280px;border:1px solid rgba(220,184,122,.18);border-radius:50%;right:-114px;top:-105px;box-shadow:0 0 0 46px rgba(220,184,122,.035),0 0 0 90px rgba(220,184,122,.023)}
+.tempo-hero:after{content:"";z-index:-1;position:absolute;width:210px;height:210px;border-radius:50%;right:-110px;bottom:-155px;background:radial-gradient(circle,#9a6839,transparent 67%);opacity:.22}
+.tempo-hero-eyebrow{font-size:9px;letter-spacing:.16em;font-weight:800;color:#c5ad85;display:flex;align-items:center;gap:7px}
+.tempo-hero-eyebrow span:last-child{margin-left:auto;color:#887e6e}
+.tempo-hero-spark{font-size:18px;line-height:1;color:#d8b978}
+.tempo-hero h1{font-size:clamp(48px,9.6vw,100px);line-height:.93;letter-spacing:-.085em;font-weight:900;margin:23px 0 15px;max-width:830px}
+.tempo-hero h1 em{font-style:normal;color:#e2c08a}
+.tempo-hero p{max-width:610px;font-size:clamp(13px,2vw,17px);line-height:1.55;color:#bbb8b1;margin:0 0 22px}
+.tempo-hero-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 25px}
+.tempo-pill-black,.tempo-pill-light{min-height:44px;padding:0 18px;border-radius:999px;border:1px solid transparent;font-size:12px;font-weight:800;letter-spacing:-.01em;display:inline-flex;align-items:center;justify-content:space-between;gap:18px;cursor:pointer;transition:transform .2s ease}
+.tempo-pill-black{background:#dec091;color:#1d1a16}
+.tempo-pill-black span{font-size:17px;font-weight:400}.tempo-pill-light{background:transparent;color:#f5f3ed;border-color:rgba(255,255,255,.26)}
+.tempo-pill-black:active,.tempo-pill-light:active{transform:scale(.96)}
+.tempo-hero-bottom{border-top:1px solid rgba(255,255,255,.13);margin-top:auto;min-height:44px;display:flex;justify-content:space-between;align-items:center;font-size:9px;letter-spacing:.13em;font-weight:800;color:#aaa294}
+.tempo-hero-bottom span:last-child{font-size:19px;color:#d2b078}
+.tempo-hero-public{width:min(1120px,calc(100% - 38px));margin:0 auto 36px;min-height:355px}
+.tempo-hero-public h1{font-size:clamp(59px,10vw,104px)}
+/* STORE NAVIGATION AND FILTERS */
+.tempo-quick-filters{display:flex;overflow-x:auto;scrollbar-width:none;gap:8px;padding:16px 1px 3px;max-width:100%;scroll-snap-type:x proximity}
+.tempo-quick-filters::-webkit-scrollbar{display:none}
+.tempo-quick-filters button{background:transparent;border:1px solid var(--tempo-border);color:var(--muted);border-radius:999px;font-size:11px;min-height:36px;padding:0 13px;font-weight:750;white-space:nowrap;cursor:pointer;scroll-snap-align:start}
+.tempo-quick-filters button.is-on,.tempo-quick-filters button:first-child{background:#1b1b1a;color:#fff;border-color:#1b1b1a}
+.tempo-shop-section,.tempo-recent-section,.tempo-updates-section{margin-top:32px}
+.tempo-section-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:16px}
+.tempo-kicker{font-size:10px;color:#a1824d!important;letter-spacing:.15em;font-weight:900;margin:0 0 6px;text-transform:uppercase}
+.tempo-section-head h2{font-size:clamp(29px,4vw,45px);letter-spacing:-.065em;line-height:1.08;font-weight:900;margin:0}
+.tempo-section-head h2 span{color:#bb9159}
+.tempo-section-link{border:0;background:none;padding:8px 0;color:var(--text);font-size:11px;font-weight:800;text-decoration:underline;text-underline-offset:5px;white-space:nowrap;cursor:pointer}
+.tempo-product-grid,.tempo-public-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px 12px;align-items:start}
+.tempo-merchant-card{display:block;border:0;background:none;min-width:0;cursor:pointer;position:relative;text-align:left;transition:transform .25s ease}
+.tempo-merchant-card:active{transform:scale(.975)}
+.tempo-card-media{position:relative;aspect-ratio:1/1;border-radius:18px;overflow:hidden;background:linear-gradient(145deg,#e3d9c8,#f0ebe2);display:flex;align-items:center;justify-content:center}
+.tempo-card-media>img{width:100%;height:100%;object-fit:cover}
+.tempo-product-media{background:#e8e3d9}
+.tempo-media-corner{position:absolute;left:9px;top:9px;max-width:calc(100% - 18px);border:1px solid rgba(0,0,0,.07);background:rgba(250,249,247,.88);backdrop-filter:blur(6px);font-size:8px;letter-spacing:.12em;color:#363128;font-weight:850;padding:7px 9px;border-radius:99px}
+.tempo-product-placeholder{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;padding:15px;background:linear-gradient(152deg,#d8c8ad 0%,#ded7cb 50%,#c4af8b 100%);width:100%;height:100%;color:#27231e}
+.tempo-product-placeholder small{font-size:9px;font-weight:900;letter-spacing:.12em}
+.tempo-product-placeholder strong{align-self:center;font-size:52px;letter-spacing:-.07em;font-weight:900}
+.tempo-product-placeholder i{font-size:8px;letter-spacing:.2em;font-style:normal;font-weight:850}
+.tempo-tool-media{background:linear-gradient(137deg,#f0e8db 0%,#d7c4a5 100%)}
+.tempo-tool-media .app-icon{width:42%;height:42%;border-radius:22%;box-shadow:0 12px 25px rgba(29,23,14,.15);font-size:clamp(20px,4vw,46px)}
+.tempo-card-info{display:flex;align-items:start;justify-content:space-between;padding:10px 2px 0;gap:6px}
+.tempo-card-info>div{min-width:0}
+.tempo-card-type{font-size:9px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;font-weight:750;display:block;margin:0 0 6px}
+.tempo-card-info h3{font-size:clamp(13px,2.6vw,18px);letter-spacing:-.025em;line-height:1.16;font-weight:850;white-space:normal;margin:0 0 4px;overflow-wrap:anywhere}
+.tempo-card-price{font-size:13px;font-weight:850;letter-spacing:-.02em;color:#9b733d}
+.tempo-card-arrow{font-size:18px;color:#775b37;flex:none;line-height:1.2;margin-top:5px}
+.tempo-online{font-size:9px;color:var(--muted);letter-spacing:.08em;font-weight:800}
+.tempo-online i{display:inline-block;background:#999;vertical-align:middle;width:6px;height:6px;border-radius:50%;margin:0 5px 2px 0}
+.tempo-online.online i{background:#358351}.tempo-online.offline i{background:#b85454}
+.tempo-free-banner{margin-top:30px;padding:24px 22px;background:#ded1bc;color:#25221d;border-radius:20px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tempo-free-banner small{font-size:9px;letter-spacing:.17em;font-weight:900;color:#79613f}.tempo-free-banner h2{margin:8px 0 4px;font-weight:900;font-size:28px;line-height:1;letter-spacing:-.055em}.tempo-free-banner p{color:#6b5c48;margin:0;font-size:11px;line-height:1.4}
+.tempo-banner-link{flex:none;background:#1b1b1a;color:#f8f7f3;border:0;padding:11px 15px;border-radius:999px;white-space:nowrap;font-size:11px;font-weight:800;cursor:pointer}
+.tempo-recent-section{margin-top:28px}.tempo-recent-section .recent-strip{grid-auto-columns:52%;gap:9px}
+.tempo-recent-section .recent-card{border:1px solid var(--tempo-border);background:var(--surface);border-radius:16px;box-shadow:none}
+.tempo-updates-section .update-card{background:var(--surface);border-color:var(--tempo-border);box-shadow:none;border-radius:15px}
+.tempo-updates-section .update-card h3{font-weight:800}.tempo-updates-section .update-type{background:#ece6dc;color:#7b5b33}
+.tempo-member-strip .subscription-card{background:var(--surface);border:1px solid var(--tempo-border);border-radius:15px;box-shadow:none}
+.tempo-member-strip .subscription-icon{background:#27231e;color:#faf8f3}
+.tempo-public-list{margin-bottom:44px}.tempo-public-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 13px}
+.tempo-signup-caption{font-size:12px;line-height:1.5;color:var(--muted);margin:22px 0}
+.tempo-offer-strip{margin:30px auto 45px;display:flex;align-items:center;gap:24px;border:1px solid var(--tempo-border);background:#eee5d7;border-radius:22px;padding:24px;flex-wrap:wrap;color:#211f1b}
+.tempo-offer-strip .tempo-offer-symbol{font-size:45px;color:#bc9461;align-self:flex-start}.tempo-offer-strip h2{font-size:32px;letter-spacing:-.07em;margin:7px 0}.tempo-offer-strip p{margin:0;color:#655948}.tempo-offer-strip small{letter-spacing:.14em;font-size:9px;font-weight:900}.tempo-offer-strip .tempo-pill-black{margin-left:auto;background:#1b1b1a;color:#fff}
+.tempo-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;border-top:1px solid var(--tempo-border);padding:20px 0 calc(25px + env(safe-area-inset-bottom,0px));font-size:11px;color:var(--muted)}
+.tempo-footer strong{font-size:21px;letter-spacing:-.08em;color:var(--text);font-weight:900}
+.tempo-inside-footer{margin-top:30px;padding-bottom:24px}
+/* MOBILE STORE NAVIGATION — FIXED TO VIEWPORT, NO TRANSFORM ANIMATION CONFLICT */
+#dock.tempo-dock{position:fixed!important;left:50%!important;right:auto!important;top:auto!important;bottom:calc(12px + env(safe-area-inset-bottom,0px))!important;width:min(calc(100% - 30px),520px)!important;max-width:520px!important;height:65px!important;padding:6px!important;border-radius:19px!important;display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;align-items:stretch!important;gap:2px!important;transform:translate3d(-50%,0,0)!important;animation:none!important;transition:opacity .2s ease!important;z-index:90!important;background:#1b1b1a!important;border:1px solid #393630!important;box-shadow:0 15px 38px rgba(13,10,5,.24)!important;backdrop-filter:none!important}
+#dock.tempo-dock.keyboard-hidden{opacity:0!important;pointer-events:none!important;transform:translate3d(-50%,150px,0)!important}
+.tempo-dock .dock-item,.tempo-dock .dock-home{display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:center!important;height:100%!important;min-width:0!important;width:100%!important;border-radius:13px!important;background:transparent!important;border:0!important;gap:1px!important;color:#aaa7a0!important;box-shadow:none!important}
+.tempo-dock [data-tab].active{background:#3b342a!important;color:#e6c390!important}
+.tempo-dock [data-tab].active::before{display:none!important}
+.tempo-dock .tempo-nav-icon{font-family:Arial,sans-serif;font-size:22px;line-height:24px;font-weight:400}
+.tempo-dock .dock-item em,.tempo-dock .dock-home em{font-size:9px;font-style:normal;font-weight:650;color:inherit;line-height:1.2;letter-spacing:0}
+.tempo-dock .dot-badge{right:24%;top:4px}
+/* BROWSE / OTHER CUSTOMER VIEWS */
+.view{min-height:0;animation:none!important}.view.active{display:block!important;animation:tempoViewIn .5s ease both!important}
+@keyframes tempoViewIn{0%{opacity:.5;transform:translateY(8px)}100%{opacity:1;transform:none}}
+#homeView.active{animation:none!important}
+.view-header{margin:5px 0 22px;padding:0!important}
+.view-header h1{max-width:580px;font-weight:900;font-size:clamp(32px,5vw,56px);letter-spacing:-.07em;line-height:1.03}
+.view-header .eyebrow{letter-spacing:.14em;color:#a78453}
+.search-field{border-radius:13px;border:1px solid var(--tempo-border);background:var(--surface)}
+.chip-row{gap:7px}.chip{border:1px solid var(--tempo-border);box-shadow:none;border-radius:99px;background:var(--surface);font-size:11px;font-weight:800}.chip.active{background:#1b1b1a!important;color:#fff!important;border-color:#1b1b1a!important}
+#appsView .section-heading h2{font-weight:850;font-size:22px;letter-spacing:-.04em}
+.tempo-browse-grid{margin:10px 0 28px}
+#updatesView .update-card,#requestsView .request-card,#settingsView .settings-profile,#settingsView .settings-group{background:var(--surface);border:1px solid var(--tempo-border);box-shadow:none;border-radius:17px}
+#updatesView .update-card{margin-bottom:10px}
+/* Dialogs and checkout continue to use the existing secure server-backed flows. */
+.modal,.detail-sheet,.sheet,.notification-sheet,.search-sheet{background:var(--surface);color:var(--text);border:1px solid var(--tempo-border);box-shadow:0 20px 70px rgba(20,16,9,.13)}
+.modal-backdrop{background:rgba(22,20,16,.5)}
+.modal-close,.sheet-grab{color:var(--text)}
+.marketplace-detail .product-title-row h2,.modal h2{letter-spacing:-.04em}
+input,select,textarea{color:var(--text)}
+.form-grid input,.form-grid textarea,.form-grid select{background:var(--surface2);border:1px solid var(--tempo-border)}
+.product-balance,.product-card,.detail-hero,.cart-item,.settings-profile,.settings-group{border-color:var(--tempo-border)}
+.cart-checkout,.product-actions .btn-primary{background:#1b1b1a;color:#fff}
+.toast{border-radius:12px}
+/* Disable legacy launcher/hero animations on touch so sections never disappear. */
+.panel-enter,.reveal{opacity:1!important;transform:none!important;animation:none!important}
+.tempo-hero h1,.tempo-hero-eyebrow,.tempo-hero p,.tempo-section-head{animation:tempoRise .76s cubic-bezier(.2,.65,.3,1) both}
+.tempo-hero p{animation-delay:.1s}.tempo-hero h1{animation-delay:.05s}.tempo-section-head{animation-delay:.12s}
+@keyframes tempoRise{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:none}}
+@media(min-width:750px){
+  .mobile-shell{padding:0 36px calc(128px + env(safe-area-inset-bottom,0px))!important}
+  .tempo-internal-strip{margin-left:-36px;margin-right:-36px;padding-left:36px;padding-right:36px}
+  .tempo-hero{padding:34px 42px 0;min-height:360px}
+  .tempo-product-grid,.tempo-public-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:26px 18px}
+  .tempo-offer-strip{padding:36px}
+}
+@media(min-width:1050px){.tempo-product-grid,.tempo-public-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.tempo-home-hero{min-height:400px}.tempo-hero h1{font-size:96px}.tempo-shop-section{margin-top:48px}}
+@media(max-width:390px){
+  .tempo-internal-strip span:last-child,.tempo-top-strip:not(.tempo-internal-strip) span:last-child{display:none}
+  .tempo-app-brand strong{font-size:19px}.tempo-app-brand img{width:23px;height:23px}
+  .tempo-profile .avatar{width:31px;height:31px}.tempo-profile span,.tempo-profile strong{max-width:48px}
+  .tempo-app-header .icon-btn{width:34px;height:34px}
+  .tempo-hero{padding:22px 18px 0;min-height:300px;border-radius:20px}
+  .tempo-hero h1{font-size:48px;letter-spacing:-.075em}
+  .tempo-hero .tempo-hero-actions{gap:7px}
+  .tempo-pill-black,.tempo-pill-light{padding:0 12px;gap:7px;font-size:11px;min-height:40px}
+  .tempo-card-media{border-radius:15px}
+  .tempo-free-banner{padding:18px 14px}.tempo-free-banner h2{font-size:23px}.tempo-banner-link{font-size:10px;padding:9px 10px}
+  .tempo-offer-strip{padding:18px}
+}
+@media(prefers-reduced-motion:reduce){.tempo-hero h1,.tempo-hero-eyebrow,.tempo-hero p,.tempo-section-head,.view.active{animation:none!important}}
+
+/* Header sizing: no collisions between brand, account, and bag on iPhone. */
+.tempo-app-header{display:flex!important;align-items:center!important;justify-content:space-between!important}
+.tempo-app-brand{position:static!important;transform:none!important;order:0;flex:none;margin-right:auto}
+.tempo-app-header .top-actions{order:1;margin-left:0!important;display:flex;gap:6px}
+.tempo-app-header #searchBtn{display:none!important}
+.tempo-app-header .tempo-profile{order:2;margin-left:2px;min-width:0}
+.tempo-app-header .tempo-profile>div:last-child{display:none!important}
+.tempo-app-header .tempo-profile .avatar{width:35px;height:35px;border-radius:50%}
+.tempo-product-placeholder small{display:none}
+@media(max-width:390px){.tempo-app-brand strong{font-size:22px}.tempo-app-brand img{width:26px;height:26px}}
+
+.tempo-brand-button{border:0;background:none;padding:0;cursor:pointer}
