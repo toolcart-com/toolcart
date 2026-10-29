@@ -41,7 +41,21 @@ function renderPublicApps(apps,products=[]){
 }
 const T06_HEART='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 5.4a5.1 5.1 0 0 0-7.2 0L12 6.8l-1.4-1.4a5.1 5.1 0 0 0-7.2 7.2L12 21l8.6-8.4a5.1 5.1 0 0 0 0-7.2z"/></svg>';
 const t06Saved=()=>{try{return JSON.parse(localStorage.getItem('toolcart_product_wishlist')||'[]').map(Number)}catch{return[]}};
-function t06ToggleSave(id){const saved=new Set(t06Saved());saved.has(id)?saved.delete(id):saved.add(id);localStorage.setItem('toolcart_product_wishlist',JSON.stringify([...saved]));renderApps();toast(saved.has(id)?'Added to wishlist.':'Removed from wishlist.');}
+function t06ToggleSave(id){
+  const saved=new Set(t06Saved());
+  saved.has(id)?saved.delete(id):saved.add(id);
+  localStorage.setItem('toolcart_product_wishlist',JSON.stringify([...saved]));
+  const isSaved=saved.has(id),product=state.products.find(p=>Number(p.id)===id);
+  // Update the heart in place. Rebuilding renderApps() here replaces every loaded cover image,
+  // making R2 images briefly disappear on iPhone Safari while they load again.
+  $$('[data-t06-save]').forEach(button=>{
+    if(Number(button.dataset.t06Save)!==id)return;
+    button.classList.toggle('saved',isSaved);
+    button.setAttribute('aria-label',`${isSaved?'Remove':'Save'} ${product?.name||'product'} ${isSaved?'from':'to'} wishlist`);
+  });
+  if(state.activeTab==='wishlist')renderWishlist();
+  toast(isSaved?'Added to wishlist.':'Removed from wishlist.');
+}
 function renderWishlist(){const saved=new Set(t06Saved());const goods=state.products.filter(p=>saved.has(Number(p.id)));const el=$('#wishlistProducts');if(el)el.innerHTML=goods.length?goods.map(productCard).join(''):empty('Your wishlist is empty','Tap the heart on a product to save it here.','♡')}
 function tempo06CategoryMatches(p){const cat=state.tempo06Category||'all';if(cat==='all')return true;if(cat==='free')return p.access_type==='free'||Number(p.price_minor)===0;const text=`${p.name} ${p.short_description||''} ${p.description||''}`.toLowerCase();return cat==='ai'?/\bai\b|artificial intelligence|prompt|machine learning/.test(text):cat==='guide'?/guide|tutorial|handbook|pdf|ebook|course/.test(text):text.includes(cat)}
 async function addProductCardToCart(id,button){if(button)button.disabled=true;try{const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:1}});state.cartCount=Number(d.cartCount||0);updateBadges();toast('Added to your cart.')}catch(e){toast(e.message,'error')}finally{if(button)button.disabled=false}}
@@ -103,7 +117,7 @@ async function openApp(id){try{const d=await api(`/api/apps/${id}/open`,{method:
 async function toggleFavorite(id){try{const d=await api(`/api/apps/${id}/favorite`,{method:'POST'});const a=state.apps.find(x=>x.id===id);if(a)a.favorite=d.favorite;renderApps()}catch(e){toast(e.message,'error')}}
 async function openUpdate(id){const u=state.updates.find(x=>x.id===id);if(!u)return;try{if(!u.is_read){await api(`/api/updates/${id}/read`,{method:'POST'});u.is_read=1;updateBadges();renderUpdates()} }catch{}showDetail(`<div class="detail-hero"><span class="eyebrow">${esc(humanStatus(u.update_type))}</span><h2>${esc(u.title)}</h2><p>${esc(u.summary)}</p><div class="detail-meta"><span class="status-badge">${esc(humanStatus(u.priority))}</span><span class="status-badge">${fmtDate(u.publish_at)}</span></div></div><div class="detail-body"><p style="white-space:pre-wrap;line-height:1.65;color:var(--muted)">${esc(u.content)}</p>${u.external_url?`<div class="detail-actions"><button class="btn btn-primary" data-external="${esc(u.external_url)}">${esc(u.cta_label||'Open link')}</button></div>`:''}</div>`)}
 
-function switchTab(tab,scroll=true){closeStoreMenu();const valid=['home','apps','wishlist','cart','purchases','wallet','updates','requests','settings'];if(!valid.includes(tab))tab='home';state.activeTab=tab;$$('.view').forEach(v=>v.classList.remove('active'));const view=$(`#${tab}View`)||$('#homeView');view.classList.add('active');$$('#dock [data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$('#dock [data-open-cart]')?.classList.toggle('active',tab==='cart');document.body.dataset.activeView=tab;if(tab==='home'){renderHeader();renderApps();renderRecent();renderUpdates();renderSubscription();renderPromos()}if(tab==='wishlist')renderWishlist();if(tab==='purchases')renderPurchases();if(tab==='wallet')renderWalletView();if(tab==='requests')loadRequests();if(scroll)window.scrollTo({top:0,left:0,behavior:'auto'})}
+function switchTab(tab,scroll=true){closeStoreMenu();const valid=['home','apps','wishlist','cart','purchases','wallet','updates','requests','settings'];if(!valid.includes(tab))tab='home';state.activeTab=tab;$$('.view').forEach(v=>v.classList.remove('active'));const view=$(`#${tab}View`)||$('#homeView');view.classList.add('active');$$('#dock [data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$('#dock [data-open-cart]')?.classList.toggle('active',tab==='cart');document.body.dataset.activeView=tab;if(tab==='home'){renderHeader()}if(tab==='wishlist')renderWishlist();if(tab==='purchases')renderPurchases();if(tab==='wallet')renderWalletView();if(tab==='requests')loadRequests();if(scroll)window.scrollTo({top:0,left:0,behavior:'auto'})}
 
 async function loadRequests(){try{const d=await api('/api/requests');state.requests=d.requests||[];renderRequests()}catch(e){$('#requestsList').innerHTML=empty('Could not load requests',e.message)}}
 function renderRequests(){const box=$('#requestsList');box.innerHTML=state.requests.length?state.requests.map(r=>`<article class="request-card" data-request-id="${r.id}"><div class="request-card-top"><div><strong>${esc(r.subject)}</strong><p>${esc(r.reference_number)} · ${fmtDate(r.updated_at)}</p></div><span class="status-pill ${r.status==='resolved'?'resolved':''}">${esc(humanStatus(r.status))}</span></div></article>`).join(''):empty('No requests yet','Use New request whenever you need help.','↗')}

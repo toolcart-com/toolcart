@@ -267,8 +267,8 @@ body{font-family:'DM Sans',Inter,-apple-system,BlinkMacSystemFont,"Helvetica Neu
 .tempo06-menu-quick button span{color:#a88b51;font-size:22px}
 /* Slide-out navigation, independent of the product, payment and account modals. */
 .tempo06-menu-backdrop{position:fixed;inset:0;z-index:109;background:rgba(8,10,8,.46);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-.tempo06-menu-drawer{position:fixed;z-index:110;left:0;top:0;bottom:0;height:100dvh;width:min(86vw,365px);max-width:100%;background:#fff;color:#22271f;border-right:1px solid #e8e4da;box-shadow:15px 0 55px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow:hidden;animation:tempo06MenuIn .21s cubic-bezier(.2,.75,.3,1) both}
-@keyframes tempo06MenuIn{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+.tempo06-menu-drawer{position:fixed;z-index:110;right:0;left:auto;top:0;bottom:0;height:100dvh;width:min(86vw,365px);max-width:100%;background:#fff;color:#22271f;border-left:1px solid #e8e4da;box-shadow:-15px 0 55px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow:hidden;animation:tempo06MenuIn .21s cubic-bezier(.2,.75,.3,1) both}
+@keyframes tempo06MenuIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
 .tempo06-menu-drawer.hidden,.tempo06-menu-backdrop.hidden{display:none!important}
 body.tempo06-menu-open{overflow:hidden!important}
 .tempo06-menu-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:calc(18px + env(safe-area-inset-top,0px)) 20px 14px;background:#fafaf7;border-bottom:1px solid #eeeae2}
