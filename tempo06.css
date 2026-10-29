@@ -319,3 +319,40 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
 /* The user-supplied wordmark has no cart outline. Display it within the existing header dimensions. */
 .tempo06-brand .tempo06-new-wordmark{width:100%!important;height:auto!important;max-height:100%!important;object-fit:contain!important}
 .tempo06-brand-wordmark-wrap{height:43px!important}
+
+/* V1.20 — continuous carousel-slide movement on the existing gold bag illustration.
+   Applied to both public and signed-in homepage. White hero/artwork remains unchanged.
+   This animation is time-based, not triggered/paused by scroll or IntersectionObserver. */
+.tempo06-hero-art { perspective: 780px; }
+.tempo06-hero .tempo06-hero-art .tempo06-bag-carousel {
+  width:100%; height:100%; min-width:0; flex:none;
+  display:flex; align-items:center; justify-content:center;
+  transform-origin:50% 50%; transform-style:preserve-3d;
+  backface-visibility:hidden;
+  animation:toolcartBagCarouselSlide 4.8s ease-in-out infinite!important;
+  animation-play-state:running!important;
+  will-change:transform;
+}
+/* The illustrated bag itself is left intact; animate its wrapper instead of
+   replaying the old one-time fade-in that may briefly hide the artwork. */
+.tempo06-hero .tempo06-bag-carousel .tempo06-bag-art {
+  animation:none!important; opacity:1!important; translate:none!important;
+}
+@keyframes toolcartBagCarouselSlide {
+  0%, 100% { transform:translate3d(0,0,0) rotateY(0deg) scale(1); }
+  20% { transform:translate3d(-9%,0,0) rotateY(15deg) scale(.96); }
+  40% { transform:translate3d(0,0,0) rotateY(0deg) scale(1); }
+  60% { transform:translate3d(9%,0,0) rotateY(-15deg) scale(.96); }
+  80% { transform:translate3d(0,0,0) rotateY(0deg) scale(1); }
+}
+/* System reduced-motion preference: a gentler, still continuous movement. */
+@media (prefers-reduced-motion:reduce) {
+  .tempo06-hero .tempo06-hero-art .tempo06-bag-carousel {
+    animation-name:toolcartBagCarouselGentle!important;
+    animation-duration:7s!important;
+  }
+}
+@keyframes toolcartBagCarouselGentle {
+  0%,100% { transform:translate3d(0,0,0) rotateY(0deg); }
+  50% { transform:translate3d(2%,0,0) rotateY(-3deg); }
+}
