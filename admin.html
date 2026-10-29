@@ -4,11 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0c0d12" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <link rel="icon" href="/icon-192.png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-  <link rel="stylesheet" href="/styles.css?v=2.5.0" />
-  <link rel="stylesheet" href="/admin.css?v=2.5.0" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/admin.css" />
   <title>ToolCart Admin</title>
 </head>
 <body>
@@ -17,7 +16,7 @@
 
   <main id="adminLogin" class="admin-login hidden">
     <section class="admin-login-card panel-enter">
-      <div class="auth-mark"><img src="/toolcart-logo.png" alt="" /></div>
+      <div class="auth-mark"><img src="/toolcart-v115-symbol.png" alt="" /></div>
       <span class="eyebrow">TOOLCART CONTROL</span><h1>Administrator</h1><p>Secure access to ecosystem operations.</p>
       <form id="adminLoginForm" class="form-grid">
         <div class="field"><label>Email</label><input name="email" type="email" autocomplete="username" required></div>
@@ -31,8 +30,7 @@
         <div class="field"><label>Full name</label><input name="fullName" autocomplete="name" required></div>
         <div class="field"><label>Admin email</label><input name="email" type="email" autocomplete="username" required></div>
         <div class="field"><label>Admin password</label><input name="password" type="password" minlength="12" autocomplete="new-password" required></div>
-        <div id="adminSetupStatus" class="admin-setup-status hidden" role="status" aria-live="polite"></div>
-        <button class="btn btn-primary" type="submit">Create owner administrator</button>
+        <button class="btn btn-primary">Create owner administrator</button>
         <button type="button" id="cancelAdminSetup" class="btn btn-ghost">Back to sign in</button>
       </form>
       <a class="admin-back" href="/">Back to ToolCart</a>
@@ -41,11 +39,11 @@
 
   <main id="adminShell" class="admin-shell hidden">
     <aside id="adminSidebar" class="admin-sidebar">
-      <div class="admin-brand"><img src="/toolcart-logo.png" alt=""><div><strong>ToolCart</strong><span>Administrator</span></div></div>
+      <div class="admin-brand"><img src="/toolcart-v115-symbol.png" alt=""><div><strong>ToolCart</strong><span>Administrator</span></div></div>
       <nav id="adminNav">
         <button class="active" data-admin-tab="dashboard"><span>◫</span>Dashboard</button>
         <button data-admin-tab="customers"><span>◎</span>Customers</button>
-        <button data-admin-tab="apps"><span>◆</span>Tools & Products</button>
+        <button data-admin-tab="apps"><span>◆</span>Tools</button>
         <button data-admin-tab="subscriptions"><span>◇</span>Subscriptions</button>
         <button data-admin-tab="payments"><span>◌</span>Payments</button>
         <button data-admin-tab="updates"><span>↗</span>Updates</button>
@@ -80,6 +78,6 @@
 
   <div id="modalBackdrop" class="modal-backdrop hidden"></div>
   <section id="adminModal" class="modal detail-sheet hidden"><button class="modal-close" data-close-admin-modal>×</button><div id="adminModalContent"></div></section>
-  <script type="module" src="/admin.js?v=2.5.0"></script>
+  <script type="module" src="/admin.js"></script>
 </body>
 </html>

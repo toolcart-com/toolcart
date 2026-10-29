@@ -15,7 +15,7 @@ async function api(path,opts={}){
   return data;
 }
 function toast(message,type='ok'){const el=document.createElement('div');el.className=`toast ${type}`;el.textContent=message;$('#toastHost').append(el);setTimeout(()=>el.remove(),3600)}
-function setTheme(theme){document.documentElement.dataset.theme='pearl';document.querySelector('meta[name="theme-color"]').setAttribute('content','#171717');localStorage.setItem('toolcart_theme','pearl')}
+function setTheme(theme){document.documentElement.dataset.theme='pearl';document.querySelector('meta[name="theme-color"]').setAttribute('content','#000000');localStorage.setItem('toolcart_theme','pearl')}
 function preferredVisualTheme(preferred,fallback='pearl'){return 'pearl'}
 function initials(name='ToolCart'){return name.trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'TC'}
 function iconHtml(app,cls='app-icon'){const style=`--accent:${esc(app.accent_color||app.accentColor||'#7b65ff')}`;return `<div class="${cls}" style="${style}">${app.icon_url?`<img src="${esc(app.icon_url)}" alt="">`:esc(initials(app.name))}</div>`}
@@ -25,7 +25,7 @@ function empty(title,text,icon='◇'){return `<div class="empty-state"><span>${i
 async function boot(){
   if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
   bindGlobalEvents();
-  try{const session=await api('/api/session');state.user=session.user;state.csrf=session.csrfToken;await enterApp(true)}catch{await enterPublic()}
+  try{const session=await api('/api/session');state.user=session.user;state.csrf=session.csrfToken;await enterApp()}catch{await enterPublic()}
   handleDeepLinks();
   setupViewportDock();
 }
@@ -46,12 +46,12 @@ function renderWishlist(){const saved=new Set(t06Saved());const goods=state.prod
 function tempo06CategoryMatches(p){const cat=state.tempo06Category||'all';if(cat==='all')return true;if(cat==='free')return p.access_type==='free'||Number(p.price_minor)===0;const text=`${p.name} ${p.short_description||''} ${p.description||''}`.toLowerCase();return cat==='ai'?/\bai\b|artificial intelligence|prompt|machine learning/.test(text):cat==='guide'?/guide|tutorial|handbook|pdf|ebook|course/.test(text):text.includes(cat)}
 async function addProductCardToCart(id,button){if(button)button.disabled=true;try{const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:1}});state.cartCount=Number(d.cartCount||0);updateBadges();toast('Added to your cart.')}catch(e){toast(e.message,'error')}finally{if(button)button.disabled=false}}
 
-async function enterApp(showIntro=false){
+async function enterApp(){
   $('#signedOut').classList.add('hidden');$('#appShell').classList.remove('hidden');
   const data=await api('/api/bootstrap');Object.assign(state,{user:data.user,apps:data.apps||[],products:data.products||[],wallet:data.wallet||{balanceMinor:0,currency:'NGN'},cartCount:Number(data.cartCount||0),updates:data.updates||[],notifications:data.notifications||[],recentApps:data.recentApps||[],currentPlan:data.currentPlan,settings:data.settings||{},promos:data.promos||[]});
   setTheme(preferredVisualTheme(state.user.preferredTheme,state.settings.default_theme||'pearl'));
   renderApp();
-  if(showIntro&&!sessionStorage.getItem('toolcart_intro_seen')){sessionStorage.setItem('toolcart_intro_seen','1');$('#introGreeting').textContent=`${greeting()}, ${state.user.firstName}.`;$('#introScreen').classList.remove('hidden');setTimeout(()=>$('#introScreen').classList.add('hidden'),2800)}
+  switchTab('home');
 }
 function renderApp(){renderHeader();renderApps();renderRecent();renderUpdates();renderSubscription();renderPromos();renderSettingsProfile();renderDockVisibility();updateBadges()}
 function greeting(){const h=new Date().getHours();return h<12?'Good morning':h<18?'Good afternoon':'Good evening'}
@@ -60,7 +60,7 @@ function renderHeader(){
   const av=$('#avatar');if(state.user.profileImageUrl){av.style.backgroundImage=`url("${state.user.profileImageUrl}")`;av.textContent=''}else{av.style.backgroundImage='';av.textContent=initials(state.user.fullName)}
 }
 function appAvailability(a){return a.status==='online'?'online':'offline'}
-function appCard(a){const availability=appAvailability(a);return `<article class="tempo-merchant-card tempo-tool-card" data-app-id="${a.id}" tabindex="0" role="button" aria-label="Open ${esc(a.name)}"><div class="tempo-card-media tempo-tool-media">${tempoToolCover(a)}</div><div class="tempo-card-info"><small class="tempo-card-type">WORKING TOOL</small><h3>${esc(a.name)}</h3><small class="tempo-online ${availability}">${availability.toUpperCase()}</small></div><button class="tempo06-add" data-tool-launch="${a.id}">Open tool ↗</button></article>`}
+function appCard(a,featured=false){const availability=appAvailability(a);return `<article class="tempo-merchant-card tempo-tool-card" data-app-id="${a.id}" tabindex="0" role="button" aria-label="Open ${esc(a.name)}"><div class="tempo-card-media tempo-tool-media">${tempoToolCover(a)}</div><div class="tempo-card-info"><small class="tempo-card-type">WORKING TOOL</small><h3>${esc(a.name)}</h3><small class="tempo-online ${availability}">${featured?esc(humanStatus(a.status)||'Available'):availability.toUpperCase()}</small></div><button class="tempo06-add" data-tool-launch="${a.id}">${featured?'Explore tool':'Open tool'} ↗</button></article>`}
 function productAvailability(p){return p.stock_mode==='unlimited'?'UNLIMITED':Number(p.stock_quantity||0)>0?`${Number(p.stock_quantity)} IN STOCK`:'SOLD OUT'}
 function productCard(p){const price=productPrice(p),stock=productAvailability(p),soldOut=stock==='SOLD OUT',saved=t06Saved().includes(Number(p.id));return `<article class="tempo-merchant-card tempo-good-card" data-product-id="${p.id}" tabindex="0" role="button" aria-label="View ${esc(p.name)}"><div class="tempo-card-media tempo-product-media">${p.display_image_url?`<img src="${esc(p.display_image_url)}" loading="lazy" alt="${esc(p.name)} cover">`:`<div class="tempo-product-placeholder"><small>THE TOOLCART COLLECTION</small><strong>${esc(p.name)}</strong><i>DIGITAL GOODS / ${esc(stock)}</i></div>`}<button type="button" class="tempo06-save ${saved?'saved':''}" data-t06-save="${p.id}" aria-label="${saved?'Remove':'Save'} ${esc(p.name)} ${saved?'from':'to'} wishlist">${T06_HEART}</button></div><div class="tempo-card-info"><small class="tempo-card-type">${esc(p.short_description||stock)}</small><h3>${esc(p.name)}</h3><strong class="tempo-card-price">${esc(price)}</strong></div><button type="button" class="tempo06-add" data-card-add="${p.id}" ${soldOut?'disabled':''}><span>+</span> ${soldOut?'Out of stock':p.access_type==='free'?'Get free product':'Add to cart'}</button></article>`}
 
@@ -68,7 +68,10 @@ function launcherItems(){const tools=state.apps.map(x=>({...x,_kind:'app',_order
 function launcherCard(x){return x._kind==='product'?productCard(x):appCard(x)}
 function renderApps(){
   const goods=state.products.slice().filter(tempo06CategoryMatches).sort((a,b)=>{const sort=$('#tempo06Sort')?.value||'featured';if(sort==='low')return Number(a.price_minor||0)-Number(b.price_minor||0);if(sort==='high')return Number(b.price_minor||0)-Number(a.price_minor||0);if(sort==='newest')return Number(b.id)-Number(a.id);return (Number(b.featured||0)-Number(a.featured||0))||(Number(a.display_order||0)-Number(b.display_order||0))});
-  $('#homeProducts').innerHTML=goods.length?goods.map(productCard).join(''):empty('No products in this selection','Try Everything to browse all current goods.');
+  // Match the public storefront: products followed by working tools in one two-column lineup.
+  // Category-specific selections only show matching products; the separate Working Tools shelf remains below.
+  const lineup=[...goods.map(productCard),...((state.tempo06Category||'all')==='all'?state.apps.map(a=>appCard(a,true)):[])];
+  $('#homeProducts').innerHTML=lineup.length?lineup.join(''):empty('No products in this selection','Try Everything to browse all current goods.');
   $('#homeApps').innerHTML=state.apps.length?state.apps.map(appCard).join(''):empty('Working tools, coming soon','New tools will appear here when available.');
   const categories=['all','products','tools',...new Set(state.apps.map(a=>a.category).filter(Boolean))];$('#categoryChips').innerHTML=categories.map(c=>`<button class="chip ${state.appCategory===c?'active':''}" data-category="${esc(c)}">${c==='all'?'Everything':c==='products'?'Digital goods':c==='tools'?'Working tools':esc(c)}</button>`).join('');renderAppsPage();renderWishlist();
 }
@@ -135,12 +138,12 @@ function authForm(mode='login',token=''){
 }
 function openAuth(mode,token=''){$('#authContent').innerHTML=authForm(mode,token);openModal('#authModal');bindAuthForms()}
 function bindAuthForms(){
-  $('#loginForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget),b=$('button',e.currentTarget);b.disabled=true;try{const d=await api('/api/auth/login',{method:'POST',body:{email:f.get('email'),password:f.get('password')}});state.user=d.user;state.csrf=d.csrfToken;closeModals();await enterApp(true)}catch(err){toast(err.message,'error');b.disabled=false}});
-  $('#registerForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget),b=$('button',e.currentTarget);b.disabled=true;try{const d=await api('/api/auth/register',{method:'POST',body:{fullName:f.get('fullName'),email:f.get('email'),password:f.get('password')}});if(d.user&&d.csrfToken){state.user=d.user;state.csrf=d.csrfToken;closeModals();toast('Account created. Welcome to ToolCart.');await enterApp(true);return}$('#authContent').innerHTML=`<h2>Check your email.</h2><p class="modal-sub">${esc(d.message)}</p><button class="btn btn-primary" data-auth-switch="login">Back to sign in</button>`}catch(err){toast(err.message,'error');b.disabled=false}});
+  $('#loginForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget),b=$('button',e.currentTarget);b.disabled=true;try{const d=await api('/api/auth/login',{method:'POST',body:{email:f.get('email'),password:f.get('password')}});state.user=d.user;state.csrf=d.csrfToken;closeModals();await enterApp()}catch(err){toast(err.message,'error');b.disabled=false}});
+  $('#registerForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget),b=$('button',e.currentTarget);b.disabled=true;try{const d=await api('/api/auth/register',{method:'POST',body:{fullName:f.get('fullName'),email:f.get('email'),password:f.get('password')}});if(d.user&&d.csrfToken){state.user=d.user;state.csrf=d.csrfToken;closeModals();toast('Account created. Welcome to ToolCart.');await enterApp();return}$('#authContent').innerHTML=`<h2>Check your email.</h2><p class="modal-sub">${esc(d.message)}</p><button class="btn btn-primary" data-auth-switch="login">Back to sign in</button>`}catch(err){toast(err.message,'error');b.disabled=false}});
   $('#forgotForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{const d=await api('/api/auth/forgot-password',{method:'POST',body:{email:f.get('email')}});$('#authContent').innerHTML=`<h2>Check your inbox.</h2><p class="modal-sub">${esc(d.message)}</p><button class="btn btn-primary" data-auth-switch="login">Back to sign in</button>`}catch(err){toast(err.message,'error')}});
   $('#resetForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{const d=await api('/api/auth/reset-password',{method:'POST',body:{token:e.currentTarget.dataset.token,password:f.get('password')}});toast(d.message);history.replaceState({},'',location.pathname);openAuth('login')}catch(err){toast(err.message,'error')}})
 }
-async function handleDeepLinks(){const p=new URLSearchParams(location.search);if(p.get('verify')){try{const d=await api('/api/auth/verify-email',{method:'POST',body:{token:p.get('verify')}});history.replaceState({},'',location.pathname);toast(d.message);openAuth('login')}catch(e){toast(e.message,'error')}}if(p.get('reset'))openAuth('reset',p.get('reset'));if(p.get('payment')==='complete'&&p.get('reference')&&state.user){try{const d=await api(`/api/payments/paystack/verify?reference=${encodeURIComponent(p.get('reference'))}`);toast(d.status==='success'?'Payment confirmed.':'Payment is still being verified.');history.replaceState({},'',location.pathname);await enterApp(false)}catch(e){toast(e.message,'error')}}}
+async function handleDeepLinks(){const p=new URLSearchParams(location.search);if(p.get('verify')){try{const d=await api('/api/auth/verify-email',{method:'POST',body:{token:p.get('verify')}});history.replaceState({},'',location.pathname);toast(d.message);openAuth('login')}catch(e){toast(e.message,'error')}}if(p.get('reset'))openAuth('reset',p.get('reset'));if(p.get('payment')==='complete'&&p.get('reference')&&state.user){try{const d=await api(`/api/payments/paystack/verify?reference=${encodeURIComponent(p.get('reference'))}`);toast(d.status==='success'?'Payment confirmed.':'Payment is still being verified.');history.replaceState({},'',location.pathname);await enterApp()}catch(e){toast(e.message,'error')}}}
 
 function bindGlobalEvents(){
   document.addEventListener('click',async e=>{

@@ -200,3 +200,28 @@ body{font-family:'DM Sans',Inter,-apple-system,BlinkMacSystemFont,"Helvetica Neu
 .tempo06-new-symbol{width:36px;height:36px;object-fit:contain;flex:none}
 .tempo06-new-wordmark{width:min(46vw,225px);height:43px;object-fit:contain;object-position:left center;display:block}
 @media(max-width:370px){.tempo06-new-symbol{width:30px;height:30px}.tempo06-new-wordmark{width:43vw;height:37px}}
+
+/* V1.15 — uploaded black-background branding, uniform public/member shop and a more compact tools shelf.
+   Display crops are CSS-only; both original uploaded logo files remain unchanged. */
+.tempo06-header{background:#000!important}
+.tempo06-brand-row{background:#000!important}
+.tempo06-icon .count-badge{border-color:#000!important}
+.tempo06-brand{display:flex!important;align-items:center!important;gap:5px!important;min-width:0!important;max-width:calc(100% - 78px);overflow:hidden}
+.tempo06-brand-symbol-wrap,.tempo06-brand-wordmark-wrap{position:relative;display:block;flex:none;overflow:hidden;background:#000}
+.tempo06-brand-symbol-wrap{width:40px;height:40px}
+.tempo06-brand-wordmark-wrap{width:clamp(112px,39vw,165px);height:56px;max-width:calc(100% - 45px)}
+.tempo06-brand .tempo06-new-symbol,.tempo06-brand .tempo06-new-wordmark{position:absolute!important;top:50%!important;left:50%!important;display:block!important;max-width:none!important;max-height:none!important;height:auto!important;object-fit:contain!important;transform:translate(-50%,-50%)!important}
+.tempo06-brand .tempo06-new-symbol{width:173%!important}
+.tempo06-brand .tempo06-new-wordmark{width:137%!important}
+/* On the main lineup, featured working tools share the public product card proportions. */
+.tempo-products-section .tempo-tool-card{align-self:stretch}
+/* Only the secondary Working Tools shelf is subtly smaller. */
+.tempo-tool-grid .tempo-tool-card{width:94%;max-width:120px;justify-self:start}
+.tempo-tool-grid .tempo-card-media{aspect-ratio:1.15/1!important}
+.tempo-tool-grid .tempo-card-info{padding:7px 2px 6px!important}
+.tempo-tool-grid .tempo06-add{min-height:29px!important;font-size:9px!important}
+@media(max-width:370px){
+ .tempo06-brand-symbol-wrap{width:35px;height:36px}
+ .tempo06-brand-wordmark-wrap{width:clamp(104px,38vw,145px);height:47px;max-width:calc(100% - 40px)}
+ .tempo06-brand{gap:4px!important}
+}
