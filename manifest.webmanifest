@@ -1,11 +1,11 @@
 {
   "name": "ToolCart",
   "short_name": "ToolCart",
-  "description": "Digital finds. Distinct taste.",
+  "description": "Find. Add. Yours. The ToolCart digital goods counter.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8f7f3",
-  "theme_color": "#f8f7f3",
+  "background_color": "#ffffff",
+  "theme_color": "#171717",
   "icons": [
     {
       "src": "/icon-192.png",

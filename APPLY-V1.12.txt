@@ -1,0 +1,1 @@
+ToolCart V1.12 — copy every file from the Changes Only folder into the GitHub repository root. Preserve Admin and Worker. No new D1 migration.

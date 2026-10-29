@@ -1,0 +1,138 @@
+/* V1.12 — Reference-faithful Tempo 06 mobile goods counter.
+   Customer storefront only; no changes to Admin, payment, auth or file access. */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap');
+:root,html[data-theme="pearl"],html[data-theme="midnight"]{
+  --bg:#ffffff;--bg2:#ffffff;--surface:#ffffff;--surface2:#f5f2eb;--surface3:#ece7da;
+  --text:#1b1b19;--muted:#8d887e;--faint:#a5a093;--line:#e4dfd5;
+  --violet:#af8e48;--violet2:#af8e48;--blue:#aa8944;--lav:#af8e48;--ok:#34805a;
+  --tempo-black:#171717;--tempo-gold:#b3944f;--tempo-cream:#f4f0e4;--tempo-border:#e2ddcf;
+}
+html,body{background:#fff!important;color:#1b1b19!important;overflow-x:clip!important;scrollbar-gutter:auto!important}
+body{font-family:'DM Sans',Inter,-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif!important}
+#appShell,#signedOut,.mobile-shell{background:#fff!important;color:#1b1b19}
+.mobile-shell{max-width:1080px!important;width:100%!important;min-height:100vh;padding:0 0 calc(132px + env(safe-area-inset-bottom,0px))!important}
+#homeView{width:100%}.view:not(.active){display:none!important}.view.active{display:block!important}
+/* FIRST SCREEN: BLACK HEADER, CUSTOM TC MARK, WHITE SEARCH */
+.tempo06-header{background:#171717;color:#f7f7f4;padding:0 16px 11px;position:relative;z-index:4}
+.tempo06-topline{border-bottom:1px solid #33302a;display:flex;justify-content:space-between;align-items:center;color:#c4a363;min-height:31px;letter-spacing:.22em;font-size:9px;font-weight:700}
+.tempo06-topline span:last-child{font-size:8px;color:#a69e8e;letter-spacing:.08em}
+.tempo06-brand-row{display:flex!important;align-items:center!important;justify-content:space-between!important;margin:0!important;min-height:77px!important;padding:12px 0 10px!important;border:0!important;background:#171717!important;box-shadow:none!important;backdrop-filter:none!important;position:relative!important;top:auto!important;gap:10px!important}
+.tempo06-brand{display:flex;align-items:center;gap:10px;color:#fff;cursor:pointer;border:0;background:transparent;padding:0;white-space:nowrap}
+.tempo06-mark{width:36px;height:36px;flex:none;border-radius:2px}
+.tempo06-brand strong{font-family:Inter,Arial,sans-serif;font-size:clamp(24px,6vw,36px);font-weight:900;letter-spacing:-.084em;line-height:1}
+.tempo06-brand strong span{color:#c5a45e}
+.tempo06-header-icons{display:flex;align-items:center;gap:5px}
+.tempo06-icon{background:transparent;border:0;color:#fff;display:grid;place-items:center;width:38px;height:40px;position:relative;cursor:pointer;padding:6px}
+.tempo06-icon svg{width:25px;height:25px;display:block}
+.tempo06-icon .count-badge{position:absolute;right:0;top:0;background:#c5a45e;border-color:#171717;color:#171717}
+.tempo06-hidden-avatar,.sr-only{position:absolute!important;width:1px!important;height:1px!important;clip:rect(0,0,0,0);overflow:hidden;white-space:nowrap}
+.tempo06-notifications{display:none!important}
+.tempo06-search{background:#fff;color:#9e988b;border-radius:6px;min-height:55px;display:flex;align-items:center;gap:0;box-shadow:none}
+.tempo06-search-main{flex:1;display:flex;align-items:center;gap:12px;text-align:left;background:transparent;border:0;color:#a29c90;padding:0 15px;min-width:0;height:55px;cursor:pointer}
+.tempo06-search-main>svg,.tempo06-search>svg{width:22px;height:22px;flex:none}
+.tempo06-search-main span,.tempo06-search>span{flex:1;min-width:0;font-size:14px;font-weight:400;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tempo06-search-filter,.tempo06-search>button:last-child{display:grid;place-items:center;border:0;border-left:1px solid #e3dacc;color:#a08859;background:transparent;min-width:46px;height:38px;margin:0 3px;padding:0 11px;cursor:pointer}
+.tempo06-search-filter svg,.tempo06-search>button:last-child svg{width:21px;height:21px}
+.tempo06-header-bottom{min-height:25px;padding-top:10px;display:flex;align-items:center;justify-content:space-between;color:#9e9380;font-size:10px}
+.tempo06-header-bottom span:first-child{color:#c0a56b}
+.tempo06-public>.tempo06-header{padding-top:env(safe-area-inset-top,0px)}
+/* MAIN HERO: WHITE, OVERSIZED TYPE AND GOLD SHOPPING BAG */
+.tempo06-hero{min-height:246px;padding:29px 18px 16px;background:#fff;color:#191919;position:relative;display:flex;align-items:center;isolation:isolate;gap:4px;overflow:hidden;border:0;border-radius:0;box-shadow:none}
+.tempo06-hero-copy{position:relative;z-index:1;flex:0 0 58%;padding-top:1px;min-width:0}
+.tempo06-eyebrow{color:#a38754;font-size:8px;letter-spacing:.23em;font-weight:750;white-space:nowrap;margin-bottom:3px}
+.tempo06-hero h1{font-family:Inter,'DM Sans',Arial,sans-serif;font-size:clamp(43px,11.2vw,100px);line-height:.87;letter-spacing:-.087em;margin:0!important;padding:0;font-weight:800;color:#171717}
+.tempo06-hero h1 span{display:block}.tempo06-goldword{color:#a98a45}
+.tempo06-hero-art{flex:1;position:relative;min-width:0;align-self:stretch;display:flex;align-items:center;justify-content:center;margin-right:-5px}
+.tempo06-bag-art{height:min(246px,60vw);width:110%;max-width:330px;overflow:visible;transform:rotate(-2deg);flex:none;filter:drop-shadow(0 7px 2px rgba(0,0,0,.04))}
+.tempo06-art-tag{position:absolute;bottom:0;right:0;transform:translateY(5px);font-size:7px;letter-spacing:.22em;color:#c4b68d}
+.tempo06-hero-arrow{border:0;position:absolute;right:12px;bottom:31px;width:38px;height:38px;border-radius:50%;background:#181818;color:#d1b173;font-size:24px;line-height:1;display:grid;place-items:center;z-index:2;cursor:pointer}
+/* CATEGORIES, LIKE THE EXAMPLE'S SIMPLE UNDERLINED TABS */
+.tempo06-categories{display:flex;align-items:center;gap:22px;overflow-x:auto;scrollbar-width:none;white-space:nowrap;padding:0 19px;margin:0;border-top:1px solid #e2dac9;border-bottom:1px solid #e2dac9;min-height:57px;scroll-snap-type:x proximity}
+.tempo06-categories::-webkit-scrollbar{display:none}
+.tempo06-categories button{font-size:12px;font-weight:650;padding:18px 0 15px;border:0;border-bottom:3px solid transparent;background:transparent;color:#a19b90;cursor:pointer;flex:none;scroll-snap-align:start}
+.tempo06-categories button.active{border-bottom-color:#c6a15d;color:#1e1e1d}
+/* PRODUCT SHELF */
+.tempo06-body{padding:0 19px}
+.tempo06-lineup{padding-top:26px}
+.tempo-products-section{margin:0!important;padding:27px 19px 0!important;background:#fff}
+.tempo06-section-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:0 0 18px;min-height:52px}
+.tempo06-section-head small{display:block;font-size:8px;letter-spacing:.21em;font-weight:750;color:#ad996f;margin-bottom:10px}
+.tempo06-section-head h2{font-size:clamp(23px,5.8vw,38px);font-weight:700;letter-spacing:-.06em;line-height:1.1;margin:0;color:#171717}
+.tempo06-sort-label{color:#928978;border:1px solid #dfd9cd;border-radius:6px;padding:12px 10px;min-width:78px;text-align:center;background:#fff;font-size:10px;cursor:pointer;white-space:nowrap}
+/* Product cards: two column, bordered, cover, caption, price and bottom black add button. */
+.tempo-product-grid,.tempo06-products-grid,.tempo-public-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px 10px!important;align-items:stretch!important}
+.tempo-merchant-card.tempo-good-card,.tempo-merchant-card.tempo-tool-card{border:1px solid #e7e2d8!important;border-radius:12px!important;background:#fff!important;padding:7px!important;box-shadow:none!important;min-width:0;display:flex!important;flex-direction:column;gap:0;text-align:left;overflow:hidden;isolation:isolate}
+.tempo-card-media{position:relative;aspect-ratio:1 / 1.03;border-radius:6px!important;overflow:hidden;background:#e7e1d4;display:flex;align-items:center;justify-content:center;flex:none}
+.tempo-card-media>img{width:100%;height:100%;object-fit:cover!important}
+.tempo-product-placeholder{background:#c4ac71!important;color:#211e1a!important;padding:10px!important;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;height:100%;width:100%;overflow:hidden}
+.tempo-product-placeholder small{display:block!important;font-size:7px!important;letter-spacing:.15em;font-weight:750;color:#453a24}
+.tempo-product-placeholder strong{font-size:clamp(23px,5vw,49px)!important;font-weight:800;letter-spacing:-.06em;align-self:flex-start;line-height:.98;text-transform:uppercase;overflow-wrap:anywhere}
+.tempo-product-placeholder i{font-size:7px;letter-spacing:.17em;font-weight:650}
+.tempo-media-corner{display:none!important}
+.tempo06-save{z-index:4;position:absolute;right:8px;top:8px;border:0;width:32px;height:32px;border-radius:50%;background:#faf9f6;display:grid;place-items:center;color:#29251d;cursor:pointer}
+.tempo06-save svg{width:20px;height:20px}
+.tempo06-save.saved{color:#af8a41}.tempo06-save.saved svg{fill:#d1b36b}
+.tempo-card-info{padding:10px 3px 8px!important;display:block!important;flex:1;min-height:0}
+.tempo-card-info .tempo-card-type{display:block!important;margin:0 0 7px!important;color:#9a9387!important;letter-spacing:0!important;text-transform:none!important;font-weight:450!important;font-size:10px!important;line-height:1.25}
+.tempo-card-info h3{font-size:clamp(14px,3.4vw,20px)!important;font-weight:700!important;line-height:1.16!important;margin:0 0 9px!important;letter-spacing:-.045em!important;color:#171717!important;white-space:normal!important;overflow-wrap:anywhere}
+.tempo-card-info .tempo-card-price{font-size:clamp(15px,3.7vw,22px)!important;font-weight:750!important;color:#1b1b1b!important;line-height:1.2;display:block;margin-bottom:0}
+.tempo-card-arrow{display:none!important}
+.tempo06-add{min-height:38px;border-radius:5px;display:flex;align-items:center;justify-content:center;gap:9px;background:#1d1d1b;color:#fff;font-size:11px;font-weight:650;width:100%;margin-top:auto;cursor:pointer;border:0;flex:none}
+.tempo06-add span{color:#c4a35e;font-size:22px;font-weight:300;line-height:1}
+.tempo06-add:disabled{opacity:.5;cursor:not-allowed}
+.tempo06-add:active{transform:scale(.985)}
+.tempo-tool-media{background:#ebe7dd!important}.tempo-tool-media .app-icon{width:44%;height:44%;font-size:20px;border-radius:12px}
+.tempo-tool-card .tempo-card-info{flex:1}.tempo-tool-card .tempo-online{color:#6e695e!important;font-size:10px!important;font-weight:600!important;letter-spacing:0!important}.tempo-tool-card .tempo06-add{background:#262522}
+/* banner and secondary tools */
+.tempo06-free{margin:26px 0 0;padding:24px 21px;background:#dec98d;color:#29251a;border-radius:9px;display:flex;align-items:center;justify-content:space-between;overflow:hidden;position:relative;min-height:157px}
+.tempo06-free small{letter-spacing:.18em;font-size:8px;font-weight:850;color:#8c7547}
+.tempo06-free h2{font-size:clamp(27px,6.8vw,47px);font-weight:750;letter-spacing:-.06em;line-height:1.06;margin:15px 0 15px;color:#29251a}
+.tempo06-free button{background:none;border:0;padding:0;color:#3f3320;font-size:12px;font-weight:600;text-align:left;cursor:pointer}
+.tempo06-free>b{font-size:100px;line-height:1;position:absolute;right:13px;top:4px;color:#f0dfad;letter-spacing:-.15em;transform:rotate(-15deg);pointer-events:none;font-weight:650}
+.tempo06-free>div{position:relative;z-index:1}
+.tempo-tools-section{padding:25px 19px 0;margin:0!important}.tempo-tools-section .tempo-section-head,.tempo-recent-section .tempo-section-head,.tempo-updates-section .tempo-section-head{margin-bottom:14px}
+.tempo-tools-section .tempo-section-head h2,.tempo-recent-section .tempo-section-head h2,.tempo-updates-section .tempo-section-head h2{font-weight:700;font-size:25px}
+.tempo-tools-section .tempo-section-link,.tempo-updates-section .tempo-section-link{color:#a1824a;text-decoration:none}
+.tempo-tool-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important}
+.tempo-tool-grid .tempo-tool-card{min-width:0}
+.tempo-tool-grid .tempo-card-media{aspect-ratio:1/1}
+.tempo-tool-grid .tempo-card-info h3{font-size:12px!important}.tempo-tool-grid .tempo-card-info .tempo-card-type{display:none!important}
+.tempo-tool-grid .tempo06-add{font-size:10px;min-height:32px}
+.tempo-recent-section,.tempo-updates-section,.tempo-member-strip,#promoArea{margin-left:19px;margin-right:19px}
+.tempo-updates-section .update-card,.tempo-member-strip .subscription-card{background:#fff;color:#1d1d1d;border:1px solid #e6e1d8;box-shadow:none}
+.tempo-inside-footer,.tempo06-footer{padding:32px 15px 30px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;border:0;background:#fff}
+.tempo-inside-footer strong,.tempo06-footer strong{font-family:Inter,Arial,sans-serif;font-size:24px;color:#222;font-weight:900;letter-spacing:-.06em}
+.tempo06-footer p{font-size:12px;color:#aea69a;margin:0}
+.tempo06-footer div{display:flex;gap:15px;align-items:center}.tempo06-footer button{border:0;background:transparent;font-size:11px;color:#b0a69a;cursor:pointer}
+/* THE WHITE FIXED FIVE-ITEM iPHONE NAVIGATION */
+#dock.tempo06-bottom,.tempo06-bottom{position:fixed!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;width:100%!important;max-width:none!important;height:calc(73px + env(safe-area-inset-bottom,0px))!important;min-height:73px!important;padding:5px 11px calc(6px + env(safe-area-inset-bottom,0px))!important;display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:0!important;border:0!important;border-top:1px solid #e5e1d9!important;border-radius:0!important;background:#fff!important;box-shadow:0 -5px 15px rgba(0,0,0,.02)!important;backdrop-filter:none!important;transform:none!important;transition:opacity .18s ease!important;animation:none!important;z-index:90!important;align-items:stretch!important}
+#dock.tempo06-bottom.keyboard-hidden{opacity:0!important;pointer-events:none!important;transform:none!important}
+.tempo06-bottom button,.tempo06-bottom .dock-item,.tempo06-bottom .dock-home{display:flex!important;align-items:center!important;flex-direction:column!important;justify-content:center!important;gap:3px!important;min-width:0;width:100%!important;height:100%!important;border:0!important;border-radius:0!important;background:#fff!important;color:#968f83!important;box-shadow:none!important;cursor:pointer;padding:3px 0!important}
+.tempo06-bottom button.active,.tempo06-bottom button.selected{color:#a78743!important}
+.tempo06-bottom [data-tab].active::before{display:none!important}
+.tempo06-bottom svg{display:block!important;width:25px!important;height:25px!important;stroke:currentColor!important;flex:none}
+.tempo06-bottom em,.tempo06-bottom span{font-size:10px!important;font-style:normal!important;line-height:1.3;font-weight:550!important;color:inherit!important;white-space:nowrap}
+/* Public & signed-in interior pages share the white collection typography. */
+.tempo06-public{padding-bottom:95px}.tempo06-public .tempo06-header{max-width:none;width:100%}
+.tempo06-public .tempo06-hero{max-width:1080px;margin:auto}
+#appsView,#wishlistView,#updatesView,#requestsView,#settingsView{padding:26px 19px 30px;color:#191919;background:#fff}
+#appsView .view-header h1,#updatesView .view-header h1,#requestsView .view-header h1,#settingsView .view-header h1{font-size:32px;color:#191919;font-weight:750}
+.tempo06-wishlist-note{color:#948e82;font-size:12px;margin:8px 0 20px}
+#appsView .chip-row,#updatesView .chip-row{margin:15px 0;display:flex;overflow-x:auto;scrollbar-width:none}
+#appsView .chip{border:1px solid #e0d9cc;background:#fff;color:#746e62}.chip.active,#appsView .chip.active{background:#1d1d1b!important;color:#fff!important;border-color:#1d1d1b!important}
+.search-field{background:#fff!important;border:1px solid #e2dccc!important}.search-field input{color:#191919!important}
+#settingsView .settings-group,#settingsView .settings-profile,#requestsView .request-card,#updatesView .update-card{background:#fff!important;color:#1d1d1d!important;border:1px solid #e4ded2!important}
+.modal,.detail-sheet,.sheet,.notification-sheet,.search-sheet{background:#fff!important;color:#1d1d1b!important;border:1px solid #e5e1d9!important}
+.modal-backdrop{background:rgba(20,18,13,.55)!important}.modal .btn-primary,.detail-sheet .btn-primary{background:#1d1d1b!important;color:#fff!important}
+/* Real content remains visible on Safari Back/forward caching. */
+.tempo06-hero,.tempo06-hero *,.tempo06-section-head,.tempo-product-grid{opacity:1!important;animation:none!important;transform:none}
+.tempo06-bag-art{transform:rotate(-2deg)!important;animation:tempo06BagIn .9s cubic-bezier(.2,.6,.2,1) both!important}
+@keyframes tempo06BagIn{from{opacity:0;translate:0 16px}to{opacity:1;translate:0 0}}
+.tempo06-hero h1 span{animation:tempo06Text .7s cubic-bezier(.2,.7,.25,1) both!important}.tempo06-hero h1 span:nth-child(2){animation-delay:.09s!important}.tempo06-hero h1 span:nth-child(3){animation-delay:.16s!important}
+@keyframes tempo06Text{from{opacity:0;translate:0 12px}to{opacity:1;translate:0 0}}
+@media(min-width:700px){.tempo06-header{padding-left:36px;padding-right:36px}.tempo06-hero{padding:50px 42px;min-height:370px;max-width:1080px;margin:0 auto}.tempo06-hero h1{font-size:90px}.tempo06-bag-art{height:300px}.tempo06-categories{justify-content:flex-start;max-width:1080px;margin:0 auto;padding-left:42px}.tempo-products-section{padding:38px 42px!important}.tempo-product-grid,.tempo06-products-grid,.tempo-public-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:18px!important}.tempo06-body{padding:0 42px}.tempo-tools-section{padding:38px 42px 0}.tempo-tool-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}.tempo06-bottom{max-width:1080px!important;left:50%!important;transform:translateX(-50%)!important}#dock.tempo06-bottom{left:50%!important;right:auto!important;transform:translateX(-50%)!important;max-width:1080px!important}}
+@media(min-width:1040px){.tempo-product-grid,.tempo06-products-grid,.tempo-public-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}.tempo06-hero h1{font-size:105px}}
+@media(max-width:370px){.tempo06-brand strong{font-size:24px}.tempo06-mark{width:32px;height:32px}.tempo06-hero h1{font-size:41px}.tempo06-hero{min-height:223px;padding-left:15px;padding-right:15px}.tempo06-hero-arrow{width:34px;height:34px;bottom:23px}.tempo06-categories{gap:18px;padding:0 14px}.tempo06-search-main span{font-size:12px}.tempo06-add{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.tempo06-bag-art,.tempo06-hero h1 span{animation:none!important;translate:none!important}}
+/* Stable compact sort control on narrow phones */
+#tempo06Sort{width:91px;max-width:91px;min-width:0!important;text-overflow:ellipsis;appearance:none;padding-right:20px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8068' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 5px center}
