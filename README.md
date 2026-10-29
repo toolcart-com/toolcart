@@ -1,27 +1,9 @@
-# ToolCart V1.12 — Tempo 06 Storefront
+# ToolCart V1.13 — Tempo 06 mobile layout fix
 
-A production-oriented Cloudflare Worker/D1/R2 ToolCart build. The customer storefront has been redesigned to match the user-supplied Tempo 06 look, while retaining the prior secure purchasing and account backend.
+Apply the **Changes Only** package to your existing working ToolCart V1.12 GitHub repository.
 
-### Update the existing website
+Keep the Cloudflare deployment command already configured. No new D1 migration is needed.
 
-Use **ToolCart-V1.12-Changes-Only.zip**. Extract it and upload the files inside to the root of your existing ToolCart repository, replacing same-named files.
+What changed: more compact hero and cards, full-frame tool cover artwork, and a safe notification badge DOM guard. No billing, Admin, database, login, product purchase or secure file access behavior changes.
 
-Your Cloudflare build/deploy command remains:
-
-`npm run db:migrate:remote && npx wrangler deploy`
-
-This update has no new migrations; previously applied migrations will be skipped.
-
-### Configuration remains unchanged
-
-- D1 binding `DB` / database `toolcart`
-- R2 binding `MEDIA` / bucket `toolcart-media`
-- Site origin: `https://toolcart.mgt-toolcart.workers.dev`
-
-### Security
-
-Product files and entitlement checks remain server-side. Never use screenshots or frontend success messages as payment verification.
-
-### Tests
-
-Syntax/static validation and local Chromium layout checks were run; this is not a live production test.
+After Cloudflare reports Ready, reopen the site if iPhone Safari displays a previously cached version. Local validation is not a live-production test.

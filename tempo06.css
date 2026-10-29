@@ -136,3 +136,61 @@ body{font-family:'DM Sans',Inter,-apple-system,BlinkMacSystemFont,"Helvetica Neu
 @media(prefers-reduced-motion:reduce){.tempo06-bag-art,.tempo06-hero h1 span{animation:none!important;translate:none!important}}
 /* Stable compact sort control on narrow phones */
 #tempo06Sort{width:91px;max-width:91px;min-width:0!important;text-overflow:ellipsis;appearance:none;padding-right:20px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8068' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 5px center}
+
+
+/* V1.13 — reference-size corrections: compact hero + catalogue, full-bleed tool covers.
+   Only affects the customer Tempo storefront. No purchase or Admin behavior changes. */
+@media(max-width:699px){
+  /* Content first: remove the padded white band above and below the hero artwork. */
+  .tempo06-hero{
+    min-height:0!important;height:203px!important;
+    padding:7px 17px 7px!important;
+    display:grid!important;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr)!important;
+    gap:0!important;align-items:center!important;
+  }
+  .tempo06-hero-copy{width:100%!important;flex:none!important;padding:0!important;align-self:center!important}
+  .tempo06-eyebrow{font-size:7px!important;letter-spacing:.20em!important;margin-bottom:5px!important}
+  .tempo06-hero h1{font-size:clamp(38px,10.9vw,48px)!important;line-height:.88!important;letter-spacing:-.088em!important}
+  .tempo06-hero-art{
+    width:100%!important;height:100%!important;min-height:0!important;align-self:center!important;
+    margin:0 -7px 0 0!important;display:flex!important;align-items:center!important;justify-content:center!important
+  }
+  .tempo06-bag-art{width:112%!important;height:183px!important;max-width:none!important;max-height:183px!important;flex:none!important;filter:drop-shadow(0 4px 2px rgba(0,0,0,.045))!important}
+  .tempo06-art-tag{bottom:2px!important;right:6px!important;font-size:6px!important;letter-spacing:.10em!important;transform:none!important}
+  .tempo06-hero-arrow{bottom:16px!important;right:12px!important;width:34px!important;height:34px!important;font-size:22px!important}
+  /* Exactly two tight catalog columns, like the Tempo 06 phone mockup. */
+  .tempo-products-section{padding:22px 19px 0!important}
+  .tempo06-lineup{padding-top:22px!important}
+  .tempo-product-grid,.tempo06-products-grid,.tempo-public-grid{gap:11px 10px!important}
+  .tempo-merchant-card.tempo-good-card,.tempo-merchant-card.tempo-tool-card{padding:6px!important;border-radius:11px!important}
+  .tempo-card-media{aspect-ratio:1.13/1!important;border-radius:5px!important}
+  .tempo-card-info{padding:9px 2px 7px!important;min-height:0!important}
+  .tempo-card-info .tempo-card-type{font-size:9px!important;line-height:1.2!important;margin:0 0 6px!important}
+  .tempo-card-info h3{font-size:14px!important;line-height:1.15!important;margin:0 0 7px!important}
+  .tempo-card-info .tempo-card-price{font-size:16px!important;line-height:1.13!important}
+  .tempo-tool-card .tempo-card-info{flex:1!important}
+  .tempo-tool-card .tempo-card-info h3{margin-bottom:7px!important}
+  .tempo-tool-card .tempo-online{font-size:10px!important;line-height:1.2!important}
+  .tempo06-add{min-height:35px!important;font-size:10px!important;gap:6px!important}
+  .tempo06-add span{font-size:18px!important}
+  .tempo06-save{width:29px!important;height:29px!important;top:7px!important;right:7px!important}
+  .tempo06-save svg{width:18px!important;height:18px!important}
+}
+/* Keep actual uploaded tool covers edge to edge; do not inset them into an app icon. */
+.tempo-tool-media{background:#e9e5dc!important}
+.tempo-card-media>img.tempo-tool-cover{
+  display:block!important;position:absolute!important;inset:0!important;
+  width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;
+  object-fit:cover!important;object-position:center!important;border-radius:0!important;
+  padding:0!important;margin:0!important;box-shadow:none!important;background:#e9e5dc!important
+}
+.tempo-tool-fallback{
+  display:grid;place-items:center;width:100%;height:100%;border-radius:0;
+  background:linear-gradient(145deg,color-mix(in srgb,var(--accent,#a98afc) 65%,white),var(--accent,#a98afc));
+  color:white;font-size:clamp(38px,7vw,70px);font-weight:800;letter-spacing:-.06em
+}
+/* Prevent inherited card-icon rules from affecting full-bleed tool artwork. */
+.tempo-tool-media .tempo-tool-fallback{box-shadow:none!important}
+.tempo-product-media>img{object-fit:cover!important;object-position:center!important;width:100%!important;height:100%!important}
+@media(max-width:370px){.tempo06-hero{height:193px!important;padding:6px 13px!important}.tempo06-hero h1{font-size:39px!important}.tempo06-bag-art{height:172px!important;max-height:172px!important}}
+@media(prefers-reduced-motion:reduce){.tempo06-bag-art,.tempo06-hero h1 span{animation:none!important;transform:none!important}}

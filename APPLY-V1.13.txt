@@ -1,0 +1,1 @@
+Upload the CONTENTS of ToolCart-V1.13-Changes-Only into the ROOT of your existing ToolCart GitHub repository. Replace matching files. No D1 migration is required.
