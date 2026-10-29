@@ -194,3 +194,9 @@ body{font-family:'DM Sans',Inter,-apple-system,BlinkMacSystemFont,"Helvetica Neu
 .tempo-product-media>img{object-fit:cover!important;object-position:center!important;width:100%!important;height:100%!important}
 @media(max-width:370px){.tempo06-hero{height:193px!important;padding:6px 13px!important}.tempo06-hero h1{font-size:39px!important}.tempo06-bag-art{height:172px!important;max-height:172px!important}}
 @media(prefers-reduced-motion:reduce){.tempo06-bag-art,.tempo06-hero h1 span{animation:none!important;transform:none!important}}
+
+/* V1.14: user-supplied gold and black brand assets */
+.tempo06-brand{gap:7px!important;min-width:0!important}
+.tempo06-new-symbol{width:36px;height:36px;object-fit:contain;flex:none}
+.tempo06-new-wordmark{width:min(46vw,225px);height:43px;object-fit:contain;object-position:left center;display:block}
+@media(max-width:370px){.tempo06-new-symbol{width:30px;height:30px}.tempo06-new-wordmark{width:43vw;height:37px}}
