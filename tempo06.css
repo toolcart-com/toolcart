@@ -312,3 +312,10 @@ body.tempo06-menu-open{overflow:hidden!important}
   .tempo06-menu-head{padding-left:9px;padding-right:9px}
   .tempo06-menu-brand strong{font-size:16px}
 }
+
+/* V1.19 — Profile starts at Settings; retain shared storefront header elsewhere. */
+body[data-active-view="settings"] #appShell .tempo06-header{display:none!important}
+body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-top:0!important}
+/* The user-supplied wordmark has no cart outline. Display it within the existing header dimensions. */
+.tempo06-brand .tempo06-new-wordmark{width:100%!important;height:auto!important;max-height:100%!important;object-fit:contain!important}
+.tempo06-brand-wordmark-wrap{height:43px!important}
