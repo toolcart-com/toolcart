@@ -357,48 +357,69 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
   50% { transform:translate3d(2%,0,0) rotateY(-3deg); }
 }
 
-
-/* V1.21 — replace hero bag with the uploaded gold cart and keep it driving in and out nonstop. */
-.tempo06-hero .tempo06-hero-art{overflow:hidden!important;}
-.tempo06-hero .tempo06-hero-art .tempo06-bag-carousel{
-  width:min(100%,340px)!important;
-  max-width:340px!important;
-  display:flex!important;
-  align-items:flex-end!important;
-  justify-content:center!important;
+/* V1.22 — keep the hero and artwork area plain white while the transparent
+   user-supplied gold delivery cart drives left -> right in an endless loop.
+   No rotations, shadows, color changes, scroll listeners or pause frames. */
+.tempo06-hero .tempo06-hero-art {
+  background:#fff!important;
+  perspective:none!important;
   overflow:hidden!important;
-  animation:toolcartCartDriveLoop 6.2s linear infinite!important;
+  filter:none!important;
+  box-shadow:none!important;
+}
+.tempo06-hero .tempo06-hero-art .tempo06-bag-carousel {
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  max-width:none!important;
+  height:100%!important;
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  overflow:visible!important;
+  background:transparent!important;
+  transform-style:flat!important;
+  backface-visibility:visible!important;
+  animation:toolcartCartDriveLeftToRight 5.2s linear infinite!important;
+  animation-play-state:running!important;
   will-change:transform!important;
 }
-.tempo06-hero .tempo06-bag-carousel .tempo06-bag-art.tempo06-cart-drive-art{
-  height:min(240px,56vw)!important;
+.tempo06-hero .tempo06-bag-carousel .tempo06-bag-art.tempo06-cart-drive-art {
+  display:block!important;
+  flex:none!important;
   width:auto!important;
+  height:min(240px,58vw)!important;
+  max-height:100%!important;
   max-width:none!important;
   object-fit:contain!important;
-  display:block!important;
+  object-position:center!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  filter:none!important;
   transform:none!important;
-  filter:drop-shadow(0 10px 10px rgba(0,0,0,.07))!important;
-  flex:none!important;
+  opacity:1!important;
+  animation:none!important;
 }
-@keyframes toolcartCartDriveLoop{
-  0%{transform:translate3d(42%,0,0);}
-  22%{transform:translate3d(6%,0,0);}
-  48%{transform:translate3d(-17%,0,0);}
-  50%{transform:translate3d(-22%,0,0);}
-  50.01%{transform:translate3d(44%,0,0);}
-  72%{transform:translate3d(8%,0,0);}
-  100%{transform:translate3d(-22%,0,0);}
+@keyframes toolcartCartDriveLeftToRight {
+  from { transform:translate3d(-145%,0,0); }
+  to   { transform:translate3d(145%,0,0); }
 }
 @media(max-width:430px){
-  .tempo06-hero .tempo06-bag-carousel .tempo06-bag-art.tempo06-cart-drive-art{height:198px!important;}
+  .tempo06-hero .tempo06-bag-carousel .tempo06-bag-art.tempo06-cart-drive-art {
+    height:196px!important;
+  }
 }
 @media(max-width:370px){
-  .tempo06-hero .tempo06-bag-carousel .tempo06-bag-art.tempo06-cart-drive-art{height:184px!important;}
+  .tempo06-hero .tempo06-bag-carousel .tempo06-bag-art.tempo06-cart-drive-art {
+    height:178px!important;
+  }
 }
+/* Preserve the original continuous-motion request while respecting reduced-motion
+   preferences with a slower, less frequent transit in the same left-right direction. */
 @media(prefers-reduced-motion:reduce){
-  .tempo06-hero .tempo06-hero-art .tempo06-bag-carousel{animation:toolcartCartDriveReduced 7.2s ease-in-out infinite!important;}
-}
-@keyframes toolcartCartDriveReduced{
-  0%,100%{transform:translate3d(18%,0,0);}
-  50%{transform:translate3d(-10%,0,0);}
+  .tempo06-hero .tempo06-hero-art .tempo06-bag-carousel {
+    animation-duration:11s!important;
+  }
 }
