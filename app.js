@@ -14,7 +14,21 @@ async function api(path,opts={}){
   if(!res.ok){const err=new Error(data.error||'Something went wrong.');err.status=res.status;err.data=data;throw err}
   return data;
 }
-function toast(message,type='ok'){const el=document.createElement('div');el.className=`toast ${type}`;el.textContent=message;$('#toastHost').append(el);setTimeout(()=>el.remove(),3600)}
+// Display only the latest status message; a newer action replaces the previous one.
+let toastDismissTimer=null;
+function toast(message,type='ok'){
+  const host=$('#toastHost');
+  if(!host)return;
+  if(toastDismissTimer!==null){clearTimeout(toastDismissTimer);toastDismissTimer=null;}
+  const el=document.createElement('div');
+  el.className=`toast ${type}`;
+  el.textContent=message;
+  host.replaceChildren(el);
+  toastDismissTimer=setTimeout(()=>{
+    if(host.firstElementChild===el)el.remove();
+    toastDismissTimer=null;
+  },3600);
+}
 function setTheme(theme){document.documentElement.dataset.theme='pearl';document.querySelector('meta[name="theme-color"]').setAttribute('content','#000000');localStorage.setItem('toolcart_theme','pearl')}
 function preferredVisualTheme(preferred,fallback='pearl'){return 'pearl'}
 function initials(name='ToolCart'){return name.trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'TC'}

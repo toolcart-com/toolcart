@@ -267,7 +267,7 @@ body{font-family:'DM Sans',Inter,-apple-system,BlinkMacSystemFont,"Helvetica Neu
 .tempo06-menu-quick button span{color:#a88b51;font-size:22px}
 /* Slide-out navigation, independent of the product, payment and account modals. */
 .tempo06-menu-backdrop{position:fixed;inset:0;z-index:109;background:rgba(8,10,8,.46);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-.tempo06-menu-drawer{position:fixed;z-index:110;right:0;left:auto;top:0;bottom:0;height:100dvh;width:min(86vw,365px);max-width:100%;background:#fff;color:#22271f;border-left:1px solid #e8e4da;box-shadow:-15px 0 55px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow:hidden;animation:tempo06MenuIn .21s cubic-bezier(.2,.75,.3,1) both}
+.tempo06-menu-drawer{position:fixed;z-index:110;right:0;left:auto;top:0;bottom:0;height:100dvh;width:min(69vw,290px);max-width:100%;background:#fff;color:#22271f;border-left:1px solid #e8e4da;box-shadow:-15px 0 55px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow:hidden;animation:tempo06MenuIn .21s cubic-bezier(.2,.75,.3,1) both}
 @keyframes tempo06MenuIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
 .tempo06-menu-drawer.hidden,.tempo06-menu-backdrop.hidden{display:none!important}
 body.tempo06-menu-open{overflow:hidden!important}
@@ -294,3 +294,21 @@ body.tempo06-menu-open{overflow:hidden!important}
 @media(prefers-reduced-motion:reduce){.tempo06-menu-drawer{animation:none!important}}
 /* Reuse the same clean icon-only active treatment as Shop/Categories/Wishlist. */
 #dock.tempo06-bottom .dock-item.active::before{display:none!important}
+
+/* V1.18: compact right-side menu without the empty white column. */
+.tempo06-menu-head{padding-left:12px;padding-right:12px;gap:6px}
+.tempo06-menu-brand{gap:8px}
+.tempo06-menu-brand img{width:34px;height:34px}
+.tempo06-menu-brand strong{font-size:18px}
+.tempo06-menu-brand small{font-size:7px;letter-spacing:.07em;white-space:normal;line-height:1.35}
+.tempo06-menu-close{width:32px;height:32px;min-width:32px}
+.tempo06-menu-scroll{padding-left:7px;padding-right:7px}
+.tempo06-menu-links button{gap:8px;padding-left:8px;padding-right:8px;font-size:12px;line-height:1.3;min-height:46px;white-space:normal;overflow-wrap:anywhere}
+.tempo06-menu-symbol{width:21px;min-width:21px;font-size:20px}
+.tempo06-menu-chev{min-width:8px;font-size:17px}
+@media(max-width:360px){
+  .tempo06-menu-drawer{width:72vw}
+  .tempo06-menu-links button{font-size:11.5px}
+  .tempo06-menu-head{padding-left:9px;padding-right:9px}
+  .tempo06-menu-brand strong{font-size:16px}
+}
