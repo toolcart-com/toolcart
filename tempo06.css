@@ -225,3 +225,72 @@ body{font-family:'DM Sans',Inter,-apple-system,BlinkMacSystemFont,"Helvetica Neu
  .tempo06-brand-wordmark-wrap{width:clamp(104px,38vw,145px);height:47px;max-width:calc(100% - 40px)}
  .tempo06-brand{gap:4px!important}
 }
+
+
+/* ToolCart V1.16 — consistent cart tab, compact storefront and mobile menu. */
+/* Small black-and-gold brand lockup, same on public and authenticated headers. */
+.tempo06-brand-symbol-wrap{width:34px!important;height:36px!important}
+.tempo06-brand-wordmark-wrap{width:clamp(98px,34vw,146px)!important;height:47px!important;max-width:calc(100% - 39px)!important}
+.tempo06-brand{gap:4px!important;max-width:calc(100% - 125px)!important}
+.tempo06-brand-row{min-height:68px!important;padding:8px 0 7px!important}
+.tempo06-header-icons{gap:1px!important;flex:none}
+.tempo06-header-icons .tempo06-icon{width:36px;height:39px}
+.tempo06-header-icons .tempo06-icon svg{width:23px;height:23px}
+@media(max-width:370px){.tempo06-brand-wordmark-wrap{width:clamp(89px,31vw,119px)!important;height:42px!important}.tempo06-brand-symbol-wrap{width:31px!important;height:33px!important}.tempo06-brand{max-width:calc(100% - 116px)!important}.tempo06-header-icons .tempo06-icon{width:34px!important}}
+/* Tighten the two-column merchandise cards by shortening images and buttons, not hiding listings. */
+@media(max-width:699px){
+ .tempo-products-section .tempo-card-media,.tempo-browse-grid .tempo-card-media,#wishlistProducts .tempo-card-media,#purchasedProducts .tempo-card-media{aspect-ratio:1.30/1!important}
+ .tempo-products-section .tempo-card-info,.tempo-browse-grid .tempo-card-info,#wishlistProducts .tempo-card-info,#purchasedProducts .tempo-card-info{padding:7px 2px 5px!important}
+ .tempo-products-section .tempo-card-info h3,.tempo-browse-grid .tempo-card-info h3,#wishlistProducts .tempo-card-info h3,#purchasedProducts .tempo-card-info h3{font-size:13px!important;margin-bottom:5px!important}
+ .tempo-products-section .tempo06-add,.tempo-browse-grid .tempo06-add,#wishlistProducts .tempo06-add,#purchasedProducts .tempo06-add{min-height:32px!important}
+ .tempo-products-section .tempo-card-info .tempo-card-price{font-size:15px!important}
+}
+/* The cart is a native store tab rather than the full-screen product-detail modal. */
+#cartView,#purchasesView,#walletView{padding:25px 19px calc(26px + env(safe-area-inset-bottom,0px));background:#fff;color:#1d1d1b;min-height:calc(100dvh - 260px)}
+#cartView .cart-sheet{gap:18px}
+#cartView .product-title-row{align-items:center;gap:12px}
+#cartView .product-title-row h2{margin:4px 0 0;font-size:clamp(28px,8vw,36px);line-height:1.1;letter-spacing:-.06em;color:#1b1b19}
+#cartView .product-title-row>strong{font-size:16px;white-space:nowrap}
+#cartView .product-balance,.tempo06-wallet-balance{background:linear-gradient(115deg,#e6f0ff,#f3efff);border:1px solid #e2ddcf;border-radius:16px;display:flex;justify-content:space-between;align-items:center;padding:15px 16px;gap:12px;color:#958d7f}
+#cartView .product-balance strong,.tempo06-wallet-balance strong{color:#1d1d1b;font-size:17px}
+#cartView .empty-state{padding:38px 16px;max-width:100%;background:#fff;color:#989186}
+#cartView .cart-checkout{background:#1b1b1a!important;color:#fff!important;position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:1}
+#cartView .cart-item{background:#faf9f6;color:#1d1d1b;border-color:#e8e3d9}
+#cartView .cart-qty button{color:#1d1d1b}
+.tempo-cart-loading{padding:42px 12px;color:#958f82;text-align:center}
+#purchasesView .tempo06-section-head,#walletView .tempo06-section-head{margin-bottom:12px}
+#purchasesView .tempo-product-grid{margin-top:19px}
+.tempo06-wallet-balance{margin:23px 0;padding:22px 16px}
+.tempo06-wallet-balance span{font-size:13px}
+.tempo06-menu-quick{display:grid;gap:9px}
+.tempo06-menu-quick button{display:flex;align-items:center;justify-content:space-between;min-height:56px;background:#fff;border:1px solid #e8e3db;border-radius:14px;padding:0 16px;font-weight:650;color:#25231e;cursor:pointer}
+.tempo06-menu-quick button span{color:#a88b51;font-size:22px}
+/* Slide-out navigation, independent of the product, payment and account modals. */
+.tempo06-menu-backdrop{position:fixed;inset:0;z-index:109;background:rgba(8,10,8,.46);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.tempo06-menu-drawer{position:fixed;z-index:110;left:0;top:0;bottom:0;height:100dvh;width:min(86vw,365px);max-width:100%;background:#fff;color:#22271f;border-right:1px solid #e8e4da;box-shadow:15px 0 55px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow:hidden;animation:tempo06MenuIn .21s cubic-bezier(.2,.75,.3,1) both}
+@keyframes tempo06MenuIn{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+.tempo06-menu-drawer.hidden,.tempo06-menu-backdrop.hidden{display:none!important}
+body.tempo06-menu-open{overflow:hidden!important}
+.tempo06-menu-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:calc(18px + env(safe-area-inset-top,0px)) 20px 14px;background:#fafaf7;border-bottom:1px solid #eeeae2}
+.tempo06-menu-brand{display:flex;align-items:center;gap:10px;min-width:0}
+.tempo06-menu-brand img{width:39px;height:39px;object-fit:contain;border-radius:11px;background:#000;flex:none}
+.tempo06-menu-brand strong{font-size:20px;letter-spacing:-.055em;color:#1f251e;display:block;line-height:1.2}
+.tempo06-menu-brand small{font-size:8px;letter-spacing:.12em;color:#a38a59;font-weight:750;display:block;margin-top:4px;white-space:nowrap}
+.tempo06-menu-close{border:1px solid #e8e3d9;background:#fff;width:35px;height:35px;min-width:35px;border-radius:50%;font-size:24px;color:#34332e;line-height:1;cursor:pointer}
+.tempo06-menu-scroll{overflow-y:auto;overscroll-behavior:contain;flex:1;min-height:0;padding:12px 14px calc(16px + env(safe-area-inset-bottom,0px));-webkit-overflow-scrolling:touch}
+.tempo06-menu-label{font-size:9px;letter-spacing:.18em;color:#a18c63;font-weight:850;padding:16px 12px 9px}
+.tempo06-menu-links{display:grid;gap:3px}
+.tempo06-menu-links button{width:100%;min-height:48px;border:0;border-radius:12px;background:transparent;display:flex;align-items:center;text-align:left;gap:12px;padding:5px 12px;color:#52574c;font-size:13px;font-weight:700;cursor:pointer}
+.tempo06-menu-links button:hover,.tempo06-menu-links button:focus-visible{background:#f2f1eb;color:#222b20}
+.tempo06-menu-symbol{display:grid;place-items:center;width:24px;min-width:24px;font-size:22px;font-weight:400;line-height:1;color:#92866b}
+.tempo06-menu-chev{margin-left:auto;color:#b3ac9b;font-size:19px;font-weight:400}
+.tempo06-menu-footer{margin-top:17px;padding:16px 10px 6px;border-top:1px solid #eae6dd}
+.tempo06-menu-account{display:flex;align-items:center;gap:11px;min-width:0}
+.tempo06-menu-account-avatar{flex:none;border-radius:50%;width:39px;height:39px;display:grid;place-items:center;background:#e8e7dc;background-size:cover;background-position:center;color:#927746;font-weight:750;font-size:12px}
+.tempo06-menu-account>div{min-width:0}.tempo06-menu-account strong{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tempo06-menu-account small{display:block;font-size:10px;color:#9e998f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px}
+.tempo06-menu-footer>button{margin-top:12px;font-size:12px;font-weight:650;background:transparent;border:1px solid #e7e2d9;border-radius:10px;padding:9px 12px;color:#474137;cursor:pointer}
+.tempo06-menu-footer p{text-align:center;font-size:9px;color:#aaa397;margin:15px 0 0}
+@media(min-width:700px){.tempo06-brand-wordmark-wrap{width:146px!important}}
+@media(prefers-reduced-motion:reduce){.tempo06-menu-drawer{animation:none!important}}
+/* Reuse the same clean icon-only active treatment as Shop/Categories/Wishlist. */
+#dock.tempo06-bottom .dock-item.active::before{display:none!important}
