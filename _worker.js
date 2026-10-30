@@ -10,7 +10,7 @@ export default {
         return await handleApi(request, env, ctx, url);
       }
       if (url.pathname.startsWith('/media/')) {
-        return await serveMedia(request, env, url.pathname.slice('/media/'.length));
+        return await serveMedia(request, env, url.pathname.slice('/media/'.length), ctx);
       }
       if (url.pathname === '/admin' || url.pathname === '/admin/') {
         const assetUrl = new URL(request.url);
@@ -1263,7 +1263,40 @@ function mapAppMedia(a){return{...a,icon_url:a.icon_key?`/media/${a.icon_key}`:n
 function mapUpdateMedia(u){return{...u,image_url:u.image_key?`/media/${u.image_key}`:null,app_ids:safeJson(u.app_ids_json,[])};}
 function mapPromoMedia(p){return{...p,image_url:p.image_key?`/media/${p.image_key}`:null,icon_url:p.icon_key?`/media/${p.icon_key}`:null,target_values:safeJson(p.target_value_json,[])};}
 
-async function serveMedia(request,env,key){if(!env.MEDIA)return new Response('Media unavailable',{status:503});if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});key=decodeURIComponent(key);if(key.includes('..')||key.startsWith('product-files/'))return new Response('Not found',{status:404});if(key.startsWith('avatars/')){const parts=key.split('/');const ownerId=Number(parts[1]);const ok=await canReadPrivateMedia(request,env,ownerId);if(!ok)return new Response('Not found',{status:404});}const obj=await env.MEDIA.get(key);if(!obj)return new Response('Not found',{status:404});const headers=new Headers();obj.writeHttpMetadata(headers);headers.set('etag',obj.httpEtag);headers.set('cache-control',key.startsWith('avatars/')?'private, max-age=300':'public, max-age=31536000, immutable');return new Response(request.method==='HEAD'?null:obj.body,{headers});}
+async function serveMedia(request,env,key,ctx){
+  if(!env.MEDIA)return new Response('Media unavailable',{status:503});
+  if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
+  try{key=decodeURIComponent(key)}catch{return new Response('Not found',{status:404})}
+  if(key.includes('..')||key.startsWith('product-files/'))return new Response('Not found',{status:404});
+  const isAvatar=key.startsWith('avatars/');
+  if(isAvatar){
+    const ownerId=Number(key.split('/')[1]);
+    const ok=await canReadPrivateMedia(request,env,ownerId);
+    if(!ok)return new Response('Not found',{status:404});
+  }
+  // Only publicly accessible catalog covers have a shared edge cache.
+  // Private avatars, protected products, and all other media bypass it.
+  const cacheable=request.method==='GET'&&/^(?:product-covers|app-icons)\//.test(key)&&!request.headers.has('range');
+  const cache=cacheable?globalThis.caches?.default:null;
+  let cacheRequest;
+  if(cache){
+    const url=new URL(request.url);url.search='';
+    cacheRequest=new Request(url.toString(),{method:'GET'});
+    try{const hit=await cache.match(cacheRequest);if(hit)return hit}catch(e){console.warn('Public cover cache read:',e)}
+  }
+  const obj=await env.MEDIA.get(key);
+  if(!obj)return new Response('Not found',{status:404});
+  const headers=new Headers();obj.writeHttpMetadata(headers);
+  headers.set('etag',obj.httpEtag);
+  headers.set('x-content-type-options','nosniff');
+  headers.set('cache-control',isAvatar?'private, max-age=300':'public, max-age=31536000, immutable');
+  const response=new Response(request.method==='HEAD'?null:obj.body,{headers});
+  if(cache&&cacheRequest&&response.ok){
+    const save=cache.put(cacheRequest,response.clone()).catch(e=>console.warn('Public cover cache write:',e));
+    if(ctx?.waitUntil)ctx.waitUntil(save);
+  }
+  return response;
+}
 async function canReadPrivateMedia(request,env,ownerId){const userToken=getCookie(request,'tc_session');if(userToken){const h=await sha256Hex(userToken);const row=await env.DB.prepare(`SELECT user_id,expires_at,revoked_at FROM sessions WHERE token_hash=?`).bind(h).first();if(row&&!row.revoked_at&&new Date(row.expires_at)>new Date()&&Number(row.user_id)===ownerId)return true;}const adminToken=getCookie(request,'tc_admin_session');if(adminToken){const h=await sha256Hex(adminToken);const row=await env.DB.prepare(`SELECT s.expires_at,s.revoked_at,a.enabled FROM admin_sessions s JOIN admin_users a ON a.id=s.admin_user_id WHERE s.token_hash=?`).bind(h).first();if(row&&!row.revoked_at&&row.enabled&&new Date(row.expires_at)>new Date())return true;}return false;}
 async function readImageUpload(request,env,prefix){if(!env.MEDIA)return{response:apiError('R2 media storage is not configured.',503)};let form;try{form=await request.formData()}catch{return{response:apiError('Invalid upload.',400)}}const file=form.get('file');if(!(file instanceof File))return{response:apiError('Image file is required.',400)};const allowed=['image/webp','image/png','image/jpeg'];if(!allowed.includes(file.type))return{response:apiError('Use WebP, PNG or JPEG images.',400)};if(file.size>4*1024*1024)return{response:apiError('Image is too large. Maximum size is 4 MB.',400)};const ext=file.type==='image/webp'?'webp':file.type==='image/png'?'png':'jpg';const key=`${prefix}/${Date.now()}-${randomToken(8).replace(/[^a-zA-Z0-9]/g,'').slice(0,8)}.${ext}`;await env.MEDIA.put(key,file.stream(),{httpMetadata:{contentType:file.type,cacheControl:'public, max-age=31536000'}});return{key,contentType:file.type,size:file.size};}
 

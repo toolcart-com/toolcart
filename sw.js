@@ -1,13 +1,36 @@
 /* ToolCart V1.25: resilient static shell, never cache API or media data. */
-const CACHE='toolcart-shell-v1-42';
+const CACHE='toolcart-shell-v1-43';
 const SHELL=['/','/styles.css','/tempo.css','/tempo06.css','/app.js','/toolcart-v115-symbol.png','/toolcart-v124-wordmark.png','/icon-192.png','/icon-512.png'];
+// Public catalog covers are safe to cache for instant repeat views; no private purchases/avatars.
+const COVER_CACHE='toolcart-public-covers-v1';
+const COVER_LIMIT=60;
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(async c=>{await Promise.allSettled(SHELL.map(u=>c.add(u)));await self.skipWaiting();})));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('toolcart-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
   const req=event.request;
   if(req.method!=='GET')return;
   const url=new URL(req.url);
-  if(url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.pathname.startsWith('/media/'))return;
+  if(url.origin!==self.location.origin||url.pathname.startsWith('/api/'))return;
+  if(url.pathname.startsWith('/media/')){
+    if(!/^\/media\/(?:product-covers|app-icons)\//.test(url.pathname)||req.headers.has('range'))return;
+    event.respondWith((async()=>{
+      let cache=null;
+      try{cache=await caches.open(COVER_CACHE);const saved=await cache.match(req);if(saved)return saved}catch(e){/* Cache unavailable: fetch public image normally. */}
+      const response=await fetch(req);
+      if(cache&&response.ok&&response.headers.get('content-type')?.startsWith('image/')){
+        const forCache=response.clone();
+        event.waitUntil((async()=>{
+          try{
+            await cache.put(req,forCache);
+            const keys=await cache.keys();
+            if(keys.length>COVER_LIMIT)await Promise.all(keys.slice(0,keys.length-COVER_LIMIT).map(k=>cache.delete(k)));
+          }catch(e){/* Storage quotas must never break image delivery. */}
+        })());
+      }
+      return response;
+    })());
+    return;
+  }
   // Never serve an old (or homepage fallback) administrator page from the shell cache.
   if(url.pathname==='/admin'||url.pathname==='/admin/'||url.pathname==='/admin.html'){
     event.respondWith(fetch(req,{cache:'no-store'}));
