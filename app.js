@@ -109,11 +109,13 @@ function renderPublicApps(apps,products=[]){
  warmStorefrontCovers([...products.slice(8,24).map(p=>p.display_image_url),...apps.slice(Math.max(0,8-products.length),12).map(a=>a.icon_url)]);
 }
 const T06_HEART='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 5.4a5.1 5.1 0 0 0-7.2 0L12 6.8l-1.4-1.4a5.1 5.1 0 0 0-7.2 7.2L12 21l8.6-8.4a5.1 5.1 0 0 0 0-7.2z"/></svg>';
-const t06Saved=()=>{try{return JSON.parse(localStorage.getItem('toolcart_product_wishlist')||'[]').map(Number)}catch{return[]}};
+let volatileWishlist=[];
+const t06Saved=()=>{try{const saved=JSON.parse(localStorage.getItem('toolcart_product_wishlist')||'[]');return Array.isArray(saved)?saved.map(Number):volatileWishlist}catch{return volatileWishlist}};
 function t06ToggleSave(id){
   const saved=new Set(t06Saved());
   saved.has(id)?saved.delete(id):saved.add(id);
-  localStorage.setItem('toolcart_product_wishlist',JSON.stringify([...saved]));
+  volatileWishlist=[...saved];
+  try{localStorage.setItem('toolcart_product_wishlist',JSON.stringify(volatileWishlist))}catch{}
   const isSaved=saved.has(id),product=state.products.find(p=>Number(p.id)===id);
   // Update the heart in place. Rebuilding renderApps() here replaces every loaded cover image,
   // making R2 images briefly disappear on iPhone Safari while they load again.
@@ -123,11 +125,27 @@ function t06ToggleSave(id){
     button.setAttribute('aria-label',`${isSaved?'Remove':'Save'} ${product?.name||'product'} ${isSaved?'from':'to'} wishlist`);
   });
   if(state.activeTab==='wishlist')renderWishlist();
+  const detailSave=$(`[data-detail-save="${id}"]`);
+  if(detailSave){detailSave.classList.toggle('is-saved',isSaved);detailSave.setAttribute('aria-pressed',String(isSaved));detailSave.textContent=isSaved?'♥ Saved':'♡ Save';}
   toast(isSaved?'Added to wishlist.':'Removed from wishlist.');
 }
 function renderWishlist(){const saved=new Set(t06Saved());const goods=state.products.filter(p=>saved.has(Number(p.id)));const el=$('#wishlistProducts');if(el)el.innerHTML=goods.length?goods.map(productCard).join(''):empty('Your wishlist is empty','Tap the heart on a product to save it here.','♡')}
 function tempo06CategoryMatches(p){const cat=state.tempo06Category||'all';if(cat==='all')return true;if(cat==='free')return p.access_type==='free'||Number(p.price_minor)===0;return cat!=='web_tools'&&(p.store_section||'formats')===cat}
-async function addProductCardToCart(id,button){const oldLabel=button?.innerHTML;if(button){button.disabled=true;button.textContent='Adding…'}try{const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:1}});state.cartCount=Number(d.cartCount||0);updateBadges();updateLocalCartItem(Number(id),1);void refreshCart();toast('Added to your cart.')}catch(e){toast(e.message,'error')}finally{if(button){button.disabled=false;button.innerHTML=oldLabel}}}
+const cartAddPending=new Set();
+async function addProductCardToCart(id,button){
+  if(cartAddPending.has(id)||cartCheckoutPending)return;
+  if(cartQuantityWrites.size){toast('Finishing your cart changes. Please try again.');return;}
+  cartAddPending.add(id);
+  const oldLabel=button?.innerHTML;
+  if(button){button.disabled=true;button.textContent='Adding…'}
+  try{
+    const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:1}});
+    if(!Array.isArray(d.items))throw new Error('Cart could not be confirmed. Please open your cart to check.');
+    applyCartData(d); // Confirmed cart quantities, prices and stock only; never guess a cart snapshot.
+    toast('Added to your cart.');
+  }catch(e){toast(e.message,'error');void refreshCart()}
+  finally{cartAddPending.delete(id);if(button?.isConnected){button.disabled=false;button.innerHTML=oldLabel}}
+}
 
 async function enterApp(preloaded){
   // Keep the existing storefront visible until essential account/catalog data arrive.
@@ -268,18 +286,21 @@ let productOpenRequest=0;
 function productDetailActions(p,verified){
   if(verified&&p.has_access){
     const assets=p.assets&&p.assets.length?p.assets:[{fileName:p.file_name||'Product file',fileType:p.file_type||'file',url:`/api/products/${p.id}/file`}];
-    return `<div class="product-owned-assets"><div class="product-files-head"><strong>Your product files</strong><span>${Number(p.asset_count||assets.length)} file${Number(p.asset_count||assets.length)===1?'':'s'}</span></div>${assets.map((a,i)=>`<a class="product-file-link" href="${esc(a.url)}" target="_blank" rel="noopener"><span>${a.fileType==='pdf'?'PDF':'IMG'}</span><div><strong>${esc(a.fileName||`File ${i+1}`)}</strong><small>Open protected file</small></div><b>↗</b></a>`).join('')}</div><p class="product-owned-note">Purchased quantity: ${Number(p.owned_quantity||0)}</p>`;
+    return `<div class="product-owned-assets"><div class="product-files-head"><strong>Your product files</strong><span>${Number(p.asset_count||assets.length)} file${Number(p.asset_count||assets.length)===1?'':'s'}</span></div>${assets.map((a,i)=>`<a class="product-file-link" href="${esc(a.url)}" target="_blank" rel="noopener"><span>${a.fileType==='pdf'?'PDF':'IMG'}</span><div><strong>${esc(a.fileName||`File ${i+1}`)}</strong><small>Open protected file</small></div><b>↗</b></a>`).join('')}</div><p class="product-owned-note">Purchased quantity: ${Math.max(1,Number(p.owned_quantity||1))}</p>`;
   }
-  if(!verified&&Number(p.owned||0)>0){
-    return '<div class="product-owned-assets"><strong>My purchased files</strong><p class="product-owned-note">Verifying your download access…</p></div>';
+  if(!verified){
+    return `<div class="tc-product-verify" role="status" aria-live="polite"><span class="tc-product-verify-dot" aria-hidden="true"></span>Checking availability and purchase access…</div>`;
   }
   const soldOut=p.stock_mode!=='unlimited'&&Number(p.stock_quantity)<=0;
-  return `<div class="product-buy-box"><div class="quantity-stepper"><button type="button" data-product-qty="minus">−</button><strong id="productQty">1</strong><button type="button" data-product-qty="plus" data-max="${p.stock_mode==='unlimited'?99:Number(p.stock_quantity||0)}">+</button></div><div class="product-actions"><button class="btn btn-secondary" data-add-cart="${p.id}" ${soldOut?'disabled':''}>Add to cart</button><button class="btn btn-primary" data-buy-product="${p.id}" ${soldOut?'disabled':''}>${p.access_type==='free'?'Get now':'Buy now'}</button></div></div>`;
+  return `<div class="product-buy-box"><div class="tc-detail-order-label"><strong>Choose quantity</strong><span>Secure ToolCart checkout</span></div><div class="quantity-stepper"><button type="button" data-product-qty="minus" aria-label="Decrease quantity">−</button><strong id="productQty">1</strong><button type="button" data-product-qty="plus" aria-label="Increase quantity" data-max="${p.stock_mode==='unlimited'?99:Number(p.stock_quantity||0)}">+</button></div><div class="product-actions"><button type="button" class="btn btn-secondary" data-add-cart="${p.id}" ${soldOut?'disabled':''}>Add to cart</button><button type="button" class="btn btn-primary" data-buy-product="${p.id}" ${soldOut?'disabled':''}>${soldOut?'Out of stock':p.access_type==='free'?'Get now':'Buy now'}</button></div></div>`;
 }
 function productDetailMarkup(p,verified){
   const stock=p.stock_mode==='unlimited'?'Unlimited stock':Number(p.stock_quantity)>0?`${Number(p.stock_quantity)} in stock`:'Out of stock';
   const soldOut=p.stock_mode!=='unlimited'&&Number(p.stock_quantity)<=0;
-  return `<div class="product-detail"><div class="product-balance"><span>Available balance</span><strong id="productDetailBalance">${fmtMoney(state.wallet.balanceMinor,state.wallet.currency)}</strong></div><div class="product-cover">${p.display_image_url?`<img src="${esc(p.display_image_url)}" alt="${esc(p.name)}">`:`<div class="product-cover-fallback">${esc(initials(p.name))}</div>`}</div><div class="product-title-row"><div><span class="eyebrow">${p.premium?'PREMIUM PRODUCT':'DIGITAL PRODUCT'}</span><h2>${esc(p.name)}</h2></div><strong class="product-price" id="productDetailPrice">${esc(productPrice(p))}</strong></div><div id="productDetailStock" class="product-stock ${soldOut?'sold-out':''}">${esc(stock)}</div><p id="productDetailDescription" class="product-description">${esc(p.description||p.short_description||'Digital product available through ToolCart.')}</p><div id="productDetailActionSlot">${productDetailActions(p,verified)}</div></div>`;
+  const saved=t06Saved().includes(Number(p.id));
+  const sections={formats:'FORMATS',premium_tools:'PREMIUM TOOLS',announcements:'ANNOUNCEMENTS'};
+  const section=sections[p.store_section]||(p.premium?'PREMIUM PRODUCT':'DIGITAL PRODUCT');
+  return `<div class="product-detail tc-premium-detail"><div class="tc-product-media-frame"><div class="product-cover">${p.display_image_url?`<img src="${esc(p.display_image_url)}" loading="eager" decoding="async" alt="${esc(p.name)}">`:`<div class="product-cover-fallback">${esc(initials(p.name))}</div>`}</div></div><div class="tc-detail-heading"><div class="tc-detail-topline"><span class="eyebrow">${esc(section)} / TOOLCART</span><button type="button" class="tc-detail-save${saved?' is-saved':''}" data-detail-save="${p.id}" aria-pressed="${saved?'true':'false'}">${saved?'♥ Saved':'♡ Save'}</button></div><h2>${esc(p.name)}</h2>${p.short_description?`<p class="tc-detail-short">${esc(p.short_description)}</p>`:''}<div class="tc-detail-facts"><strong class="product-price" id="productDetailPrice">${esc(productPrice(p))}</strong><span id="productDetailStock" class="product-stock ${soldOut?'sold-out':''}">${esc(stock)}</span></div></div><section class="tc-detail-description"><strong>About this product</strong><p id="productDetailDescription" class="product-description">${esc(p.description||p.short_description||'Digital product available through ToolCart.')}</p></section><div class="product-balance"><span>Available wallet balance</span><strong id="productDetailBalance">${fmtMoney(state.wallet.balanceMinor,state.wallet.currency)}</strong></div><div id="productDetailActionSlot">${productDetailActions(p,verified)}</div><p class="tc-detail-assurance">Payment and file access are confirmed securely before any download is released.</p></div>`;
 }
 async function openProduct(id){
   const request=++productOpenRequest;
@@ -293,7 +314,7 @@ async function openProduct(id){
   try{
     const d=await api(`/api/products/${id}`),p=d.product;
     // Never bring an old product or a closed detail sheet back to the screen.
-    if(request!==productOpenRequest||$('#detailModal').classList.contains('hidden')&&listing||listing&&Number($('#detailContent').dataset.productId)!==id)return;
+    if(request!==productOpenRequest||$('#detailModal').classList.contains('hidden')||Number($('#detailContent').dataset.productId)!==id)return;
     state.wallet=d.wallet||state.wallet;
     if(d.cartCount!==undefined)state.cartCount=Number(d.cartCount||0);
     updateBadges();
@@ -326,22 +347,39 @@ async function openProduct(id){
 }
 async function refreshMarketplaceState(){try{const d=await api('/api/products');state.products=d.products||[];state.wallet=d.wallet||state.wallet;state.cartCount=Number(d.cartCount||0);renderApps();updateBadges()}catch{}}
 async function addCurrentProductToCart(id){
+  if(cartAddPending.has(id)||cartCheckoutPending)return;
+  if(cartQuantityWrites.size){toast('Finishing your cart changes. Please try again.');return;}
   const q=Number($('#productQty')?.textContent||1);
   const button=$(`[data-add-cart="${id}"]`);
-  if(button?.disabled)return;
-  if(button){button.disabled=true;button.textContent='Adding…';}
+  if(!button||button.disabled)return;
+  cartAddPending.add(id);
+  button.disabled=true;button.textContent='Adding…';
   try{
     const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:q}});
-    state.cartCount=Number(d.cartCount||0);
-    updateBadges();
-    updateLocalCartItem(Number(id),q);
-    closeModals();
-    openCart();
-    toast('Added to cart.');
-  }catch(e){toast(e.message,'error');}
-  finally{if(button?.isConnected){button.disabled=false;button.textContent='Add to cart';}}
+    if(!Array.isArray(d.items))throw new Error('Cart could not be confirmed. Please open your cart to check.');
+    applyCartData(d);
+    cartLastRefreshAt=Date.now(); // The POST already returned the authoritative cart.
+    closeModals();openCart();toast('Added to cart.');
+  }catch(e){toast(e.message,'error');void refreshCart()}
+  finally{cartAddPending.delete(id);if(button.isConnected){button.disabled=false;button.textContent='Add to cart'}}
 }
-async function buyCurrentProduct(id){const q=Number($('#productQty')?.textContent||1);const b=$(`[data-buy-product="${id}"]`);if(b)b.disabled=true;try{const d=await api(`/api/products/${id}/buy`,{method:'POST',body:{quantity:q}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');showPurchasedOrder(d,{fromCart:false});void refreshMarketplaceState();void refreshCart()}catch(e){toast(e.message,'error');if(b)b.disabled=false}}
+let productBuyPending=false;
+async function buyCurrentProduct(id){
+  if(productBuyPending||cartCheckoutPending)return;
+  const q=Number($('#productQty')?.textContent||1),b=$(`[data-buy-product="${id}"]`);
+  if(!b||b.disabled)return;
+  productBuyPending=true;
+  const originalLabel=b.textContent;
+  b.disabled=true;b.textContent='Confirming purchase…';
+  try{
+    const d=await api(`/api/products/${id}/buy`,{method:'POST',body:{quantity:q}});
+    if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}
+    if(!Array.isArray(d.purchases)||!d.purchases.length)throw new Error('Purchase is not yet confirmed. Check Purchased Items before trying again.');
+    toast(d.message||'Purchase complete.');showPurchasedOrder(d,{fromCart:false});
+    void refreshMarketplaceState();void refreshCart();
+  }catch(e){toast(e.status?e.message:'Purchase could not be confirmed. Check Purchased Items before trying again.','error')}
+  finally{productBuyPending=false;if(b.isConnected){b.disabled=false;b.textContent=originalLabel}}
+}
 
 // Cart is hydrated from the authenticated bootstrap so it opens without waiting for a request.
 // GET /api/cart runs silently afterward and remains authoritative for balances, stock and checkout.
@@ -408,11 +446,12 @@ function queueCartQuantityWrite(id,desired){
   operation={desired,promise:null};
   cartQuantityWrites.set(id,operation);
   operation.promise=(async()=>{
-    let succeeded=true;
+    let succeeded=true,latest=null,latestRevision=null;
     try{
       while(true){
         const sending=operation.desired;
-        await api(`/api/cart/items/${id}`,{method:'PATCH',body:{quantity:sending}});
+        latest=await api(`/api/cart/items/${id}`,{method:'PATCH',body:{quantity:sending}});
+        latestRevision=state.cartRevision;
         // If the user tapped again while the request was in flight, update the
         // server once more with the latest value. Never apply an older response.
         if(operation.desired===sending)break;
@@ -424,7 +463,10 @@ function queueCartQuantityWrite(id,desired){
       cartQuantityWrites.delete(id);
       // One authoritative refresh after all edits; do not overwrite other
       // still-pending optimistic quantities with stale server snapshots.
-      if(cartQuantityWrites.size===0&&!cartCheckoutPending)void refreshCart();
+      if(cartQuantityWrites.size===0&&!cartCheckoutPending){
+        if(succeeded&&Array.isArray(latest?.items)&&latestRevision===state.cartRevision)applyCartData(latest);
+        else void refreshCart();
+      }
     }
     return succeeded;
   })();
@@ -448,7 +490,7 @@ function openCart(){
 }
 
 async function checkoutCartNow(){
-  if(cartCheckoutPending||!state.cartReady||!state.cartItems.length)return;
+  if(cartCheckoutPending||cartAddPending.size||!state.cartReady||!state.cartItems.length)return;
   cartCheckoutPending=true;
   state.checkoutInProgress=true;
   // A checkout is authoritative: do not let an old cart refresh overwrite its result.
@@ -578,9 +620,10 @@ function bindGlobalEvents(){
     const copyTransaction=e.target.closest('[data-copy-transaction]');if(copyTransaction){const id=copyTransaction.dataset.copyTransaction;if(navigator.clipboard?.writeText)navigator.clipboard.writeText(id).then(()=>toast('Transaction ID copied.')).catch(()=>toast('Could not copy automatically.'));else toast('Copy is unavailable on this browser.','error');return;}
     const tab=e.target.closest('[data-tab]');if(tab)return switchTab(tab.dataset.tab);
     if(e.target.closest('[data-go-home]'))return switchTab('home');
-    const category=e.target.closest('[data-t06-cat]');if(category){state.tempo06Category=category.dataset.t06Cat;$$('[data-t06-cat]').forEach(b=>b.classList.toggle('active',b===category));renderApps();switchTab('home',false);document.querySelector('.tempo-products-section')?.scrollIntoView({behavior:'smooth',block:'start'});return}
-    if(e.target.closest('[data-show-free]')){state.tempo06Category='free';$$('[data-t06-cat]').forEach(b=>b.classList.toggle('active',false));renderApps();switchTab('home',false);document.querySelector('.tempo-products-section')?.scrollIntoView({behavior:'smooth',block:'start'});return}
+    const category=e.target.closest('[data-t06-cat]');if(category){state.tempo06Category=category.dataset.t06Cat;$$('[data-t06-cat]').forEach(b=>b.classList.toggle('active',b===category));renderApps();switchTab('home',false);document.querySelector('.tempo-products-section')?.scrollIntoView({behavior:'auto',block:'start'});return}
+    if(e.target.closest('[data-show-free]')){state.tempo06Category='free';$$('[data-t06-cat]').forEach(b=>b.classList.toggle('active',false));renderApps();switchTab('home',false);document.querySelector('.tempo-products-section')?.scrollIntoView({behavior:'auto',block:'start'});return}
     const saver=e.target.closest('[data-t06-save]');if(saver){e.stopPropagation();return t06ToggleSave(Number(saver.dataset.t06Save))}
+    const detailSave=e.target.closest('[data-detail-save]');if(detailSave){e.stopPropagation();return t06ToggleSave(Number(detailSave.dataset.detailSave))}
     const cardAdd=e.target.closest('[data-card-add]');if(cardAdd){e.stopPropagation();return addProductCardToCart(Number(cardAdd.dataset.cardAdd),cardAdd)}
     const launch=e.target.closest('[data-tool-launch]');if(launch){e.stopPropagation();return openApp(Number(launch.dataset.toolLaunch))}
     const fav=e.target.closest('[data-favorite]');if(fav){e.stopPropagation();return toggleFavorite(Number(fav.dataset.favorite))}
@@ -593,7 +636,7 @@ function bindGlobalEvents(){
     const buyProduct=e.target.closest('[data-buy-product]');if(buyProduct)return buyCurrentProduct(Number(buyProduct.dataset.buyProduct));
     const qty=e.target.closest('[data-product-qty]');if(qty){const el=$('#productQty');if(!el)return;let n=Number(el.textContent||1);if(qty.dataset.productQty==='plus')n=Math.min(Number(qty.dataset.max||99),n+1);else n=Math.max(1,n-1);el.textContent=String(n);return}
     const cqty=e.target.closest('[data-cart-qty]');if(cqty){e.preventDefault();return adjustCartQuantityInstant(cqty)}
-    const crem=e.target.closest('[data-cart-remove]');if(crem){try{const d=await api(`/api/cart/items/${crem.dataset.cartRemove}`,{method:'DELETE'});state.cartCount=Number(d.cartCount||0);updateBadges();updateLocalCartItem(Number(crem.dataset.cartRemove),0);void refreshCart();return}catch(err){return toast(err.message,'error')}}
+    const crem=e.target.closest('[data-cart-remove]');if(crem){if(cartCheckoutPending||cartQuantityWrites.size||crem.disabled)return;crem.disabled=true;try{const d=await api(`/api/cart/items/${crem.dataset.cartRemove}`,{method:'DELETE'});if(!Array.isArray(d.items))throw new Error('Could not confirm cart removal.');applyCartData(d);return}catch(err){void refreshCart();return toast(err.message,'error')}finally{if(crem.isConnected)crem.disabled=false}}
     if(e.target.closest('[data-cart-checkout]'))return checkoutCartNow();
     const upd=e.target.closest('[data-update-id]');if(upd)return openUpdate(Number(upd.dataset.updateId));
     const cat=e.target.closest('[data-category]');if(cat){state.appCategory=cat.dataset.category;renderApps();return}

@@ -722,14 +722,14 @@ async function addCartItem(request,env,userId){
   const p=await env.DB.prepare('SELECT id,active,stock_mode,stock_quantity FROM products WHERE id=?').bind(productId).first();
   if(!p||!p.active)return apiError('Product is not available.',404);if(p.stock_mode!=='unlimited'&&Number(p.stock_quantity)<quantity)return apiError('Not enough stock is available.',409);
   await env.DB.prepare(`INSERT INTO cart_items(user_id,product_id,quantity,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id,product_id) DO UPDATE SET quantity=excluded.quantity,updated_at=CURRENT_TIMESTAMP`).bind(userId,productId,quantity).run();
-  return apiOk({message:'Added to cart.',cartCount:await getCartCount(env,userId)});
+  return apiOk({message:'Added to cart.',...(await getCartData(env,userId))});
 }
 async function updateCartItem(request,env,userId,productId){
   const b=await readJson(request);const quantity=Math.max(1,Math.min(99,Math.trunc(Number(b?.quantity||1))));
   const p=await env.DB.prepare('SELECT id,active,stock_mode,stock_quantity FROM products WHERE id=?').bind(productId).first();if(!p||!p.active)return apiError('Product is not available.',404);if(p.stock_mode!=='unlimited'&&Number(p.stock_quantity)<quantity)return apiError('Not enough stock is available.',409);
   await env.DB.prepare('UPDATE cart_items SET quantity=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND product_id=?').bind(quantity,userId,productId).run();return getCart(env,userId)
 }
-async function deleteCartItem(env,userId,productId){await env.DB.prepare('DELETE FROM cart_items WHERE user_id=? AND product_id=?').bind(userId,productId).run();return apiOk({message:'Removed from cart.',cartCount:await getCartCount(env,userId)})}
+async function deleteCartItem(env,userId,productId){await env.DB.prepare('DELETE FROM cart_items WHERE user_id=? AND product_id=?').bind(userId,productId).run();return apiOk({message:'Removed from cart.',...(await getCartData(env,userId))})}
 async function getCartData(env,userId){
   const [rows,wallet]=await Promise.all([
     env.DB.prepare(`SELECT c.quantity,p.* FROM cart_items c JOIN products p ON p.id=c.product_id WHERE c.user_id=? ORDER BY c.updated_at DESC`).bind(userId).all(),

@@ -850,3 +850,63 @@ html[data-theme="midnight"] .tempo06-menu-footer{border-color:#4b4032!important}
 html[data-theme="midnight"] .tempo06-menu-quick button{
   background:#302a23!important;color:#efe5d3!important;border-color:#504333!important;
 }
+
+/* V1.50 — premium product detail, scoped to the existing product sheet. */
+#detailModal.marketplace-detail{scrollbar-width:thin;overscroll-behavior:contain}
+.marketplace-detail .tc-premium-detail{display:grid;gap:17px;min-width:0;max-width:640px;margin:0 auto}
+.marketplace-detail .tc-product-media-frame{border:1px solid #e8e1d5;border-radius:24px;background:#f8f6f2;padding:10px;overflow:hidden}
+.marketplace-detail .tc-premium-detail .product-cover{width:100%;max-width:none;margin:0;aspect-ratio:1.55;border:0;border-radius:17px;box-shadow:none;background:#fff}
+.marketplace-detail .tc-premium-detail .product-cover img{object-fit:contain}
+.marketplace-detail .tc-detail-heading{min-width:0}
+.marketplace-detail .tc-detail-heading h2{margin:6px 0 8px!important;font-size:clamp(25px,6.6vw,36px);line-height:1.11;letter-spacing:-.045em;overflow-wrap:anywhere;color:#1d1b17}
+.marketplace-detail .tc-detail-topline{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.marketplace-detail .tc-detail-topline .eyebrow{font-size:10px;letter-spacing:.15em;color:#967843}
+.marketplace-detail .tc-detail-save{flex:none;padding:8px 12px;border:1px solid #e4ddcf;border-radius:999px;background:#fff;color:#685e4f;font-size:12px;font-weight:750;cursor:pointer}
+.marketplace-detail .tc-detail-save.is-saved{color:#9b7738;background:#f7f2e7}
+.marketplace-detail .tc-detail-short{font-size:13px;color:#8b8478;line-height:1.45;margin:0 0 12px}
+.marketplace-detail .tc-detail-facts{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.marketplace-detail .tc-detail-facts .product-price{font-size:clamp(23px,6vw,31px);font-weight:800;color:#1f1d19;letter-spacing:-.055em}
+.marketplace-detail .product-stock{font-size:10px;background:#edf5ee;color:#32734a}
+.marketplace-detail .product-stock.sold-out{background:#fff0ee;color:#b74334}
+.marketplace-detail .tc-detail-description{border-top:1px solid #eee8dc;padding-top:14px;display:grid;gap:7px}
+.marketplace-detail .tc-detail-description>strong{font-size:12px;color:#2b2923}
+.marketplace-detail .tc-detail-description .product-description{font-size:13px;line-height:1.6;color:#69645b}
+.marketplace-detail .product-balance{padding:11px 14px;border-radius:14px;background:#f8f5ef;border-color:#e8dfcf}
+.marketplace-detail .product-balance span{color:#857966;font-size:11px}
+.marketplace-detail .product-balance strong{font-size:15px;color:#2e281e}
+.marketplace-detail .tc-detail-order-label{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:12px}
+.marketplace-detail .tc-detail-order-label span{font-size:10px;color:#978b78}
+.marketplace-detail .product-buy-box{gap:11px;padding:12px 0 4px}
+.marketplace-detail .product-buy-box .quantity-stepper{border-color:#e7dfd2;background:#faf8f4;width:160px;height:42px}
+.marketplace-detail .product-buy-box .quantity-stepper button{min-width:42px}
+.marketplace-detail .product-buy-box .product-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.marketplace-detail .product-actions .btn{min-width:0;min-height:48px;border-radius:15px;font-size:13px}
+.marketplace-detail .tc-product-verify{display:flex;align-items:center;gap:8px;padding:13px 10px;color:#857967;font-size:12px}
+.marketplace-detail .tc-product-verify-dot{height:7px;width:7px;flex:none;background:#b39a68;border-radius:50%}
+.marketplace-detail .tc-detail-assurance{margin:0;color:#91877a;font-size:10px;line-height:1.5;text-align:center}
+.marketplace-detail .product-owned-assets{margin:0}
+@media(max-width:640px){
+  #detailModal.marketplace-detail{padding:calc(54px + var(--safe-t)) 16px calc(18px + var(--safe-b))!important}
+  .marketplace-detail .tc-premium-detail .product-cover{aspect-ratio:1.68}
+  .marketplace-detail .tc-product-media-frame{padding:8px;border-radius:20px}
+  .marketplace-detail .product-buy-box{position:sticky;bottom:calc(-18px - var(--safe-b));z-index:2;background:#fff;padding:12px 0 calc(14px + var(--safe-b));border-top:1px solid #eee8dc;box-shadow:0 -5px 15px rgba(45,34,15,.035)}
+}
+@media(max-width:350px){.marketplace-detail .tc-detail-heading h2{font-size:25px}.marketplace-detail .product-actions .btn{font-size:12px;padding-left:6px;padding-right:6px}}
+html[data-theme="midnight"] .marketplace-detail .tc-product-media-frame{background:#2d2923;border-color:#514739}
+html[data-theme="midnight"] .marketplace-detail .tc-premium-detail .product-cover{background:#24211c}
+html[data-theme="midnight"] .marketplace-detail .tc-detail-heading h2,
+html[data-theme="midnight"] .marketplace-detail .tc-detail-facts .product-price,
+html[data-theme="midnight"] .marketplace-detail .tc-detail-description>strong{color:#f5ebda!important}
+html[data-theme="midnight"] .marketplace-detail .tc-detail-save{background:#302a23;border-color:#524637;color:#eee2cc}
+html[data-theme="midnight"] .marketplace-detail .tc-detail-save.is-saved{color:#e0bd76;background:#3a3022}
+html[data-theme="midnight"] .marketplace-detail .tc-detail-short,
+html[data-theme="midnight"] .marketplace-detail .tc-detail-description .product-description{color:#b9ad9a}
+html[data-theme="midnight"] .marketplace-detail .tc-detail-description,
+html[data-theme="midnight"] .marketplace-detail .product-buy-box{border-color:#484033}
+html[data-theme="midnight"] .marketplace-detail .product-balance,
+html[data-theme="midnight"] .marketplace-detail .quantity-stepper{background:#29251f;border-color:#514637}
+html[data-theme="midnight"] .marketplace-detail .product-balance strong{color:#f2e5cf}
+html[data-theme="midnight"] .marketplace-detail .product-balance span{color:#c4b6a2}
+html[data-theme="midnight"] .marketplace-detail .product-buy-box{background:#24211c}
+html[data-theme="midnight"] .marketplace-detail .tc-product-verify,
+html[data-theme="midnight"] .marketplace-detail .tc-detail-assurance{color:#b7ab98}
