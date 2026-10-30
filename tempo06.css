@@ -447,3 +447,6 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
   transition:none!important;
   opacity:1!important;
 }
+
+/* V1.27: legacy .view 680ms entrance fade was hiding already loaded pages. */
+#appShell .view, #appShell .view.active {animation:none!important;transition:none!important;opacity:1!important;transform:none!important;}

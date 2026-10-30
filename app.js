@@ -41,8 +41,17 @@ async function boot(){
   // Render the public storefront immediately while checking the account session.
   $('#signedOut').classList.remove('hidden');
   bindGlobalEvents();
-  try{const session=await api('/api/session');state.user=session.user;state.csrf=session.csrfToken;await enterApp()}catch{await enterPublic()}
-  handleDeepLinks();
+  // A single authenticated bootstrap replaces the old serial /api/session then
+  // /api/bootstrap round trips. Never treat server failures as a signed-out state.
+  try{
+    const initial=await api('/api/bootstrap');
+    state.csrf=initial.csrfToken;
+    await enterApp(initial);
+  }catch(e){
+    if(e.status!==401)console.warn('ToolCart bootstrap failed:',e.message);
+    await enterPublic();
+  }
+  void handleDeepLinks();
   setupViewportDock();
 }
 
@@ -76,15 +85,30 @@ function renderWishlist(){const saved=new Set(t06Saved());const goods=state.prod
 function tempo06CategoryMatches(p){const cat=state.tempo06Category||'all';if(cat==='all')return true;if(cat==='free')return p.access_type==='free'||Number(p.price_minor)===0;const text=`${p.name} ${p.short_description||''} ${p.description||''}`.toLowerCase();return cat==='ai'?/\bai\b|artificial intelligence|prompt|machine learning/.test(text):cat==='guide'?/guide|tutorial|handbook|pdf|ebook|course/.test(text):text.includes(cat)}
 async function addProductCardToCart(id,button){const oldLabel=button?.innerHTML;if(button){button.disabled=true;button.textContent='Adding…'}try{const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:1}});state.cartCount=Number(d.cartCount||0);updateBadges();updateLocalCartItem(Number(id),1);void refreshCart();toast('Added to your cart.')}catch(e){toast(e.message,'error')}finally{if(button){button.disabled=false;button.innerHTML=oldLabel}}}
 
-async function enterApp(){
-  // Keep the existing storefront visible until catalog and account data are ready.
-  const data=await api('/api/bootstrap');
+async function enterApp(preloaded){
+  // Keep the existing storefront visible until essential account/catalog data arrive.
+  // Nonessential updates, notifications and promotions are loaded separately later.
+  const data=preloaded||await api('/api/bootstrap');
+  state.csrf=data.csrfToken||state.csrf;
   Object.assign(state,{user:data.user,apps:data.apps||[],products:data.products||[],wallet:data.wallet||{balanceMinor:0,currency:'NGN'},cartCount:Number(data.cartCount||0),updates:data.updates||[],notifications:data.notifications||[],recentApps:data.recentApps||[],currentPlan:data.currentPlan,settings:data.settings||{},promos:data.promos||[],cartItems:data.cartItems||[],cartTotalMinor:Number(data.cartTotalMinor||0),cartCurrency:data.cartCurrency||'NGN',cartReady:Array.isArray(data.cartItems),cartRevision:state.cartRevision+1,cartRenderSignature:null});
   setTheme(preferredVisualTheme(state.user.preferredTheme,state.settings.default_theme||'pearl'));
   renderApp();
   renderCart();
   switchTab('home');
   $('#signedOut').classList.add('hidden');$('#appShell').classList.remove('hidden');
+  void loadDeferredBootstrap();
+}
+async function loadDeferredBootstrap(){
+  const userId=state.user?.id;
+  try{
+    const data=await api('/api/bootstrap/deferred');
+    if(!state.user||state.user.id!==userId)return;
+    state.updates=data.updates||[];
+    state.notifications=data.notifications||[];
+    state.recentApps=data.recentApps||[];
+    state.promos=data.promos||[];
+    renderRecent();renderUpdates();renderPromos();updateBadges();
+  }catch(e){console.warn('ToolCart extras will retry on refresh:',e.message)}
 }
 function renderApp(){renderHeader();renderApps();renderRecent();renderUpdates();renderSubscription();renderPromos();renderSettingsProfile();updateStoreMenuAccount();renderDockVisibility();updateBadges()}
 function greeting(){const h=new Date().getHours();return h<12?'Good morning':h<18?'Good afternoon':'Good evening'}
@@ -238,10 +262,12 @@ async function refreshCart(){
     applyCartData(d);
   }catch(e){if(!state.cartReady&&state.activeTab==='cart')toast('Could not refresh your cart. Try again.','error');}
 }
+let cartLastRefreshAt=0;
 function openCart(){
   closeModals();closeStoreMenu();switchTab('cart');
+  // Already hydrated at login: the view is ready in the current DOM.
   renderCart();
-  void refreshCart();
+  if(Date.now()-cartLastRefreshAt>15000){cartLastRefreshAt=Date.now();void refreshCart();}
 }
 
 async function checkoutCartNow(){const b=$('[data-cart-checkout]');if(b)b.disabled=true;try{const d=await api('/api/cart/checkout',{method:'POST',body:{}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');await refreshMarketplaceState();await openCart()}catch(e){toast(e.message,'error');if(b)b.disabled=false}}

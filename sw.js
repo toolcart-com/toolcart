@@ -1,5 +1,5 @@
 /* ToolCart V1.25: resilient static shell, never cache API or media data. */
-const CACHE='toolcart-shell-v1-26';
+const CACHE='toolcart-shell-v1-27';
 const SHELL=['/','/styles.css','/tempo.css','/tempo06.css','/app.js','/toolcart-v115-symbol.png','/toolcart-v124-wordmark.png','/toolcart-v122-hero-cart.png','/icon-192.png','/icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(async c=>{await Promise.allSettled(SHELL.map(u=>c.add(u)));await self.skipWaiting();})));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('toolcart-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
@@ -12,10 +12,11 @@ self.addEventListener('fetch',event=>{
     event.respondWith((async()=>{
       const cache=await caches.open(CACHE);
       const network=fetch(req).then(response=>{if(response.ok)cache.put(req,response.clone()).catch(()=>{});return response;});
-      // Use an already saved storefront if mobile connectivity hangs.
+      // Static HTML contains no account data. Return it immediately on reload;
+      // always refresh it in the background for a future navigation.
       const saved=await cache.match(req)||await cache.match('/');
-      if(!saved)return network;
-      return Promise.race([network,new Promise(resolve=>setTimeout(()=>resolve(saved),1800))]);
+      if(saved){event.waitUntil(network.catch(()=>{}));return saved;}
+      return network;
     })());
     return;
   }

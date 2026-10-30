@@ -72,7 +72,8 @@ async function handleUserApi(request, env, ctx, url, auth) {
   const method = request.method.toUpperCase();
   const user = auth.user;
 
-  if (path === '/api/bootstrap' && method === 'GET') return userBootstrap(env, user);
+  if (path === '/api/bootstrap' && method === 'GET') return userBootstrap(env, user, auth.session.csrf_token);
+  if (path === '/api/bootstrap/deferred' && method === 'GET') return userBootstrapDeferred(env, user);
   if (path === '/api/session' && method === 'GET') return apiOk({ user: sanitizeUser(user), csrfToken: auth.session.csrf_token });
   if (path === '/api/profile' && method === 'GET') return getProfile(env, user.id);
   if (path === '/api/profile' && method === 'PATCH') return updateProfile(request, env, user.id);
@@ -422,19 +423,28 @@ async function publicBootstrap(env) {
   return apiOk({ apps: apps.results.map(mapAppMedia), products: goods.results.map(mapProductMedia), settings });
 }
 
-async function userBootstrap(env, user) {
-  const [apps, products, updates, notifs, plan, recents, promos, settings, cart] = await Promise.all([
+async function userBootstrap(env, user, csrfToken) {
+  // Only the data needed for an immediately interactive store goes on the
+  // critical path. Cart data is a plain internal object, never an HTTP Response.
+  const [apps, products, plan, settings, cart] = await Promise.all([
     listAppsData(env, user.id),
     listProductsData(env, user.id),
+    currentPlan(env, user.id),
+    getPublicSettings(env),
+    getCartData(env, user.id),
+  ]);
+  return apiOk({user:sanitizeUser(user),csrfToken,apps,products,currentPlan:plan,settings,
+    wallet:cart.wallet,cartCount:cart.cartCount,cartItems:cart.items,
+    cartTotalMinor:cart.totalMinor,cartCurrency:cart.currency});
+}
+async function userBootstrapDeferred(env, user){
+  const [updates, notifications, recents, promos] = await Promise.all([
     listUpdatesData(env, user.id, 8),
     listNotificationsData(env, user.id, 'unread', 8),
-    currentPlan(env, user.id),
     recentApps(env, user.id),
     activePromos(env, user.id),
-    getPublicSettings(env),
-    getCart(env, user.id),
   ]);
-  return apiOk({ user: sanitizeUser(user), apps, products, wallet:cart.wallet, cartCount:cart.cartCount, cartItems:cart.items, cartTotalMinor:cart.totalMinor, cartCurrency:cart.currency, updates, notifications: notifs, currentPlan: plan, recentApps: recents, promos, settings });
+  return apiOk({updates,notifications,recentApps:recents,promos});
 }
 
 async function getProfile(env, userId) {
@@ -670,9 +680,18 @@ async function updateCartItem(request,env,userId,productId){
   await env.DB.prepare('UPDATE cart_items SET quantity=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND product_id=?').bind(quantity,userId,productId).run();return getCart(env,userId)
 }
 async function deleteCartItem(env,userId,productId){await env.DB.prepare('DELETE FROM cart_items WHERE user_id=? AND product_id=?').bind(userId,productId).run();return apiOk({message:'Removed from cart.',cartCount:await getCartCount(env,userId)})}
-async function getCart(env,userId){
-  const rows=await env.DB.prepare(`SELECT c.quantity,p.* FROM cart_items c JOIN products p ON p.id=c.product_id WHERE c.user_id=? ORDER BY c.updated_at DESC`).bind(userId).all();const items=rows.results.map(mapProductMedia);let total=0,currency='NGN';for(const x of items){if(x.access_type!=='free')total+=Number(x.price_minor)*Number(x.quantity);currency=x.currency||currency}return apiOk({items,totalMinor:total,currency,wallet:await getWallet(env,userId),cartCount:items.reduce((a,x)=>a+Number(x.quantity),0)})
+async function getCartData(env,userId){
+  const [rows,wallet]=await Promise.all([
+    env.DB.prepare(`SELECT c.quantity,p.* FROM cart_items c JOIN products p ON p.id=c.product_id WHERE c.user_id=? ORDER BY c.updated_at DESC`).bind(userId).all(),
+    getWallet(env,userId),
+  ]);
+  const items=rows.results.map(mapProductMedia);
+  let total=0,currency='NGN';
+  for(const x of items){if(x.access_type!=='free')total+=Number(x.price_minor)*Number(x.quantity);currency=x.currency||currency}
+  return {items,totalMinor:total,currency,wallet,cartCount:items.reduce((a,x)=>a+Number(x.quantity),0)};
 }
+async function getCart(env,userId){return apiOk(await getCartData(env,userId))}
+
 async function buyProductNow(request,env,user,productId){const b=await readJson(request);const quantity=Math.max(1,Math.min(99,Math.trunc(Number(b?.quantity||1))));const p=await env.DB.prepare('SELECT * FROM products WHERE id=? AND active=1').bind(productId).first();if(!p)return apiError('Product not found.',404);return createProductCheckout(request,env,user,[{product:p,quantity}],false)}
 async function checkoutCart(request,env,user){
   const rows=await env.DB.prepare(`SELECT c.quantity,p.* FROM cart_items c JOIN products p ON p.id=c.product_id WHERE c.user_id=? AND p.active=1 ORDER BY c.updated_at`).bind(user.id).all();if(!rows.results.length)return apiError('Your cart is empty.',400);return createProductCheckout(request,env,user,rows.results.map(x=>({product:x,quantity:Number(x.quantity)})),true)
