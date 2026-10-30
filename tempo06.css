@@ -584,3 +584,35 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
 #cartContent .empty-state.no-icon h3{margin-top:0;}
 /* Topline balance inherits the same font family, size, weight and colour as NGN. */
 #tempo06HeaderBalance{white-space:nowrap;flex:none;}
+
+
+/* V1.39: symmetrical mobile hero clipping, with a soft feather on its photo edge.
+   Keep the existing image, typography, hero height, and responsive margins intact. */
+.tempo06-hero, .tempo06-public .tempo06-hero {
+  border-radius:24px!important;
+  -webkit-background-clip:padding-box!important;
+  background-clip:padding-box!important;
+  overflow:hidden!important;
+  isolation:isolate!important;
+}
+/* The photo's hard right boundary is eased into the white storefront, rather
+   than reading as a square image pasted onto the rounded card. */
+.tempo06-hero::after {
+  content:"";
+  position:absolute;
+  top:0;right:0;bottom:0;
+  width:clamp(12px,3.2vw,30px);
+  pointer-events:none;
+  z-index:1;
+  background:linear-gradient(90deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.35) 54%,rgba(255,255,255,.90) 100%);
+  border-radius:0 23px 23px 0;
+}
+@media(max-width:370px){.tempo06-hero,.tempo06-public .tempo06-hero{border-radius:20px!important}.tempo06-hero::after{border-radius:0 19px 19px 0}}
+@media(min-width:700px){.tempo06-hero,.tempo06-public .tempo06-hero{border-radius:28px!important}.tempo06-hero::after{border-radius:0 27px 27px 0}}
+/* Signed-in headline balance uses the same metrics as the header's old NGN label. */
+#appShell #tempo06HeaderBalance{white-space:nowrap;flex-shrink:0;max-width:45%;font-size:8px;color:#a69e8e;letter-spacing:.08em;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+#appShell .tempo06-topline{gap:9px}
+#appShell .tempo06-topline span:first-child{min-width:0}
+/* The wallet card is intentionally absent: the Cart/Purchased Items control
+   begins the page, freeing space without changing either account view. */
+#cartView,#purchasesView{padding-top:17px}
