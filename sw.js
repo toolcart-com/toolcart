@@ -1,5 +1,5 @@
 /* ToolCart V1.25: resilient static shell, never cache API or media data. */
-const CACHE='toolcart-shell-v1-43';
+const CACHE='toolcart-shell-v1-45';
 const SHELL=['/','/styles.css','/tempo.css','/tempo06.css','/app.js','/toolcart-v115-symbol.png','/toolcart-v124-wordmark.png','/icon-192.png','/icon-512.png'];
 // Public catalog covers are safe to cache for instant repeat views; no private purchases/avatars.
 const COVER_CACHE='toolcart-public-covers-v1';

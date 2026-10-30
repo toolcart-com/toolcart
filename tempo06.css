@@ -608,3 +608,40 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
 /* The wallet card is intentionally absent: the Cart/Purchased Items control
    begins the page, freeing space without changing either account view. */
 #cartView,#purchasesView{padding-top:17px}
+
+/* V1.44 — ChatGPT-style leading edge for the existing RIGHT-side menu.
+   A light frosted scrim replaces the dark backdrop; the vertical edge
+   stays clean, with soft ambient shadow and matching rounded ends.
+   No layout, navigation, or content changes. */
+#toolcartMenuBackdrop.tempo06-menu-backdrop {
+  background:rgba(255,255,255,.72)!important;
+  -webkit-backdrop-filter:blur(10px) saturate(.85)!important;
+  backdrop-filter:blur(10px) saturate(.85)!important;
+}
+#toolcartMenu.tempo06-menu-drawer {
+  border:0!important;
+  border-radius:46px 0 0 46px!important;
+  background:#fff!important;
+  box-shadow:-14px 0 50px rgba(42,44,44,.095),-1px 0 2px rgba(42,44,44,.018)!important;
+  overflow:hidden!important;
+}
+@media(max-width:370px){
+  #toolcartMenu.tempo06-menu-drawer{border-radius:40px 0 0 40px!important;}
+}
+@media(prefers-reduced-transparency:reduce){
+  #toolcartMenuBackdrop.tempo06-menu-backdrop{
+    background:rgba(250,250,250,.94)!important;
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+  }
+}
+
+
+/* V1.45 — square off the complete leading edge of the right-side drawer.
+   Both upper-left and lower-left corners must be straight, as requested.
+   Preserve V1.44's light frosted backdrop, soft shadow, drawer width,
+   navigation layout and existing open/close behavior. */
+#toolcartMenu.tempo06-menu-drawer {
+  border-radius:0!important;
+  -webkit-border-radius:0!important;
+}
