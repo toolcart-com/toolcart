@@ -422,3 +422,28 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
 /* V1.24 — display the exact uploaded black-background wordmark without altering the source logo.
    Zoom only to crop the extra blank black margins; the header dimensions remain unchanged. */
 .tempo06-brand .tempo06-new-wordmark{width:135%!important;height:auto!important;max-height:none!important;}
+
+
+/* V1.26 — keep the supplied gold delivery cart fully static until a new animation is selected. */
+.tempo06-hero .tempo06-hero-art .tempo06-bag-carousel {
+  animation:none!important;
+  animation-play-state:paused!important;
+  transform:none!important;
+  filter:none!important;
+  will-change:auto!important;
+}
+.tempo06-hero .tempo06-bag-carousel .tempo06-bag-art.tempo06-cart-drive-art {
+  animation:none!important;
+  transform:none!important;
+  filter:none!important;
+  opacity:1!important;
+  will-change:auto!important;
+}
+
+/* V1.26 — product/tool details are visible on the first interaction frame, not
+   after the legacy 450–700 ms sheet entrance transition. */
+#detailModal.modal {
+  animation:none!important;
+  transition:none!important;
+  opacity:1!important;
+}

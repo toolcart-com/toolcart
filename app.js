@@ -74,7 +74,7 @@ function t06ToggleSave(id){
 }
 function renderWishlist(){const saved=new Set(t06Saved());const goods=state.products.filter(p=>saved.has(Number(p.id)));const el=$('#wishlistProducts');if(el)el.innerHTML=goods.length?goods.map(productCard).join(''):empty('Your wishlist is empty','Tap the heart on a product to save it here.','♡')}
 function tempo06CategoryMatches(p){const cat=state.tempo06Category||'all';if(cat==='all')return true;if(cat==='free')return p.access_type==='free'||Number(p.price_minor)===0;const text=`${p.name} ${p.short_description||''} ${p.description||''}`.toLowerCase();return cat==='ai'?/\bai\b|artificial intelligence|prompt|machine learning/.test(text):cat==='guide'?/guide|tutorial|handbook|pdf|ebook|course/.test(text):text.includes(cat)}
-async function addProductCardToCart(id,button){if(button)button.disabled=true;try{const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:1}});state.cartCount=Number(d.cartCount||0);updateBadges();updateLocalCartItem(Number(id),1);void refreshCart();toast('Added to your cart.')}catch(e){toast(e.message,'error')}finally{if(button)button.disabled=false}}
+async function addProductCardToCart(id,button){const oldLabel=button?.innerHTML;if(button){button.disabled=true;button.textContent='Adding…'}try{const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:1}});state.cartCount=Number(d.cartCount||0);updateBadges();updateLocalCartItem(Number(id),1);void refreshCart();toast('Added to your cart.')}catch(e){toast(e.message,'error')}finally{if(button){button.disabled=false;button.innerHTML=oldLabel}}}
 
 async function enterApp(){
   // Keep the existing storefront visible until catalog and account data are ready.
@@ -125,8 +125,68 @@ function renderDockVisibility(){const map={apps:'dock_apps_enabled',updates:'doc
 function updateBadges(){const unread=state.notifications.filter(n=>!n.read_at).length;$('#notifBadge').classList.toggle('hidden',!unread);$('#notifBadge').textContent=unread>99?'99+':unread;const cart=Number(state.cartCount||0);$('#cartBadge')?.classList.toggle('hidden',!cart);if($('#cartBadge'))$('#cartBadge').textContent=cart>99?'99+':cart;const updates=state.updates.filter(u=>!u.is_read).length;$('#dockUpdateBadge')?.classList.toggle('hidden',!updates)}
 
 function productPrice(p){return p.access_type==='free'||Number(p.price_minor)===0?'Free':fmtMoney(p.price_minor,p.currency||'NGN')}
+// Open product details from already loaded catalog data on the tap itself.
+// Authoritative stock, ownership, wallet and protected file links still come from GET /api/products/:id.
+let productOpenRequest=0;
+function productDetailActions(p,verified){
+  if(verified&&p.has_access){
+    const assets=p.assets&&p.assets.length?p.assets:[{fileName:p.file_name||'Product file',fileType:p.file_type||'file',url:`/api/products/${p.id}/file`}];
+    return `<div class="product-owned-assets"><div class="product-files-head"><strong>Your product files</strong><span>${Number(p.asset_count||assets.length)} file${Number(p.asset_count||assets.length)===1?'':'s'}</span></div>${assets.map((a,i)=>`<a class="product-file-link" href="${esc(a.url)}" target="_blank" rel="noopener"><span>${a.fileType==='pdf'?'PDF':'IMG'}</span><div><strong>${esc(a.fileName||`File ${i+1}`)}</strong><small>Open protected file</small></div><b>↗</b></a>`).join('')}</div><p class="product-owned-note">Purchased quantity: ${Number(p.owned_quantity||0)}</p>`;
+  }
+  if(!verified&&Number(p.owned||0)>0){
+    return '<div class="product-owned-assets"><strong>My purchased files</strong><p class="product-owned-note">Verifying your download access…</p></div>';
+  }
+  const soldOut=p.stock_mode!=='unlimited'&&Number(p.stock_quantity)<=0;
+  return `<div class="product-buy-box"><div class="quantity-stepper"><button type="button" data-product-qty="minus">−</button><strong id="productQty">1</strong><button type="button" data-product-qty="plus" data-max="${p.stock_mode==='unlimited'?99:Number(p.stock_quantity||0)}">+</button></div><div class="product-actions"><button class="btn btn-secondary" data-add-cart="${p.id}" ${soldOut?'disabled':''}>Add to cart</button><button class="btn btn-primary" data-buy-product="${p.id}" ${soldOut?'disabled':''}>${p.access_type==='free'?'Get now':'Buy now'}</button></div></div>`;
+}
+function productDetailMarkup(p,verified){
+  const stock=p.stock_mode==='unlimited'?'Unlimited stock':Number(p.stock_quantity)>0?`${Number(p.stock_quantity)} in stock`:'Out of stock';
+  const soldOut=p.stock_mode!=='unlimited'&&Number(p.stock_quantity)<=0;
+  return `<div class="product-detail"><div class="product-balance"><span>Available balance</span><strong id="productDetailBalance">${fmtMoney(state.wallet.balanceMinor,state.wallet.currency)}</strong></div><div class="product-cover">${p.display_image_url?`<img src="${esc(p.display_image_url)}" alt="${esc(p.name)}">`:`<div class="product-cover-fallback">${esc(initials(p.name))}</div>`}</div><div class="product-title-row"><div><span class="eyebrow">${p.premium?'PREMIUM PRODUCT':'DIGITAL PRODUCT'}</span><h2>${esc(p.name)}</h2></div><strong class="product-price" id="productDetailPrice">${esc(productPrice(p))}</strong></div><div id="productDetailStock" class="product-stock ${soldOut?'sold-out':''}">${esc(stock)}</div><p id="productDetailDescription" class="product-description">${esc(p.description||p.short_description||'Digital product available through ToolCart.')}</p><div id="productDetailActionSlot">${productDetailActions(p,verified)}</div></div>`;
+}
 async function openProduct(id){
-  try{const d=await api(`/api/products/${id}`);const p=d.product;state.wallet=d.wallet||state.wallet;state.cartCount=Number(d.cartCount||state.cartCount||0);updateBadges();const stock=p.stock_mode==='unlimited'?'Unlimited stock':Number(p.stock_quantity)>0?`${Number(p.stock_quantity)} in stock`:'Out of stock';const soldOut=p.stock_mode!=='unlimited'&&Number(p.stock_quantity)<=0;showDetail(`<div class="product-detail"><div class="product-balance"><span>Available balance</span><strong>${fmtMoney(state.wallet.balanceMinor,state.wallet.currency)}</strong></div><div class="product-cover">${p.display_image_url?`<img src="${esc(p.display_image_url)}" alt="${esc(p.name)}">`:`<div class="product-cover-fallback">${esc(initials(p.name))}</div>`}</div><div class="product-title-row"><div><span class="eyebrow">${p.premium?'PREMIUM PRODUCT':'DIGITAL PRODUCT'}</span><h2>${esc(p.name)}</h2></div><strong class="product-price">${esc(productPrice(p))}</strong></div><div class="product-stock ${soldOut?'sold-out':''}">${esc(stock)}</div><p class="product-description">${esc(p.description||p.short_description||'Digital product available through ToolCart.')}</p>${p.has_access?`<div class="product-owned-assets"><div class="product-files-head"><strong>Your product files</strong><span>${Number(p.asset_count||p.assets?.length||1)} file${Number(p.asset_count||p.assets?.length||1)===1?'':'s'}</span></div>${(p.assets&&p.assets.length?p.assets:[{fileName:p.file_name||'Product file',fileType:p.file_type||'file',url:`/api/products/${p.id}/file`}]).map((a,i)=>`<a class="product-file-link" href="${esc(a.url)}" target="_blank" rel="noopener"><span>${a.fileType==='pdf'?'PDF':'IMG'}</span><div><strong>${esc(a.fileName||`File ${i+1}`)}</strong><small>Open protected file</small></div><b>↗</b></a>`).join('')}</div><p class="product-owned-note">Purchased quantity: ${Number(p.owned_quantity||0)}</p>`:`<div class="product-buy-box"><div class="quantity-stepper"><button type="button" data-product-qty="minus">−</button><strong id="productQty">1</strong><button type="button" data-product-qty="plus" data-max="${p.stock_mode==='unlimited'?99:Number(p.stock_quantity||0)}">+</button></div><div class="product-actions"><button class="btn btn-secondary" data-add-cart="${p.id}" ${soldOut?'disabled':''}>Add to cart</button><button class="btn btn-primary" data-buy-product="${p.id}" ${soldOut?'disabled':''}>${p.access_type==='free'?'Get now':'Buy now'}</button></div></div>`}</div>`);$('#detailModal').classList.add('marketplace-detail');$('#detailContent').dataset.productId=String(p.id)}catch(e){toast(e.message,'error')}}
+  const request=++productOpenRequest;
+  const listing=state.products.find(p=>Number(p.id)===id);
+  // This happens synchronously, before any network round trip.
+  if(listing){
+    showDetail(productDetailMarkup(listing,false));
+    $('#detailModal').classList.add('marketplace-detail');
+    $('#detailContent').dataset.productId=String(id);
+  }
+  try{
+    const d=await api(`/api/products/${id}`),p=d.product;
+    // Never bring an old product or a closed detail sheet back to the screen.
+    if(request!==productOpenRequest||$('#detailModal').classList.contains('hidden')&&listing||listing&&Number($('#detailContent').dataset.productId)!==id)return;
+    state.wallet=d.wallet||state.wallet;
+    if(d.cartCount!==undefined)state.cartCount=Number(d.cartCount||0);
+    updateBadges();
+    if(!listing){
+      showDetail(productDetailMarkup(p,true));
+      $('#detailModal').classList.add('marketplace-detail');
+      $('#detailContent').dataset.productId=String(id);
+      return;
+    }
+    // Update only the live metadata and entitlement actions. Keep the cover <img>
+    // node mounted so its already-decoded R2 image cannot flash on iPhone Safari.
+    $('#productDetailBalance').textContent=fmtMoney(state.wallet.balanceMinor,state.wallet.currency);
+    $('#productDetailPrice').textContent=productPrice(p);
+    const stock=$('#productDetailStock');
+    stock.textContent=p.stock_mode==='unlimited'?'Unlimited stock':Number(p.stock_quantity)>0?`${Number(p.stock_quantity)} in stock`:'Out of stock';
+    stock.classList.toggle('sold-out',p.stock_mode!=='unlimited'&&Number(p.stock_quantity)<=0);
+    $('#productDetailDescription').textContent=p.description||p.short_description||'Digital product available through ToolCart.';
+    const quantity=Number($('#productQty')?.textContent||1);
+    $('#productDetailActionSlot').innerHTML=productDetailActions(p,true);
+    if($('#productQty'))$('#productQty').textContent=String(Math.max(1,Math.min(quantity,p.stock_mode==='unlimited'?99:Number(p.stock_quantity||1))));
+  }catch(e){
+    if(request!==productOpenRequest)return;
+    if(listing&&!$('#detailModal').classList.contains('hidden')){
+      // Product information stays visible; warn the customer that the verification failed.
+      const slot=$('#productDetailActionSlot');
+      if(slot)slot.innerHTML='<p class="product-owned-note">Could not verify current availability. Close and open this product again.</p>';
+    }
+    toast(e.message,'error');
+  }
+}
 async function refreshMarketplaceState(){try{const d=await api('/api/products');state.products=d.products||[];state.wallet=d.wallet||state.wallet;state.cartCount=Number(d.cartCount||0);renderApps();updateBadges()}catch{}}
 async function addCurrentProductToCart(id){const q=Number($('#productQty')?.textContent||1);try{const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:q}});state.cartCount=Number(d.cartCount||0);updateBadges();updateLocalCartItem(Number(id),q);openCart();toast('Added to cart.')}catch(e){toast(e.message,'error')}}
 async function buyCurrentProduct(id){const q=Number($('#productQty')?.textContent||1);const b=$(`[data-buy-product="${id}"]`);if(b)b.disabled=true;try{const d=await api(`/api/products/${id}/buy`,{method:'POST',body:{quantity:q}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');await refreshMarketplaceState();await openProduct(Number(id))}catch(e){toast(e.message,'error');if(b)b.disabled=false}}
@@ -185,7 +245,23 @@ function openCart(){
 }
 
 async function checkoutCartNow(){const b=$('[data-cart-checkout]');if(b)b.disabled=true;try{const d=await api('/api/cart/checkout',{method:'POST',body:{}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');await refreshMarketplaceState();await openCart()}catch(e){toast(e.message,'error');if(b)b.disabled=false}}
-async function openApp(id){try{const d=await api(`/api/apps/${id}/open`,{method:'POST'});if(d.action==='open'){window.location.href=d.url;return}if(d.action==='maintenance')return showInfo('Under maintenance',d.message,'maintenance');if(d.action==='coming_soon')return showInfo('Coming soon',d.message,'soon');if(d.action==='upgrade')return openSetting('subscription',`This app requires ${d.requiredPlan}.`);showInfo('App unavailable',d.message||'This app cannot be opened right now.')}catch(e){toast(e.message,'error')}}
+let toolOpenPending=null;
+async function openApp(id){
+  if(toolOpenPending===id)return;
+  toolOpenPending=id;
+  const tool=state.apps.find(a=>Number(a.id)===id);
+  // Immediate visual response, while retaining the server-authorized launch route.
+  showInfo(`Opening ${tool?.name||'tool'}…`,'Checking tool availability.','WORKING TOOL');
+  try{
+    const d=await api(`/api/apps/${id}/open`,{method:'POST'});
+    if(d.action==='open'){window.location.href=d.url;return}
+    if(d.action==='maintenance')return showInfo('Under maintenance',d.message,'maintenance');
+    if(d.action==='coming_soon')return showInfo('Coming soon',d.message,'soon');
+    if(d.action==='upgrade')return openSetting('subscription',`This app requires ${d.requiredPlan}.`);
+    showInfo('App unavailable',d.message||'This app cannot be opened right now.');
+  }catch(e){closeModals();toast(e.message,'error')}
+  finally{toolOpenPending=null}
+}
 async function toggleFavorite(id){try{const d=await api(`/api/apps/${id}/favorite`,{method:'POST'});const a=state.apps.find(x=>x.id===id);if(a)a.favorite=d.favorite;renderApps()}catch(e){toast(e.message,'error')}}
 async function openUpdate(id){const u=state.updates.find(x=>x.id===id);if(!u)return;try{if(!u.is_read){await api(`/api/updates/${id}/read`,{method:'POST'});u.is_read=1;updateBadges();renderUpdates()} }catch{}showDetail(`<div class="detail-hero"><span class="eyebrow">${esc(humanStatus(u.update_type))}</span><h2>${esc(u.title)}</h2><p>${esc(u.summary)}</p><div class="detail-meta"><span class="status-badge">${esc(humanStatus(u.priority))}</span><span class="status-badge">${fmtDate(u.publish_at)}</span></div></div><div class="detail-body"><p style="white-space:pre-wrap;line-height:1.65;color:var(--muted)">${esc(u.content)}</p>${u.external_url?`<div class="detail-actions"><button class="btn btn-primary" data-external="${esc(u.external_url)}">${esc(u.cta_label||'Open link')}</button></div>`:''}</div>`)}
 
