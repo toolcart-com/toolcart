@@ -520,3 +520,12 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
   letter-spacing:0!important;
   line-height:1.23!important;
 }
+
+/* V1.33 — make digital product names match the bold working-tool titles.
+   Only h3 typography changes; retain V1.31's compact muted-gray prices. */
+.tempo-merchant-card.tempo-good-card .tempo-card-info h3 {
+  font-family:'DM Sans',Inter,-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif!important;
+  font-weight:700!important;
+  letter-spacing:-.045em!important;
+  font-style:normal!important;
+}
