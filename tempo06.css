@@ -586,8 +586,9 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
 #tempo06HeaderBalance{white-space:nowrap;flex:none;}
 
 
-/* V1.39: symmetrical mobile hero clipping, with a soft feather on its photo edge.
-   Keep the existing image, typography, hero height, and responsive margins intact. */
+/* V1.40: keep the rounded hero frame but remove the added white feather.
+   The artwork now reaches the edge cleanly so the right curve matches the left,
+   without the pasted-on blurry strip from V1.39. */
 .tempo06-hero, .tempo06-public .tempo06-hero {
   border-radius:24px!important;
   -webkit-background-clip:padding-box!important;
@@ -595,20 +596,11 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
   overflow:hidden!important;
   isolation:isolate!important;
 }
-/* The photo's hard right boundary is eased into the white storefront, rather
-   than reading as a square image pasted onto the rounded card. */
-.tempo06-hero::after {
-  content:"";
-  position:absolute;
-  top:0;right:0;bottom:0;
-  width:clamp(12px,3.2vw,30px);
-  pointer-events:none;
-  z-index:1;
-  background:linear-gradient(90deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.35) 54%,rgba(255,255,255,.90) 100%);
-  border-radius:0 23px 23px 0;
-}
-@media(max-width:370px){.tempo06-hero,.tempo06-public .tempo06-hero{border-radius:20px!important}.tempo06-hero::after{border-radius:0 19px 19px 0}}
-@media(min-width:700px){.tempo06-hero,.tempo06-public .tempo06-hero{border-radius:28px!important}.tempo06-hero::after{border-radius:0 27px 27px 0}}
+/* No extra overlay on the image edge: let the card radius and border define
+   the shape naturally, like the left side of the hero. */
+.tempo06-hero::after {content:none!important;display:none!important;}
+@media(max-width:370px){.tempo06-hero,.tempo06-public .tempo06-hero{border-radius:20px!important}}
+@media(min-width:700px){.tempo06-hero,.tempo06-public .tempo06-hero{border-radius:28px!important}}
 /* Signed-in headline balance uses the same metrics as the header's old NGN label. */
 #appShell #tempo06HeaderBalance{white-space:nowrap;flex-shrink:0;max-width:45%;font-size:8px;color:#a69e8e;letter-spacing:.08em;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
 #appShell .tempo06-topline{gap:9px}
