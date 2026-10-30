@@ -127,6 +127,8 @@ async function handleAdminApi(request, env, ctx, url, admin) {
   if (path === '/api/admin/session' && method === 'GET') return apiOk({ admin: sanitizeAdmin(admin.user), csrfToken: admin.session.csrf_token });
   if (path === '/api/admin/dashboard' && method === 'GET') return adminDashboard(env);
   if (path === '/api/admin/customers' && method === 'GET') return adminCustomers(env, url.searchParams);
+  if (path === '/api/admin/wallet/credits' && method === 'GET') return adminWalletCredits(env, admin);
+  if (path === '/api/admin/wallet/credits' && method === 'POST') return adminCreditWallet(request, env, admin);
   if (path.match(/^\/api\/admin\/customers\/\d+$/) && method === 'GET') return adminCustomerDetail(env, Number(path.split('/')[4]));
   if (path.match(/^\/api\/admin\/customers\/\d+\/action$/) && method === 'POST') return adminCustomerAction(request, env, admin, Number(path.split('/')[4]));
 
@@ -925,6 +927,7 @@ async function adminCustomerAction(request, env, admin, userId) {
     if (!title || !message) return apiError('Notification title and message are required.', 400);
     await createAdminNotification(env, admin.id, { title, message, type: 'admin_announcement', importance: b?.importance || 'normal', audienceType: 'single_user', audienceValues: [userId] });
   } else if (action === 'wallet_adjust') {
+    if (admin.user.role !== 'owner') return apiError('Only the owner can change wallet balances.', 403);
     const amountMinor = Math.trunc(Number(b?.amountMinor || 0));
     const note = cleanText(b?.note, 240) || 'Administrator balance adjustment';
     if (!amountMinor || Math.abs(amountMinor) > 100000000000) return apiError('Enter a valid non-zero balance adjustment.', 400);
@@ -938,6 +941,64 @@ async function adminCustomerAction(request, env, admin, userId) {
   } else return apiError('Unsupported customer action.', 400);
   await audit(env, admin.id, `customer_${action}`, 'user', String(userId), b, request);
   return apiOk({ message: 'Customer updated.' });
+}
+
+// ---------- Owner-only wallet funding (V1.35) ----------
+// This is real spendable customer balance, not a simulated checkout or a Paystack payment.
+async function adminWalletCredits(env, admin) {
+  if (admin.user.role !== 'owner') return apiError('Only the owner can view wallet credits.', 403);
+  const rows = await env.DB.prepare(`SELECT w.id,w.user_id,w.amount_minor,w.currency,w.note,w.reference,w.created_at,
+    u.full_name,u.email FROM wallet_transactions w JOIN users u ON u.id=w.user_id
+    WHERE w.transaction_type='admin_adjustment' AND w.reference LIKE 'ADMIN-CREDIT-%'
+    ORDER BY w.id DESC LIMIT 20`).all();
+  return apiOk({credits:rows.results});
+}
+
+async function adminCreditWallet(request, env, admin) {
+  if (admin.user.role !== 'owner') return apiError('Only the owner can add customer balance.', 403);
+  const b = await readJson(request);
+  const userId = Number(b?.userId);
+  const amountMinor = Number(b?.amountMinor);
+  const reference = String(b?.reference || '');
+  const note = cleanText(b?.note, 180) || 'Admin-funded checkout testing';
+  if (!Number.isSafeInteger(userId) || userId < 1) return apiError('Select a valid customer.', 400);
+  // NGN integer kobo, minimum ₦1 and maximum ₦1,000,000 per request.
+  if (!Number.isSafeInteger(amountMinor) || amountMinor < 100 || amountMinor > 100000000)
+    return apiError('Enter a balance credit from ₦1 to ₦1,000,000.', 400);
+  if (!/^ADMIN-CREDIT-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(reference))
+    return apiError('Invalid credit request reference. Refresh the admin panel and try again.', 400);
+  const user = await env.DB.prepare('SELECT id,email,status FROM users WHERE id=?').bind(userId).first();
+  if (!user) return apiError('Customer not found.', 404);
+  if (user.status !== 'active') return apiError('Only active customer accounts can be funded.', 409);
+  const previous = await env.DB.prepare(`SELECT user_id,amount_minor FROM wallet_transactions WHERE reference=? AND transaction_type='admin_adjustment'`).bind(reference).first();
+  if (previous) {
+    if (Number(previous.user_id) !== userId || Number(previous.amount_minor) !== amountMinor)
+      return apiError('This credit reference belongs to a different transaction.', 409);
+    return apiOk({alreadyProcessed:true, wallet:await getWallet(env,userId),message:'This credit was already applied.'});
+  }
+  await ensureWallet(env,userId,'NGN');
+  const wallet = await getWallet(env,userId);
+  if (wallet.currency !== 'NGN') return apiError('The customer wallet is not denominated in NGN.', 409);
+  if (!Number.isSafeInteger(wallet.balanceMinor) || wallet.balanceMinor + amountMinor > Number.MAX_SAFE_INTEGER)
+    return apiError('This amount would exceed the supported balance.', 400);
+  try {
+    // D1 batch runs inside one transaction: either ledger and balance both commit, or neither does.
+    // The unique index in migration 0005 ensures a repeated request can never credit twice.
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO wallet_transactions(user_id,amount_minor,currency,transaction_type,reference,note,admin_id)
+        VALUES(?,?,'NGN','admin_adjustment',?,?,?)`).bind(userId,amountMinor,reference,note,admin.user.id),
+      env.DB.prepare(`UPDATE wallet_accounts SET balance_minor=balance_minor+?,updated_at=CURRENT_TIMESTAMP
+        WHERE user_id=? AND currency='NGN'`).bind(amountMinor,userId),
+    ]);
+  } catch (err) {
+    const saved = await env.DB.prepare(`SELECT user_id,amount_minor FROM wallet_transactions WHERE reference=? AND transaction_type='admin_adjustment'`).bind(reference).first();
+    if (saved && Number(saved.user_id)===userId && Number(saved.amount_minor)===amountMinor)
+      return apiOk({alreadyProcessed:true,wallet:await getWallet(env,userId),message:'This credit was already applied.'});
+    console.error('Admin credit failed:',err);
+    return apiError('Could not safely credit this balance. Check the database migration and retry.', 503);
+  }
+  await audit(env,admin.user.id,'admin_wallet_credit','user',String(userId),{amountMinor,currency:'NGN',reference,note},request);
+  return apiOk({message:'Balance credited.',wallet:await getWallet(env,userId),reference});
 }
 
 // ---------- Admin apps ----------
