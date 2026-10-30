@@ -645,3 +645,52 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
   border-radius:0!important;
   -webkit-border-radius:0!important;
 }
+
+/* V1.46: immediate, calm checkout feedback while the server authorizes payment
+   and entitlements. No artificial delay or purchase-success claim. */
+.tc-checkout-status{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:225px;padding:32px 22px;margin:12px 0 24px;text-align:center;
+  border:1px solid #e9e4d9;border-radius:22px;background:#faf9f6;
+  color:#242320;
+}
+.tc-checkout-status-mark{
+  display:grid;place-items:center;width:43px;height:43px;margin-bottom:15px;
+  border:1px solid #ded3bb;border-radius:50%;background:#fff;
+  font-size:27px;color:#a7894d;line-height:1;
+}
+.tc-checkout-status strong{font-size:19px;letter-spacing:-.035em;font-weight:750}
+.tc-checkout-status p{font-size:13px;line-height:1.5;margin:9px 0 6px;color:#68645d}
+.tc-checkout-status small{max-width:265px;font-size:11px;line-height:1.55;color:#938c80}
+
+/* ToolCart V1.48: retain all five categories and their existing names and behavior.
+   Fit the longer titles into one elegant line on iPhone without clipping either
+   edge, wrapping text, or introducing a horizontally overflowing tab strip. */
+@media (max-width:699px){
+  .tempo06-categories{
+    box-sizing:border-box!important;
+    display:grid!important;
+    grid-template-columns:1.10fr .78fr .98fr 1.34fr 1.45fr!important;
+    align-items:stretch!important;
+    gap:0!important;
+    width:100%!important;
+    min-width:0!important;
+    padding:0 6px!important;
+    justify-content:stretch!important;
+    overflow:hidden!important;
+    scroll-snap-type:none!important;
+  }
+  .tempo06-categories button{
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    padding:18px 0 15px!important;
+    text-align:center!important;
+    white-space:nowrap!important;
+    font-size:clamp(9px,2.5vw,11.5px)!important;
+    letter-spacing:-.035em!important;
+    line-height:1.2!important;
+    scroll-snap-align:none!important;
+  }
+}
