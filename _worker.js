@@ -88,6 +88,7 @@ async function handleUserApi(request, env, ctx, url, auth) {
   if (path.match(/^\/api\/apps\/\d+\/open$/) && method === 'POST') return openApp(env, user.id, Number(path.split('/')[3]));
 
   if (path === '/api/products' && method === 'GET') return listProducts(env, user.id);
+  if (path === '/api/purchases' && method === 'GET') return getPurchases(env, user.id);
   if (path.match(/^\/api\/products\/\d+$/) && method === 'GET') return getProductDetail(env, user.id, Number(path.split('/')[3]));
   if (path.match(/^\/api\/products\/\d+\/file$/) && method === 'GET') return serveProductFile(request, env, user.id, Number(path.split('/')[3]));
   if (path.match(/^\/api\/products\/\d+\/assets\/\d+$/) && method === 'GET') return serveProductAsset(request, env, user.id, Number(path.split('/')[3]), Number(path.split('/')[5]));
@@ -669,6 +670,47 @@ async function getProductDetail(env,userId,productId){
   const hasAccess=Number(p.owned_quantity)>0;const assetRows=(await env.DB.prepare('SELECT id,file_name,file_type,mime_type,display_order FROM product_assets WHERE product_id=? ORDER BY display_order,id').bind(productId).all()).results;const assetCount=assetRows.length||(p.file_key?1:0);const assets=hasAccess?(assetRows.length?assetRows.map(a=>({id:a.id,fileName:a.file_name,fileType:a.file_type,mimeType:a.mime_type,displayOrder:Number(a.display_order||0),url:`/api/products/${productId}/assets/${a.id}`})):[{id:null,fileName:p.file_name,fileType:p.file_type,mimeType:p.mime_type,displayOrder:0,url:`/api/products/${productId}/file`}]) : [];
   return apiOk({product:{...mapProductMedia(p),has_access:hasAccess,owned_quantity:Number(p.owned_quantity||0),asset_count:assetCount,assets},wallet:await getWallet(env,userId),cartCount:await getCartCount(env,userId)});
 }
+// V1.37: Purchase history comes from fulfilled orders and entitlements, never cart contents.
+// R2 keys remain private; these links still pass through the existing entitlement checks.
+async function getPurchasesData(env,userId,orderId=null){
+  const filtered=Number.isInteger(orderId)&&orderId>0;
+  const query=`SELECT e.id AS entitlement_id,e.product_id,e.quantity AS owned_quantity,e.granted_at,
+    p.name,p.display_image_key,p.file_name AS legacy_file_name,p.file_type AS legacy_file_type,p.file_key AS legacy_file_present,
+    o.id AS order_id,o.order_number,o.currency,o.fulfilled_at,o.payment_source,
+    oi.quantity AS purchased_quantity,oi.unit_price_minor,oi.total_minor,
+    (SELECT py.provider_reference FROM payments py WHERE py.product_order_id=o.id AND py.user_id=e.user_id AND py.status='success' ORDER BY py.id DESC LIMIT 1) AS payment_reference
+    FROM product_entitlements e
+    JOIN products p ON p.id=e.product_id
+    LEFT JOIN product_orders o ON o.id=e.order_id
+    LEFT JOIN product_order_items oi ON oi.order_id=o.id AND oi.product_id=e.product_id
+    WHERE e.user_id=? AND (o.status='fulfilled' OR e.order_id IS NULL)
+    ${filtered?'AND e.order_id=?':''}
+    ORDER BY e.granted_at DESC,e.id DESC LIMIT 200`;
+  const queryStmt=env.DB.prepare(query);
+  const rows=(await (filtered?queryStmt.bind(userId,orderId):queryStmt.bind(userId)).all()).results;
+  if(!rows.length)return [];
+  const assets=(await env.DB.prepare(`SELECT a.id,a.product_id,a.file_name,a.file_type FROM product_assets a
+    WHERE EXISTS(SELECT 1 FROM product_entitlements e WHERE e.user_id=? AND e.product_id=a.product_id)
+    ORDER BY a.product_id,a.display_order,a.id`).bind(userId).all()).results;
+  const byProduct=new Map();
+  for(const item of assets){if(!byProduct.has(item.product_id))byProduct.set(item.product_id,[]);byProduct.get(item.product_id).push(item)}
+  return rows.map(r=>({
+    entitlementId:r.entitlement_id,productId:r.product_id,name:r.name,
+    coverUrl:r.display_image_key?`/media/${r.display_image_key}`:null,
+    transactionId:r.order_number||`ENT-${r.entitlement_id}`,
+    paymentReference:r.payment_reference||null,
+    purchasedAt:r.fulfilled_at||r.granted_at,
+    quantity:Number(r.purchased_quantity||r.owned_quantity||1),
+    amountMinor:Number(r.total_minor||0),currency:r.currency||'NGN',
+    files:(byProduct.get(r.product_id)?.length?byProduct.get(r.product_id):r.legacy_file_present?[{id:null,file_name:r.legacy_file_name,file_type:r.legacy_file_type}]:[]).map(f=>({
+      id:f.id,fileName:f.file_name||'Product file',fileType:f.file_type||'file',
+      viewUrl:f.id?`/api/products/${r.product_id}/assets/${f.id}`:`/api/products/${r.product_id}/file`,
+      downloadUrl:f.id?`/api/products/${r.product_id}/assets/${f.id}?download=1`:`/api/products/${r.product_id}/file?download=1`
+    }))
+  }));
+}
+async function getPurchases(env,userId){return apiOk({purchases:await getPurchasesData(env,userId)});}
+
 async function addCartItem(request,env,userId){
   const b=await readJson(request);const productId=Number(b?.productId),quantity=Math.max(1,Math.min(99,Math.trunc(Number(b?.quantity||1))));
   const p=await env.DB.prepare('SELECT id,active,stock_mode,stock_quantity FROM products WHERE id=?').bind(productId).first();
@@ -705,10 +747,10 @@ async function createProductCheckout(request,env,user,items,fromCart){
   await env.DB.batch(items.map(x=>env.DB.prepare(`INSERT INTO product_order_items(order_id,product_id,quantity,unit_price_minor,total_minor) VALUES(?,?,?,?,?)`).bind(orderId,x.product.id,x.quantity,x.product.access_type==='free'?0:Number(x.product.price_minor||0),x.product.access_type==='free'?0:Number(x.product.price_minor||0)*x.quantity)));
   const reserved=[];for(const x of items){if(x.product.stock_mode==='unlimited')continue;const r=await env.DB.prepare('UPDATE products SET stock_quantity=stock_quantity-?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND stock_quantity>=?').bind(x.quantity,x.product.id,x.quantity).run();if(Number(r.meta.changes||0)!==1){for(const prev of reserved)await env.DB.prepare('UPDATE products SET stock_quantity=stock_quantity+?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(prev.quantity,prev.productId).run();await env.DB.prepare(`UPDATE product_orders SET status='failed',updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(orderId).run();return apiError(`${x.product.name} no longer has enough stock.`,409)}reserved.push({productId:x.product.id,quantity:x.quantity})}
   await env.DB.prepare('UPDATE product_orders SET inventory_reserved=1,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(orderId).run();
-  if(total===0){const done=await fulfillProductOrder(env,orderId,'free');if(!done.ok){await releaseProductOrderStock(env,orderId,'failed');return apiError(done.error||'Could not fulfill this order.',409)}if(fromCart)await env.DB.prepare('DELETE FROM cart_items WHERE user_id=?').bind(user.id).run();return apiOk({method:'free',orderId,message:'Product unlocked.',cartCount:await getCartCount(env,user.id)})}
+  if(total===0){const done=await fulfillProductOrder(env,orderId,'free');if(!done.ok){await releaseProductOrderStock(env,orderId,'failed');return apiError(done.error||'Could not fulfill this order.',409)}if(fromCart)await env.DB.prepare('DELETE FROM cart_items WHERE user_id=?').bind(user.id).run();return apiOk({method:'free',orderId,message:'Product unlocked.',cartCount:await getCartCount(env,user.id),purchases:await getPurchasesData(env,user.id,orderId)})}
   const wallet=await getWallet(env,user.id);if(wallet.currency===currency&&wallet.balanceMinor>=total){
     const debit=await env.DB.prepare('UPDATE wallet_accounts SET balance_minor=balance_minor-?,updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND balance_minor>=?').bind(total,user.id,total).run();if(Number(debit.meta.changes||0)!==1){await releaseProductOrderStock(env,orderId,'cancelled');return apiError('Your balance changed. Please try again.',409)}
-    await env.DB.prepare(`INSERT INTO wallet_transactions(user_id,amount_minor,currency,transaction_type,reference,note) VALUES(?,?,?,'product_purchase',?,?)`).bind(user.id,-total,currency,orderNumber,`Product order ${orderNumber}`).run();const done=await fulfillProductOrder(env,orderId,'wallet');if(!done.ok){await env.DB.batch([env.DB.prepare('UPDATE wallet_accounts SET balance_minor=balance_minor+?,updated_at=CURRENT_TIMESTAMP WHERE user_id=?').bind(total,user.id),env.DB.prepare(`INSERT INTO wallet_transactions(user_id,amount_minor,currency,transaction_type,reference,note) VALUES(?,?,?,'refund',?,?)`).bind(user.id,total,currency,`${orderNumber}-REFUND`,done.error||'Automatic order refund')]);await releaseProductOrderStock(env,orderId,'failed');return apiError(done.error||'Could not fulfill this order.',409)}if(fromCart)await env.DB.prepare('DELETE FROM cart_items WHERE user_id=?').bind(user.id).run();return apiOk({method:'wallet',orderId,message:'Purchase complete.',wallet:await getWallet(env,user.id),cartCount:await getCartCount(env,user.id)})
+    await env.DB.prepare(`INSERT INTO wallet_transactions(user_id,amount_minor,currency,transaction_type,reference,note) VALUES(?,?,?,'product_purchase',?,?)`).bind(user.id,-total,currency,orderNumber,`Product order ${orderNumber}`).run();const done=await fulfillProductOrder(env,orderId,'wallet');if(!done.ok){await env.DB.batch([env.DB.prepare('UPDATE wallet_accounts SET balance_minor=balance_minor+?,updated_at=CURRENT_TIMESTAMP WHERE user_id=?').bind(total,user.id),env.DB.prepare(`INSERT INTO wallet_transactions(user_id,amount_minor,currency,transaction_type,reference,note) VALUES(?,?,?,'refund',?,?)`).bind(user.id,total,currency,`${orderNumber}-REFUND`,done.error||'Automatic order refund')]);await releaseProductOrderStock(env,orderId,'failed');return apiError(done.error||'Could not fulfill this order.',409)}if(fromCart)await env.DB.prepare('DELETE FROM cart_items WHERE user_id=?').bind(user.id).run();return apiOk({method:'wallet',orderId,message:'Purchase complete.',wallet:await getWallet(env,user.id),cartCount:await getCartCount(env,user.id),purchases:await getPurchasesData(env,user.id,orderId)})
   }
   if(!env.PAYSTACK_SECRET_KEY){await releaseProductOrderStock(env,orderId,'cancelled');return apiError('Your ToolCart balance is not enough and Paystack is not configured yet.',503)}
   const ref=`TC-PROD-${Date.now()}-${randomToken(8).replace(/[^a-zA-Z0-9]/g,'').slice(0,8)}`;const origin=appOrigin(env,request);const callback=`${origin}/?payment=complete&order=${orderId}`;
@@ -723,7 +765,7 @@ async function fulfillProductOrder(env,orderId,source){
   const stmts=[];for(const x of items){stmts.push(env.DB.prepare(`INSERT INTO product_entitlements(user_id,product_id,order_id,quantity) VALUES(?,?,?,?)`).bind(order.user_id,x.product_id,orderId,x.quantity));stmts.push(env.DB.prepare('DELETE FROM cart_items WHERE user_id=? AND product_id=?').bind(order.user_id,x.product_id))}stmts.push(env.DB.prepare(`UPDATE product_orders SET status='fulfilled',payment_source=?,inventory_reserved=0,paid_at=COALESCE(paid_at,CURRENT_TIMESTAMP),fulfilled_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(source,orderId));await env.DB.batch(stmts);return{ok:true}
 }
 async function hasProductAccess(env,userId,productId){return !!(await env.DB.prepare('SELECT 1 FROM product_entitlements WHERE user_id=? AND product_id=? LIMIT 1').bind(userId,productId).first())}
-async function streamProductObject(request,env,key,fileName,fileType){if(!env.MEDIA)return new Response('Media unavailable',{status:503});const obj=await env.MEDIA.get(key);if(!obj)return new Response('Not found',{status:404});const h=new Headers();obj.writeHttpMetadata(h);h.set('cache-control','private, no-store');h.set('content-disposition',`inline; filename="${String(fileName||'product').replace(/["\\]/g,'')}"`);return new Response(request.method==='HEAD'?null:obj.body,{headers:h})}
+async function streamProductObject(request,env,key,fileName,fileType){if(!env.MEDIA)return new Response('Media unavailable',{status:503});const obj=await env.MEDIA.get(key);if(!obj)return new Response('Not found',{status:404});const h=new Headers();obj.writeHttpMetadata(h);h.set('cache-control','private, no-store');h.set('content-disposition',`${new URL(request.url).searchParams.get('download')==='1'?'attachment':'inline'}; filename="${String(fileName||'product').replace(/["\\\r\n]/g,'')}"`);h.set('x-content-type-options','nosniff');return new Response(request.method==='HEAD'?null:obj.body,{headers:h})}
 async function serveProductFile(request,env,userId,productId){const p=await env.DB.prepare('SELECT * FROM products WHERE id=?').bind(productId).first();if(!p)return new Response('Not found',{status:404});if(!(await hasProductAccess(env,userId,productId)))return new Response('Purchase required',{status:403});const first=await env.DB.prepare('SELECT * FROM product_assets WHERE product_id=? ORDER BY display_order,id LIMIT 1').bind(productId).first();if(first)return streamProductObject(request,env,first.r2_key,first.file_name,first.file_type);if(!p.file_key)return new Response('Not found',{status:404});return streamProductObject(request,env,p.file_key,p.file_name,p.file_type)}
 async function serveProductAsset(request,env,userId,productId,assetId){if(!(await hasProductAccess(env,userId,productId)))return new Response('Purchase required',{status:403});const a=await env.DB.prepare('SELECT * FROM product_assets WHERE id=? AND product_id=?').bind(assetId,productId).first();if(!a)return new Response('Not found',{status:404});return streamProductObject(request,env,a.r2_key,a.file_name,a.file_type)}
 

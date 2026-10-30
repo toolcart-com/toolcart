@@ -1,4 +1,4 @@
-const state={user:null,csrf:null,apps:[],products:[],wallet:{balanceMinor:0,currency:'NGN'},cartCount:0,cartItems:[],cartTotalMinor:0,cartCurrency:'NGN',cartReady:false,cartRevision:0,cartRenderSignature:null,updates:[],notifications:[],requests:[],recentApps:[],currentPlan:null,settings:{},promos:[],activeTab:'home',appCategory:'all',updateFilter:'all',notifFilter:'unread'};
+const state={user:null,csrf:null,apps:[],products:[],wallet:{balanceMinor:0,currency:'NGN'},cartCount:0,cartItems:[],cartTotalMinor:0,cartCurrency:'NGN',cartReady:false,cartRevision:0,cartRenderSignature:null,updates:[],notifications:[],requests:[],recentApps:[],currentPlan:null,settings:{},promos:[],activeTab:'home',appCategory:'all',updateFilter:'all',notifFilter:'unread',purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0};
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtDate=v=>{if(!v)return'';const d=new Date(v);return Number.isNaN(d)?'':new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:d.getFullYear()!==new Date().getFullYear()?'numeric':undefined}).format(d)};
@@ -90,7 +90,7 @@ async function enterApp(preloaded){
   // Nonessential updates, notifications and promotions are loaded separately later.
   const data=preloaded||await api('/api/bootstrap');
   state.csrf=data.csrfToken||state.csrf;
-  Object.assign(state,{user:data.user,apps:data.apps||[],products:data.products||[],wallet:data.wallet||{balanceMinor:0,currency:'NGN'},cartCount:Number(data.cartCount||0),updates:data.updates||[],notifications:data.notifications||[],recentApps:data.recentApps||[],currentPlan:data.currentPlan,settings:data.settings||{},promos:data.promos||[],cartItems:data.cartItems||[],cartTotalMinor:Number(data.cartTotalMinor||0),cartCurrency:data.cartCurrency||'NGN',cartReady:Array.isArray(data.cartItems),cartRevision:state.cartRevision+1,cartRenderSignature:null});
+  Object.assign(state,{user:data.user,apps:data.apps||[],products:data.products||[],wallet:data.wallet||{balanceMinor:0,currency:'NGN'},cartCount:Number(data.cartCount||0),updates:data.updates||[],notifications:data.notifications||[],recentApps:data.recentApps||[],currentPlan:data.currentPlan,settings:data.settings||{},promos:data.promos||[],cartItems:data.cartItems||[],cartTotalMinor:Number(data.cartTotalMinor||0),cartCurrency:data.cartCurrency||'NGN',cartReady:Array.isArray(data.cartItems),cartRevision:state.cartRevision+1,cartRenderSignature:null,purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0});
   setTheme(preferredVisualTheme(state.user.preferredTheme,state.settings.default_theme||'pearl'));
   renderApp();
   renderCart();
@@ -140,7 +140,56 @@ function renderUpdatesPage(){let items=state.updates;if(state.updateFilter==='un
 function renderSubscription(){const p=state.currentPlan;$('#subscriptionCard').innerHTML=`<div class="subscription-meta"><div class="subscription-icon">${esc((p?.name||'F')[0])}</div><div><span class="eyebrow">CURRENT PLAN</span><h3>${esc(p?.name||'Free')}</h3><p>${p?.current_period_end?`Renews or ends ${fmtDate(p.current_period_end)}`:'Manage your ToolCart membership'}</p></div></div><button class="btn btn-secondary compact" data-setting="subscription">Manage</button>`}
 function renderPromos(){if(!state.promos.length||state.settings.floating_promo_enabled===false){$('#promoArea').innerHTML='';return}const p=state.promos[0];$('#promoArea').innerHTML=`<article class="promo-card" ${p.destination_url?`data-promo-url="${esc(p.destination_url)}"`:''}><span class="eyebrow">FEATURED</span><h3>${esc(p.title)}</h3><p>${esc(p.message)}</p></article>`}
 function renderSettingsProfile(){const u=state.user;const appearanceBtn=document.querySelector('[data-setting="appearance"]');if(appearanceBtn)appearanceBtn.classList.toggle('hidden',state.settings.allow_user_theme===false);$('#settingsProfileCard').innerHTML=`<div class="avatar" style="${u.profileImageUrl?`background-image:url('${esc(u.profileImageUrl)}')`:''}">${u.profileImageUrl?'':esc(initials(u.fullName))}</div><div><h3>${esc(u.fullName)}</h3><p>${esc(u.email)} · ${esc(state.currentPlan?.name||'Free')}</p></div>`}
-function renderPurchases(){const box=$('#purchasedProducts');if(!box)return;const owned=state.products.filter(p=>Number(p.owned||0)>0);box.innerHTML=owned.length?owned.map(p=>`<article class="tempo-merchant-card tempo-good-card" data-product-id="${p.id}" tabindex="0" role="button" aria-label="Open files for ${esc(p.name)}"><div class="tempo-card-media tempo-product-media">${p.display_image_url?`<img src="${esc(p.display_image_url)}" alt="${esc(p.name)}" loading="lazy">`:`<div class="tempo-product-placeholder"><strong>${esc(p.name)}</strong></div>`}</div><div class="tempo-card-info"><small class="tempo-card-type">PURCHASED PRODUCT</small><h3>${esc(p.name)}</h3></div><button class="tempo06-add" data-product-id="${p.id}">View files ↗</button></article>`).join(''):empty('No purchases yet','Products you purchase or unlock will appear here.');}
+function updatePurchaseBalance(){
+  $$('.tc-cart-balance-value').forEach(el=>el.textContent=fmtMoney(state.wallet?.balanceMinor||0,state.wallet?.currency||'NGN'));
+}
+function renderPurchases(){
+  const box=$('#purchasedProducts');if(!box)return;
+  updatePurchaseBalance();
+  if(!state.purchasesLoaded){box.innerHTML='<div class="tc-purchases-loading" role="status">Checking your purchased items…</div>';return;}
+  const items=state.purchases;
+  if(!items.length){box.innerHTML=empty('No purchased items yet','After checkout, your purchased files will appear here, ready to open or save.');return;}
+  box.innerHTML=items.map(p=>{
+    const files=p.files||[];
+    return `<article class="tc-purchased-card" aria-label="Purchased ${esc(p.name)}">
+      <div class="tc-purchased-heading">
+        ${p.coverUrl?`<img class="tc-purchased-cover" src="${esc(p.coverUrl)}" alt="" loading="lazy">`:`<span class="tc-purchased-cover tc-purchased-fallback">${esc(initials(p.name))}</span>`}
+        <div class="tc-purchased-summary"><small>AVAILABLE TO DOWNLOAD</small><h3>${esc(p.name)}</h3><span>${esc(fmtDate(p.purchasedAt))} · Qty ${Math.max(1,Number(p.quantity||1))}</span></div>
+      </div>
+      <div class="tc-purchase-details"><div><small>AMOUNT PAID</small><strong>${esc(fmtMoney(p.amountMinor,p.currency))}</strong></div><div><small>TRANSACTION ID</small><code>${esc(p.transactionId)}</code><button type="button" class="tc-purchase-copy" data-copy-transaction="${esc(p.transactionId)}" aria-label="Copy transaction ID">Copy</button></div></div>
+      ${p.paymentReference?`<div class="tc-purchase-reference">Payment reference: <span>${esc(p.paymentReference)}</span></div>`:''}
+      <div class="tc-purchased-files"><span class="tc-file-heading">YOUR FILES (${files.length})</span>
+        ${files.length?files.map(f=>`<div class="tc-file-item"><span class="tc-file-symbol">${f.fileType==='pdf'?'PDF':'IMG'}</span><div class="tc-file-name"><strong>${esc(f.fileName)}</strong><small>Yours to access anytime</small></div><a href="${esc(f.viewUrl)}" target="_blank" rel="noopener" class="tc-file-view">Open</a><a href="${esc(f.downloadUrl)}" download="${esc(f.fileName)}" class="tc-file-save">Save ↓</a></div>`).join(''):'<p class="tc-file-unavailable">No downloadable files are currently attached. Contact support if you expected a file.</p>'}
+      </div>
+    </article>`;
+  }).join('');
+}
+async function loadPurchases(force=false){
+  if(!state.user||state.purchasesLoading)return;
+  if(!force&&state.purchasesLoaded&&Date.now()-state.purchasesLastLoad<20000)return;
+  state.purchasesLoading=true;
+  try{const d=await api('/api/purchases');state.purchases=Array.isArray(d.purchases)?d.purchases:[];state.purchasesLoaded=true;state.purchasesLastLoad=Date.now();}
+  catch(e){if(!state.purchasesLoaded){const box=$('#purchasedProducts');if(box)box.innerHTML=`<div class="tc-purchase-error">Unable to load purchases. <button type="button" data-retry-purchases>Try again</button><p>${esc(e.message)}</p></div>`;}else toast('Could not refresh purchases.','error');return;}
+  finally{state.purchasesLoading=false;}
+  if(state.activeTab==='purchases')renderPurchases();
+}
+function showPurchasedOrder(data,{fromCart=false}={}){
+  // The wallet/free checkout response already contains server-verified entitlements.
+  if(Array.isArray(data?.purchases)&&data.purchases.length){
+    const fresh=data.purchases;
+    state.purchases=[...fresh,...state.purchases.filter(p=>!fresh.some(f=>Number(f.entitlementId)===Number(p.entitlementId)))];
+    state.purchasesLoaded=true;state.purchasesLastLoad=0;
+  }
+  if(data?.wallet)state.wallet=data.wallet;
+  if(data?.cartCount!==undefined)state.cartCount=Number(data.cartCount);
+  if(fromCart){state.cartItems=[];state.cartTotalMinor=0;}
+  else{const justBought=new Set((data?.purchases||[]).map(p=>Number(p.productId)));state.cartItems=state.cartItems.filter(x=>!justBought.has(Number(x.id)));calculateCartTotal();}
+  state.cartRenderSignature=null;
+  renderCart();updateBadges();
+  closeModals();switchTab('purchases');
+  void loadPurchases(true);
+}
+
 function renderWalletView(){const el=$('#walletViewBalance');if(el)el.textContent=fmtMoney(state.wallet?.balanceMinor||0,state.wallet?.currency||'NGN')}
 function updateStoreMenuAccount(){const u=state.user;if(!u)return;const name=$('#menuAccountName'),email=$('#menuAccountEmail'),av=$('#menuAccountAvatar');if(name)name.textContent=u.fullName||'My account';if(email)email.textContent=u.email||'';if(av){av.textContent=initials(u.fullName);av.style.backgroundImage=u.profileImageUrl?`url("${u.profileImageUrl}")`:'';if(u.profileImageUrl)av.textContent=''}}
 function openStoreMenu(){if(!state.user)return;updateStoreMenuAccount();$('#toolcartMenuBackdrop').classList.remove('hidden');$('#toolcartMenu').classList.remove('hidden');$('#menuBtn').setAttribute('aria-expanded','true');document.body.classList.add('tempo06-menu-open');$('#menuCloseBtn').focus()}
@@ -228,7 +277,7 @@ async function addCurrentProductToCart(id){
   }catch(e){toast(e.message,'error');}
   finally{if(button?.isConnected){button.disabled=false;button.textContent='Add to cart';}}
 }
-async function buyCurrentProduct(id){const q=Number($('#productQty')?.textContent||1);const b=$(`[data-buy-product="${id}"]`);if(b)b.disabled=true;try{const d=await api(`/api/products/${id}/buy`,{method:'POST',body:{quantity:q}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');await refreshMarketplaceState();await openProduct(Number(id))}catch(e){toast(e.message,'error');if(b)b.disabled=false}}
+async function buyCurrentProduct(id){const q=Number($('#productQty')?.textContent||1);const b=$(`[data-buy-product="${id}"]`);if(b)b.disabled=true;try{const d=await api(`/api/products/${id}/buy`,{method:'POST',body:{quantity:q}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');showPurchasedOrder(d,{fromCart:false});void refreshMarketplaceState();void refreshCart()}catch(e){toast(e.message,'error');if(b)b.disabled=false}}
 
 // Cart is hydrated from the authenticated bootstrap so it opens without waiting for a request.
 // GET /api/cart runs silently afterward and remains authoritative for balances, stock and checkout.
@@ -238,7 +287,8 @@ function renderCart(){
   const signature=JSON.stringify([d.items.map(x=>[x.id,x.name,x.quantity,x.price_minor,x.display_image_url,x.stock_mode,x.stock_quantity]),d.totalMinor,d.currency,d.wallet.balanceMinor,d.wallet.currency]);
   if(signature===state.cartRenderSignature)return;
   state.cartRenderSignature=signature;
-  cartBox.innerHTML=`<div class="cart-sheet"><div class="product-balance"><span>Available balance</span><strong>${fmtMoney(state.wallet.balanceMinor,state.wallet.currency)}</strong></div><div class="product-title-row"><div><span class="eyebrow">YOUR CART</span><h2>Cart</h2></div><strong>${fmtMoney(d.totalMinor,d.currency)}</strong></div>${d.items.length?`<div class="cart-items">${d.items.map(x=>`<article class="cart-item"><div class="cart-thumb">${x.display_image_url?`<img src="${esc(x.display_image_url)}" alt="">`:esc(initials(x.name))}</div><div class="cart-copy"><strong>${esc(x.name)}</strong><span>${esc(productPrice(x))}</span><div class="cart-qty"><button data-cart-qty="minus" data-cart-product-id="${x.id}" data-qty="${x.quantity}">−</button><b>${x.quantity}</b><button data-cart-qty="plus" data-cart-product-id="${x.id}" data-qty="${x.quantity}" data-max="${x.stock_mode==='unlimited'?99:x.stock_quantity}">+</button><button class="cart-remove" data-cart-remove="${x.id}">Remove</button></div></div></article>`).join('')}</div><button class="btn btn-primary cart-checkout" data-cart-checkout>Checkout ${fmtMoney(d.totalMinor,d.currency)}</button>`:empty('Your cart is empty','Add a product to your cart and it will appear here.')}</div>`;
+  updatePurchaseBalance();
+  cartBox.innerHTML=`<div class="cart-sheet"><div class="product-title-row"><div><span class="eyebrow">YOUR CART</span><h2>Cart</h2></div><strong>${fmtMoney(d.totalMinor,d.currency)}</strong></div>${d.items.length?`<div class="cart-items">${d.items.map(x=>`<article class="cart-item"><div class="cart-thumb">${x.display_image_url?`<img src="${esc(x.display_image_url)}" alt="">`:esc(initials(x.name))}</div><div class="cart-copy"><strong>${esc(x.name)}</strong><span>${esc(productPrice(x))}</span><div class="cart-qty"><button data-cart-qty="minus" data-cart-product-id="${x.id}" data-qty="${x.quantity}">−</button><b>${x.quantity}</b><button data-cart-qty="plus" data-cart-product-id="${x.id}" data-qty="${x.quantity}" data-max="${x.stock_mode==='unlimited'?99:x.stock_quantity}">+</button><button class="cart-remove" data-cart-remove="${x.id}">Remove</button></div></div></article>`).join('')}</div><button class="btn btn-primary cart-checkout" data-cart-checkout>Checkout ${fmtMoney(d.totalMinor,d.currency)}</button>`:empty('Your cart is empty','Add a product to your cart and it will appear here.')}</div>`;
 }
 function applyCartData(d){
   if(!Array.isArray(d?.items))return;
@@ -342,7 +392,7 @@ async function checkoutCartNow(){
     const completed=await Promise.all([...cartQuantityWrites.values()].map(op=>op.promise));
     if(completed.some(ok=>!ok))throw new Error('Cart quantity could not be saved. Please check your cart before checkout.');
   }
-  const d=await api('/api/cart/checkout',{method:'POST',body:{}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');await refreshMarketplaceState();await openCart()}catch(e){toast(e.message,'error');if(b)b.disabled=false}finally{cartCheckoutPending=false}}
+  const d=await api('/api/cart/checkout',{method:'POST',body:{}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');showPurchasedOrder(d,{fromCart:true});void refreshMarketplaceState();void refreshCart()}catch(e){toast(e.message,'error');if(b)b.disabled=false}finally{cartCheckoutPending=false}}
 let toolOpenPending=null;
 async function openApp(id){
   if(toolOpenPending===id)return;
@@ -363,7 +413,7 @@ async function openApp(id){
 async function toggleFavorite(id){try{const d=await api(`/api/apps/${id}/favorite`,{method:'POST'});const a=state.apps.find(x=>x.id===id);if(a)a.favorite=d.favorite;renderApps()}catch(e){toast(e.message,'error')}}
 async function openUpdate(id){const u=state.updates.find(x=>x.id===id);if(!u)return;try{if(!u.is_read){await api(`/api/updates/${id}/read`,{method:'POST'});u.is_read=1;updateBadges();renderUpdates()} }catch{}showDetail(`<div class="detail-hero"><span class="eyebrow">${esc(humanStatus(u.update_type))}</span><h2>${esc(u.title)}</h2><p>${esc(u.summary)}</p><div class="detail-meta"><span class="status-badge">${esc(humanStatus(u.priority))}</span><span class="status-badge">${fmtDate(u.publish_at)}</span></div></div><div class="detail-body"><p style="white-space:pre-wrap;line-height:1.65;color:var(--muted)">${esc(u.content)}</p>${u.external_url?`<div class="detail-actions"><button class="btn btn-primary" data-external="${esc(u.external_url)}">${esc(u.cta_label||'Open link')}</button></div>`:''}</div>`)}
 
-function switchTab(tab,scroll=true){closeStoreMenu();const valid=['home','apps','wishlist','cart','purchases','wallet','updates','requests','settings'];if(!valid.includes(tab))tab='home';state.activeTab=tab;$$('.view').forEach(v=>v.classList.remove('active'));const view=$(`#${tab}View`)||$('#homeView');view.classList.add('active');$$('#dock [data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$('#dock [data-open-cart]')?.classList.toggle('active',tab==='cart');document.body.dataset.activeView=tab;if(tab==='home'){renderHeader()}if(tab==='wishlist')renderWishlist();if(tab==='purchases')renderPurchases();if(tab==='wallet')renderWalletView();if(tab==='requests')loadRequests();if(scroll)window.scrollTo({top:0,left:0,behavior:'auto'})}
+function switchTab(tab,scroll=true){closeStoreMenu();const valid=['home','apps','wishlist','cart','purchases','wallet','updates','requests','settings'];if(!valid.includes(tab))tab='home';state.activeTab=tab;$$('.view').forEach(v=>v.classList.remove('active'));const view=$(`#${tab}View`)||$('#homeView');view.classList.add('active');$$('#dock [data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$('#dock [data-open-cart]')?.classList.toggle('active',tab==='cart'||tab==='purchases');document.body.dataset.activeView=tab;if(tab==='home'){renderHeader()}if(tab==='wishlist')renderWishlist();if(tab==='purchases'){renderPurchases();void loadPurchases();}if(tab==='wallet')renderWalletView();if(tab==='requests')loadRequests();if(scroll)window.scrollTo({top:0,left:0,behavior:'auto'})}
 
 async function loadRequests(){try{const d=await api('/api/requests');state.requests=d.requests||[];renderRequests()}catch(e){$('#requestsList').innerHTML=empty('Could not load requests',e.message)}}
 function renderRequests(){const box=$('#requestsList');box.innerHTML=state.requests.length?state.requests.map(r=>`<article class="request-card" data-request-id="${r.id}"><div class="request-card-top"><div><strong>${esc(r.subject)}</strong><p>${esc(r.reference_number)} · ${fmtDate(r.updated_at)}</p></div><span class="status-pill ${r.status==='resolved'?'resolved':''}">${esc(humanStatus(r.status))}</span></div></article>`).join(''):empty('No requests yet','Use New request whenever you need help.','↗')}
@@ -408,7 +458,7 @@ function bindAuthForms(){
   $('#forgotForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{const d=await api('/api/auth/forgot-password',{method:'POST',body:{email:f.get('email')}});$('#authContent').innerHTML=`<h2>Check your inbox.</h2><p class="modal-sub">${esc(d.message)}</p><button class="btn btn-primary" data-auth-switch="login">Back to sign in</button>`}catch(err){toast(err.message,'error')}});
   $('#resetForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{const d=await api('/api/auth/reset-password',{method:'POST',body:{token:e.currentTarget.dataset.token,password:f.get('password')}});toast(d.message);history.replaceState({},'',location.pathname);openAuth('login')}catch(err){toast(err.message,'error')}})
 }
-async function handleDeepLinks(){const p=new URLSearchParams(location.search);if(p.get('verify')){try{const d=await api('/api/auth/verify-email',{method:'POST',body:{token:p.get('verify')}});history.replaceState({},'',location.pathname);toast(d.message);openAuth('login')}catch(e){toast(e.message,'error')}}if(p.get('reset'))openAuth('reset',p.get('reset'));if(p.get('payment')==='complete'&&p.get('reference')&&state.user){try{const d=await api(`/api/payments/paystack/verify?reference=${encodeURIComponent(p.get('reference'))}`);toast(d.status==='success'?'Payment confirmed.':'Payment is still being verified.');history.replaceState({},'',location.pathname);await enterApp()}catch(e){toast(e.message,'error')}}}
+async function handleDeepLinks(){const p=new URLSearchParams(location.search);if(p.get('verify')){try{const d=await api('/api/auth/verify-email',{method:'POST',body:{token:p.get('verify')}});history.replaceState({},'',location.pathname);toast(d.message);openAuth('login')}catch(e){toast(e.message,'error')}}if(p.get('reset'))openAuth('reset',p.get('reset'));if(p.get('payment')==='complete'&&state.user){const ref=p.get('reference')||p.get('trxref');if(ref){try{const d=await api(`/api/payments/paystack/verify?reference=${encodeURIComponent(ref)}`);toast(d.status==='success'?'Payment confirmed.':'Payment is still being verified.');history.replaceState({},'',location.pathname);if(d.status==='success'&&p.get('order')){switchTab('purchases');void loadPurchases(true)}else if(d.status==='success'){void refreshMarketplaceState();}}catch(e){toast(e.message,'error')}}}}
 
 function bindGlobalEvents(){
   document.addEventListener('click',async e=>{
@@ -424,6 +474,9 @@ function bindGlobalEvents(){
     if(e.target.closest('[data-open-search]')){openModal('#searchSheet');setTimeout(()=>$('#globalSearch')?.focus(),80);return;}
     if(e.target.closest('[data-open-cart]'))return openCart();
     const filter=e.target.closest('[data-store-filter]');if(filter){state.appCategory=filter.dataset.storeFilter;switchTab('apps');renderApps();return;}
+    const accountTab=e.target.closest('[data-account-tab]');if(accountTab)return switchTab(accountTab.dataset.accountTab);
+    const retryPurchases=e.target.closest('[data-retry-purchases]');if(retryPurchases){state.purchasesLoaded=false;renderPurchases();return loadPurchases(true)}
+    const copyTransaction=e.target.closest('[data-copy-transaction]');if(copyTransaction){const id=copyTransaction.dataset.copyTransaction;if(navigator.clipboard?.writeText)navigator.clipboard.writeText(id).then(()=>toast('Transaction ID copied.')).catch(()=>toast('Could not copy automatically.'));else toast('Copy is unavailable on this browser.','error');return;}
     const tab=e.target.closest('[data-tab]');if(tab)return switchTab(tab.dataset.tab);
     if(e.target.closest('[data-go-home]'))return switchTab('home');
     const category=e.target.closest('[data-t06-cat]');if(category){state.tempo06Category=category.dataset.t06Cat;$$('[data-t06-cat]').forEach(b=>b.classList.toggle('active',b===category));renderApps();switchTab('home',false);document.querySelector('.tempo-products-section')?.scrollIntoView({behavior:'smooth',block:'start'});return}

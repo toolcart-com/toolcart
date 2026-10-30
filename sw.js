@@ -1,5 +1,5 @@
 /* ToolCart V1.25: resilient static shell, never cache API or media data. */
-const CACHE='toolcart-shell-v1-36';
+const CACHE='toolcart-shell-v1-37';
 const SHELL=['/','/styles.css','/tempo.css','/tempo06.css','/app.js','/toolcart-v115-symbol.png','/toolcart-v124-wordmark.png','/icon-192.png','/icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(async c=>{await Promise.allSettled(SHELL.map(u=>c.add(u)));await self.skipWaiting();})));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('toolcart-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
