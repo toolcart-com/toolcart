@@ -268,12 +268,59 @@ function updateLocalCartItem(id,quantity){
   else{const product=state.products.find(x=>Number(x.id)===Number(id));if(product)state.cartItems.unshift({...product,quantity});}
   calculateCartTotal();
 }
+// Cart quantity changes are optimistic: show the result on the same tap, and
+// serialize writes for each product. Repeated quick taps collapse to the latest
+// desired quantity instead of creating an API request for every tap.
+const cartQuantityWrites=new Map();
+let cartCheckoutPending=false;
+function adjustCartQuantityInstant(button){
+  if(cartCheckoutPending)return;
+  const id=Number(button.dataset.cartProductId);
+  const item=state.cartItems.find(x=>Number(x.id)===id);
+  if(!item)return;
+  const current=Math.max(1,Number(item.quantity)||1);
+  const upper=item.stock_mode==='unlimited'?99:Math.min(99,Math.max(1,Number(item.stock_quantity)||1));
+  const desired=button.dataset.cartQty==='plus'?Math.min(upper,current+1):Math.max(1,current-1);
+  if(desired===current)return;
+  updateLocalCartItem(id,desired);
+  state.cartCount=state.cartItems.reduce((total,x)=>total+Number(x.quantity||0),0);
+  updateBadges();
+  queueCartQuantityWrite(id,desired);
+}
+function queueCartQuantityWrite(id,desired){
+  let operation=cartQuantityWrites.get(id);
+  if(operation){operation.desired=desired;return;}
+  operation={desired,promise:null};
+  cartQuantityWrites.set(id,operation);
+  operation.promise=(async()=>{
+    let succeeded=true;
+    try{
+      while(true){
+        const sending=operation.desired;
+        await api(`/api/cart/items/${id}`,{method:'PATCH',body:{quantity:sending}});
+        // If the user tapped again while the request was in flight, update the
+        // server once more with the latest value. Never apply an older response.
+        if(operation.desired===sending)break;
+      }
+    }catch(error){
+      succeeded=false;
+      toast(error.message||'Could not update the quantity.','error');
+    }finally{
+      cartQuantityWrites.delete(id);
+      // One authoritative refresh after all edits; do not overwrite other
+      // still-pending optimistic quantities with stale server snapshots.
+      if(cartQuantityWrites.size===0)await refreshCart();
+    }
+    return succeeded;
+  })();
+}
 async function refreshCart(){
+  if(cartQuantityWrites.size)return;
   const revision=state.cartRevision;
   try{
     const d=await api('/api/cart');
-    // Ignore server reads started before a newer cart mutation or reload completed.
-    if(revision!==state.cartRevision)return;
+    // Ignore reads started before newer edits, even after their writes finish.
+    if(revision!==state.cartRevision||cartQuantityWrites.size)return;
     applyCartData(d);
   }catch(e){if(!state.cartReady&&state.activeTab==='cart')toast('Could not refresh your cart. Try again.','error');}
 }
@@ -285,7 +332,17 @@ function openCart(){
   if(Date.now()-cartLastRefreshAt>15000){cartLastRefreshAt=Date.now();void refreshCart();}
 }
 
-async function checkoutCartNow(){const b=$('[data-cart-checkout]');if(b)b.disabled=true;try{const d=await api('/api/cart/checkout',{method:'POST',body:{}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');await refreshMarketplaceState();await openCart()}catch(e){toast(e.message,'error');if(b)b.disabled=false}}
+async function checkoutCartNow(){
+  if(cartCheckoutPending)return;
+  cartCheckoutPending=true;
+  const b=$('[data-cart-checkout]');if(b)b.disabled=true;try{
+  // Checkout must not race a pending optimistic quantity change.
+  if(cartQuantityWrites.size){
+    if(b)b.textContent='Confirming cart…';
+    const completed=await Promise.all([...cartQuantityWrites.values()].map(op=>op.promise));
+    if(completed.some(ok=>!ok))throw new Error('Cart quantity could not be saved. Please check your cart before checkout.');
+  }
+  const d=await api('/api/cart/checkout',{method:'POST',body:{}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');await refreshMarketplaceState();await openCart()}catch(e){toast(e.message,'error');if(b)b.disabled=false}finally{cartCheckoutPending=false}}
 let toolOpenPending=null;
 async function openApp(id){
   if(toolOpenPending===id)return;
@@ -383,7 +440,7 @@ function bindGlobalEvents(){
     const addCart=e.target.closest('[data-add-cart]');if(addCart)return addCurrentProductToCart(Number(addCart.dataset.addCart));
     const buyProduct=e.target.closest('[data-buy-product]');if(buyProduct)return buyCurrentProduct(Number(buyProduct.dataset.buyProduct));
     const qty=e.target.closest('[data-product-qty]');if(qty){const el=$('#productQty');if(!el)return;let n=Number(el.textContent||1);if(qty.dataset.productQty==='plus')n=Math.min(Number(qty.dataset.max||99),n+1);else n=Math.max(1,n-1);el.textContent=String(n);return}
-    const cqty=e.target.closest('[data-cart-qty]');if(cqty){let n=Number(cqty.dataset.qty||1);if(cqty.dataset.cartQty==='plus')n=Math.min(Number(cqty.dataset.max||99),n+1);else n=Math.max(1,n-1);try{state.cartRevision++;const d=await api(`/api/cart/items/${cqty.dataset.cartProductId}`,{method:'PATCH',body:{quantity:n}});applyCartData(d);return}catch(err){void refreshCart();return toast(err.message,'error')}}
+    const cqty=e.target.closest('[data-cart-qty]');if(cqty){e.preventDefault();return adjustCartQuantityInstant(cqty)}
     const crem=e.target.closest('[data-cart-remove]');if(crem){try{const d=await api(`/api/cart/items/${crem.dataset.cartRemove}`,{method:'DELETE'});state.cartCount=Number(d.cartCount||0);updateBadges();updateLocalCartItem(Number(crem.dataset.cartRemove),0);void refreshCart();return}catch(err){return toast(err.message,'error')}}
     if(e.target.closest('[data-cart-checkout]'))return checkoutCartNow();
     const upd=e.target.closest('[data-update-id]');if(upd)return openUpdate(Number(upd.dataset.updateId));
