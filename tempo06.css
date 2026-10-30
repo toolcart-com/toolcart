@@ -450,3 +450,48 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
 
 /* V1.27: legacy .view 680ms entrance fade was hiding already loaded pages. */
 #appShell .view, #appShell .view.active {animation:none!important;transition:none!important;opacity:1!important;transform:none!important;}
+
+
+/* V1.29 — broader right-side drawer, rounded leading edge and readable system type.
+   Mirrors the curved-edge reference without changing the established right-side navigation. */
+.tempo06-menu-drawer{
+  width:min(86vw,430px)!important;
+  max-width:calc(100vw - 26px)!important;
+  border-radius:42px 0 0 42px!important;
+  border-left:0!important;
+  box-shadow:-12px 0 46px rgba(0,0,0,.15)!important;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Arial,sans-serif!important;
+  -webkit-font-smoothing:antialiased;
+}
+.tempo06-menu-backdrop{background:rgba(15,17,20,.39)!important;backdrop-filter:blur(6px)!important;-webkit-backdrop-filter:blur(6px)!important;}
+.tempo06-menu-head{padding:calc(20px + env(safe-area-inset-top,0px)) 19px 18px 27px!important;gap:12px!important;min-height:116px!important;background:#fff!important;}
+.tempo06-menu-brand{gap:12px!important;}
+.tempo06-menu-brand img{width:40px!important;height:40px!important;border-radius:12px!important;}
+.tempo06-menu-brand strong{font-family:inherit!important;font-size:21px!important;font-weight:700!important;letter-spacing:-.035em!important;line-height:1.15!important;}
+.tempo06-menu-brand small{font-family:inherit!important;font-size:9px!important;font-weight:550!important;letter-spacing:.09em!important;line-height:1.45!important;white-space:normal!important;}
+.tempo06-menu-close{width:36px!important;height:36px!important;min-width:36px!important;}
+.tempo06-menu-scroll{padding:8px 18px calc(24px + env(safe-area-inset-bottom,0px)) 24px!important;}
+.tempo06-menu-label{padding:19px 11px 10px!important;font-family:inherit!important;font-size:10px!important;font-weight:700!important;letter-spacing:.16em!important;}
+.tempo06-menu-links{gap:2px!important;}
+.tempo06-menu-links button{
+  min-height:55px!important;height:auto!important;
+  padding:12px 11px!important;gap:13px!important;
+  font-family:inherit!important;font-size:15px!important;font-weight:560!important;
+  letter-spacing:-.012em!important;line-height:1.35!important;
+  color:#424640!important;white-space:normal!important;
+  overflow-wrap:normal!important;word-break:normal!important;
+  border-radius:14px!important;
+}
+.tempo06-menu-symbol{width:25px!important;min-width:25px!important;height:26px!important;display:grid!important;place-items:center!important;font-size:18px!important;color:#8b8068!important;}
+.tempo06-menu-symbol svg{width:23px;height:23px;display:block;}
+.tempo06-menu-text{min-width:0;flex:1;display:block;overflow-wrap:normal;word-break:normal;}
+.tempo06-menu-chev{font-size:19px!important;min-width:10px!important;margin-left:auto!important;flex:none;color:#a6a093!important;}
+.tempo06-menu-footer{padding:18px 10px 6px!important;margin-top:16px!important;}
+.tempo06-menu-account strong{font-size:15px!important;font-weight:650!important;}
+.tempo06-menu-account small{font-size:11px!important;}
+@media(max-width:370px){
+ .tempo06-menu-drawer{width:min(88vw,430px)!important;border-radius:34px 0 0 34px!important;}
+ .tempo06-menu-scroll{padding-left:19px!important;padding-right:14px!important;}
+ .tempo06-menu-head{padding-left:22px!important;padding-right:14px!important;}
+ .tempo06-menu-links button{font-size:14px!important;gap:10px!important;}
+}

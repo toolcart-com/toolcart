@@ -212,7 +212,22 @@ async function openProduct(id){
   }
 }
 async function refreshMarketplaceState(){try{const d=await api('/api/products');state.products=d.products||[];state.wallet=d.wallet||state.wallet;state.cartCount=Number(d.cartCount||0);renderApps();updateBadges()}catch{}}
-async function addCurrentProductToCart(id){const q=Number($('#productQty')?.textContent||1);try{const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:q}});state.cartCount=Number(d.cartCount||0);updateBadges();updateLocalCartItem(Number(id),q);openCart();toast('Added to cart.')}catch(e){toast(e.message,'error')}}
+async function addCurrentProductToCart(id){
+  const q=Number($('#productQty')?.textContent||1);
+  const button=$(`[data-add-cart="${id}"]`);
+  if(button?.disabled)return;
+  if(button){button.disabled=true;button.textContent='Adding…';}
+  try{
+    const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:q}});
+    state.cartCount=Number(d.cartCount||0);
+    updateBadges();
+    updateLocalCartItem(Number(id),q);
+    closeModals();
+    openCart();
+    toast('Added to cart.');
+  }catch(e){toast(e.message,'error');}
+  finally{if(button?.isConnected){button.disabled=false;button.textContent='Add to cart';}}
+}
 async function buyCurrentProduct(id){const q=Number($('#productQty')?.textContent||1);const b=$(`[data-buy-product="${id}"]`);if(b)b.disabled=true;try{const d=await api(`/api/products/${id}/buy`,{method:'POST',body:{quantity:q}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');await refreshMarketplaceState();await openProduct(Number(id))}catch(e){toast(e.message,'error');if(b)b.disabled=false}}
 
 // Cart is hydrated from the authenticated bootstrap so it opens without waiting for a request.
@@ -361,7 +376,10 @@ function bindGlobalEvents(){
     const launch=e.target.closest('[data-tool-launch]');if(launch){e.stopPropagation();return openApp(Number(launch.dataset.toolLaunch))}
     const fav=e.target.closest('[data-favorite]');if(fav){e.stopPropagation();return toggleFavorite(Number(fav.dataset.favorite))}
     const app=e.target.closest('[data-app-id]');if(app)return openApp(Number(app.dataset.appId));
-    const product=e.target.closest('[data-product-id]');if(product)return openProduct(Number(product.dataset.productId));
+    // The active detail sheet has data-product-id for background verification.
+    // Do NOT treat every button inside it as a request to reopen the product: that
+    // swallowed Add to cart, Buy now and the quantity-stepper clicks.
+    const product=e.target.closest('[data-product-id]');if(product&&!product.closest('#detailModal'))return openProduct(Number(product.dataset.productId));
     const addCart=e.target.closest('[data-add-cart]');if(addCart)return addCurrentProductToCart(Number(addCart.dataset.addCart));
     const buyProduct=e.target.closest('[data-buy-product]');if(buyProduct)return buyCurrentProduct(Number(buyProduct.dataset.buyProduct));
     const qty=e.target.closest('[data-product-qty]');if(qty){const el=$('#productQty');if(!el)return;let n=Number(el.textContent||1);if(qty.dataset.productQty==='plus')n=Math.min(Number(qty.dataset.max||99),n+1);else n=Math.max(1,n-1);el.textContent=String(n);return}
