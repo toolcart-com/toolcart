@@ -495,3 +495,28 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
  .tempo06-menu-head{padding-left:22px!important;padding-right:14px!important;}
  .tempo06-menu-links button{font-size:14px!important;gap:10px!important;}
 }
+
+
+/* V1.30 — product title and price typography matched to the supplied
+   'Virtual Numbers for Receiving SMS' regular sans-serif reference.
+   Change text styling only; preserve covers, actions, spacing and card layout. */
+.tempo-merchant-card.tempo-good-card .tempo-card-info h3,
+.tempo-merchant-card.tempo-good-card .tempo-card-info .tempo-card-price {
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif!important;
+  font-weight:400!important;
+  font-style:normal!important;
+  letter-spacing:0!important;
+  font-synthesis:none;
+}
+
+
+/* V1.31 — reduce only the digital-product price typography and use the warm,
+   muted category-label grey from the user reference (slightly darker for
+   price readability on white). No text/content or card-action changes. */
+.tempo-merchant-card.tempo-good-card .tempo-card-info .tempo-card-price {
+  font-size:clamp(13px,3.45vw,15.5px)!important;
+  font-weight:400!important;
+  color:#817d74!important;
+  letter-spacing:0!important;
+  line-height:1.23!important;
+}
