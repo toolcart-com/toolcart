@@ -1,4 +1,4 @@
-const state={user:null,csrf:null,apps:[],products:[],wallet:{balanceMinor:0,currency:'NGN'},cartCount:0,updates:[],notifications:[],requests:[],recentApps:[],currentPlan:null,settings:{},promos:[],activeTab:'home',appCategory:'all',updateFilter:'all',notifFilter:'unread'};
+const state={user:null,csrf:null,apps:[],products:[],wallet:{balanceMinor:0,currency:'NGN'},cartCount:0,cartItems:[],cartTotalMinor:0,cartCurrency:'NGN',cartReady:false,cartRevision:0,cartRenderSignature:null,updates:[],notifications:[],requests:[],recentApps:[],currentPlan:null,settings:{},promos:[],activeTab:'home',appCategory:'all',updateFilter:'all',notifFilter:'unread'};
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtDate=v=>{if(!v)return'';const d=new Date(v);return Number.isNaN(d)?'':new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:d.getFullYear()!==new Date().getFullYear()?'numeric':undefined}).format(d)};
@@ -33,11 +33,13 @@ function setTheme(theme){document.documentElement.dataset.theme='pearl';document
 function preferredVisualTheme(preferred,fallback='pearl'){return 'pearl'}
 function initials(name='ToolCart'){return name.trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'TC'}
 function iconHtml(app,cls='app-icon'){const style=`--accent:${esc(app.accent_color||app.accentColor||'#7b65ff')}`;return `<div class="${cls}" style="${style}">${app.icon_url?`<img src="${esc(app.icon_url)}" alt="">`:esc(initials(app.name))}</div>`}
-function tempoToolCover(app){return app.icon_url?`<img class="tempo-tool-cover" src="${esc(app.icon_url)}" alt="${esc(app.name)} cover" loading="lazy" decoding="async">`:`<div class="tempo-tool-fallback" style="--accent:${esc(app.accent_color||'#ae9ac9')}"><span>${esc(initials(app.name))}</span></div>`}
+function tempoToolCover(app,priority=false){return app.icon_url?`<img class="tempo-tool-cover" src="${esc(app.icon_url)}" alt="${esc(app.name)} cover" loading="${priority?'eager':'lazy'}" decoding="async" ${priority?'fetchpriority="high"':''}>`:`<div class="tempo-tool-fallback" style="--accent:${esc(app.accent_color||'#ae9ac9')}"><span>${esc(initials(app.name))}</span></div>`}
 function empty(title,text,icon='◇'){return `<div class="empty-state"><span>${icon}</span><h3>${esc(title)}</h3><p>${esc(text)}</p></div>`}
 
 async function boot(){
-  if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).catch(()=>{});
+  // Render the public storefront immediately while checking the account session.
+  $('#signedOut').classList.remove('hidden');
   bindGlobalEvents();
   try{const session=await api('/api/session');state.user=session.user;state.csrf=session.csrfToken;await enterApp()}catch{await enterPublic()}
   handleDeepLinks();
@@ -49,8 +51,8 @@ async function enterPublic(){
   try{const data=await api('/api/public/bootstrap');state.settings=data.settings||{};setTheme(preferredVisualTheme(null,state.settings.default_theme||'pearl'));renderPublicApps(data.apps||[],data.products||[])}catch{setTheme(preferredVisualTheme(null,'pearl'));renderPublicApps([],[])}
 }
 function renderPublicApps(apps,products=[]){
- const productCards=products.map(p=>`<article class="tempo-merchant-card tempo-good-card" data-auth="register"><div class="tempo-card-media tempo-product-media">${p.display_image_url?`<img src="${esc(p.display_image_url)}" alt="${esc(p.name)}" loading="lazy">`:`<div class="tempo-product-placeholder"><small>DIGITAL GOODS / TOOLCART</small><strong>${esc(p.name)}</strong><i>DESIGNED FOR EVERYDAY USE</i></div>`}<button class="tempo06-save" data-auth="register" aria-label="Sign in to save ${esc(p.name)}">${T06_HEART}</button></div><div class="tempo-card-info"><small class="tempo-card-type">${esc(p.short_description||productAvailability(p))}</small><h3>${esc(p.name)}</h3><strong class="tempo-card-price">${esc(productPrice(p))}</strong></div><button class="tempo06-add" data-auth="register"><span>+</span> Add to cart</button></article>`);
- const toolCards=apps.map(a=>`<article class="tempo-merchant-card tempo-tool-card" data-auth="register"><div class="tempo-card-media tempo-tool-media">${tempoToolCover(a)}</div><div class="tempo-card-info"><small class="tempo-card-type">WORKING TOOL</small><h3>${esc(a.name)}</h3><strong class="tempo-online ${appAvailability(a)}">${esc(humanStatus(a.status)||'AVAILABLE')}</strong></div><button class="tempo06-add" data-auth="register">Explore tool ↗</button></article>`);
+ const productCards=products.map((p,i)=>`<article class="tempo-merchant-card tempo-good-card" data-auth="register"><div class="tempo-card-media tempo-product-media">${p.display_image_url?`<img src="${esc(p.display_image_url)}" alt="${esc(p.name)}" loading="${i<2?'eager':'lazy'}" ${i<2?'fetchpriority="high"':''}>`:`<div class="tempo-product-placeholder"><small>DIGITAL GOODS / TOOLCART</small><strong>${esc(p.name)}</strong><i>DESIGNED FOR EVERYDAY USE</i></div>`}<button class="tempo06-save" data-auth="register" aria-label="Sign in to save ${esc(p.name)}">${T06_HEART}</button></div><div class="tempo-card-info"><small class="tempo-card-type">${esc(p.short_description||productAvailability(p))}</small><h3>${esc(p.name)}</h3><strong class="tempo-card-price">${esc(productPrice(p))}</strong></div><button class="tempo06-add" data-auth="register"><span>+</span> Add to cart</button></article>`);
+ const toolCards=apps.map((a,i)=>`<article class="tempo-merchant-card tempo-tool-card" data-auth="register"><div class="tempo-card-media tempo-tool-media">${tempoToolCover(a,products.length+i<2)}</div><div class="tempo-card-info"><small class="tempo-card-type">WORKING TOOL</small><h3>${esc(a.name)}</h3><strong class="tempo-online ${appAvailability(a)}">${esc(humanStatus(a.status)||'AVAILABLE')}</strong></div><button class="tempo06-add" data-auth="register">Explore tool ↗</button></article>`);
  const all=[...productCards,...toolCards];$('#publicApps').innerHTML=all.length?all.slice(0,24).join(''):empty('New goods on the way','New digital products and working tools appear here when published.');
 }
 const T06_HEART='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 5.4a5.1 5.1 0 0 0-7.2 0L12 6.8l-1.4-1.4a5.1 5.1 0 0 0-7.2 7.2L12 21l8.6-8.4a5.1 5.1 0 0 0 0-7.2z"/></svg>';
@@ -72,14 +74,17 @@ function t06ToggleSave(id){
 }
 function renderWishlist(){const saved=new Set(t06Saved());const goods=state.products.filter(p=>saved.has(Number(p.id)));const el=$('#wishlistProducts');if(el)el.innerHTML=goods.length?goods.map(productCard).join(''):empty('Your wishlist is empty','Tap the heart on a product to save it here.','♡')}
 function tempo06CategoryMatches(p){const cat=state.tempo06Category||'all';if(cat==='all')return true;if(cat==='free')return p.access_type==='free'||Number(p.price_minor)===0;const text=`${p.name} ${p.short_description||''} ${p.description||''}`.toLowerCase();return cat==='ai'?/\bai\b|artificial intelligence|prompt|machine learning/.test(text):cat==='guide'?/guide|tutorial|handbook|pdf|ebook|course/.test(text):text.includes(cat)}
-async function addProductCardToCart(id,button){if(button)button.disabled=true;try{const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:1}});state.cartCount=Number(d.cartCount||0);updateBadges();toast('Added to your cart.')}catch(e){toast(e.message,'error')}finally{if(button)button.disabled=false}}
+async function addProductCardToCart(id,button){if(button)button.disabled=true;try{const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:1}});state.cartCount=Number(d.cartCount||0);updateBadges();updateLocalCartItem(Number(id),1);void refreshCart();toast('Added to your cart.')}catch(e){toast(e.message,'error')}finally{if(button)button.disabled=false}}
 
 async function enterApp(){
-  $('#signedOut').classList.add('hidden');$('#appShell').classList.remove('hidden');
-  const data=await api('/api/bootstrap');Object.assign(state,{user:data.user,apps:data.apps||[],products:data.products||[],wallet:data.wallet||{balanceMinor:0,currency:'NGN'},cartCount:Number(data.cartCount||0),updates:data.updates||[],notifications:data.notifications||[],recentApps:data.recentApps||[],currentPlan:data.currentPlan,settings:data.settings||{},promos:data.promos||[]});
+  // Keep the existing storefront visible until catalog and account data are ready.
+  const data=await api('/api/bootstrap');
+  Object.assign(state,{user:data.user,apps:data.apps||[],products:data.products||[],wallet:data.wallet||{balanceMinor:0,currency:'NGN'},cartCount:Number(data.cartCount||0),updates:data.updates||[],notifications:data.notifications||[],recentApps:data.recentApps||[],currentPlan:data.currentPlan,settings:data.settings||{},promos:data.promos||[],cartItems:data.cartItems||[],cartTotalMinor:Number(data.cartTotalMinor||0),cartCurrency:data.cartCurrency||'NGN',cartReady:Array.isArray(data.cartItems),cartRevision:state.cartRevision+1,cartRenderSignature:null});
   setTheme(preferredVisualTheme(state.user.preferredTheme,state.settings.default_theme||'pearl'));
   renderApp();
+  renderCart();
   switchTab('home');
+  $('#signedOut').classList.add('hidden');$('#appShell').classList.remove('hidden');
 }
 function renderApp(){renderHeader();renderApps();renderRecent();renderUpdates();renderSubscription();renderPromos();renderSettingsProfile();updateStoreMenuAccount();renderDockVisibility();updateBadges()}
 function greeting(){const h=new Date().getHours();return h<12?'Good morning':h<18?'Good afternoon':'Good evening'}
@@ -88,9 +93,9 @@ function renderHeader(){
   const av=$('#avatar');if(state.user.profileImageUrl){av.style.backgroundImage=`url("${state.user.profileImageUrl}")`;av.textContent=''}else{av.style.backgroundImage='';av.textContent=initials(state.user.fullName)}
 }
 function appAvailability(a){return a.status==='online'?'online':'offline'}
-function appCard(a,featured=false){const availability=appAvailability(a);return `<article class="tempo-merchant-card tempo-tool-card" data-app-id="${a.id}" tabindex="0" role="button" aria-label="Open ${esc(a.name)}"><div class="tempo-card-media tempo-tool-media">${tempoToolCover(a)}</div><div class="tempo-card-info"><small class="tempo-card-type">WORKING TOOL</small><h3>${esc(a.name)}</h3><small class="tempo-online ${availability}">${featured?esc(humanStatus(a.status)||'Available'):availability.toUpperCase()}</small></div><button class="tempo06-add" data-tool-launch="${a.id}">${featured?'Explore tool':'Open tool'} ↗</button></article>`}
+function appCard(a,featured=false,priority=false){const availability=appAvailability(a);return `<article class="tempo-merchant-card tempo-tool-card" data-app-id="${a.id}" tabindex="0" role="button" aria-label="Open ${esc(a.name)}"><div class="tempo-card-media tempo-tool-media">${tempoToolCover(a,priority)}</div><div class="tempo-card-info"><small class="tempo-card-type">WORKING TOOL</small><h3>${esc(a.name)}</h3><small class="tempo-online ${availability}">${featured?esc(humanStatus(a.status)||'Available'):availability.toUpperCase()}</small></div><button class="tempo06-add" data-tool-launch="${a.id}">${featured?'Explore tool':'Open tool'} ↗</button></article>`}
 function productAvailability(p){return p.stock_mode==='unlimited'?'UNLIMITED':Number(p.stock_quantity||0)>0?`${Number(p.stock_quantity)} IN STOCK`:'SOLD OUT'}
-function productCard(p){const price=productPrice(p),stock=productAvailability(p),soldOut=stock==='SOLD OUT',saved=t06Saved().includes(Number(p.id));return `<article class="tempo-merchant-card tempo-good-card" data-product-id="${p.id}" tabindex="0" role="button" aria-label="View ${esc(p.name)}"><div class="tempo-card-media tempo-product-media">${p.display_image_url?`<img src="${esc(p.display_image_url)}" loading="lazy" alt="${esc(p.name)} cover">`:`<div class="tempo-product-placeholder"><small>THE TOOLCART COLLECTION</small><strong>${esc(p.name)}</strong><i>DIGITAL GOODS / ${esc(stock)}</i></div>`}<button type="button" class="tempo06-save ${saved?'saved':''}" data-t06-save="${p.id}" aria-label="${saved?'Remove':'Save'} ${esc(p.name)} ${saved?'from':'to'} wishlist">${T06_HEART}</button></div><div class="tempo-card-info"><small class="tempo-card-type">${esc(p.short_description||stock)}</small><h3>${esc(p.name)}</h3><strong class="tempo-card-price">${esc(price)}</strong></div><button type="button" class="tempo06-add" data-card-add="${p.id}" ${soldOut?'disabled':''}><span>+</span> ${soldOut?'Out of stock':p.access_type==='free'?'Get free product':'Add to cart'}</button></article>`}
+function productCard(p,priority=false){const price=productPrice(p),stock=productAvailability(p),soldOut=stock==='SOLD OUT',saved=t06Saved().includes(Number(p.id));return `<article class="tempo-merchant-card tempo-good-card" data-product-id="${p.id}" tabindex="0" role="button" aria-label="View ${esc(p.name)}"><div class="tempo-card-media tempo-product-media">${p.display_image_url?`<img src="${esc(p.display_image_url)}" loading="${priority?'eager':'lazy'}" ${priority?'fetchpriority="high"':''} alt="${esc(p.name)} cover">`:`<div class="tempo-product-placeholder"><small>THE TOOLCART COLLECTION</small><strong>${esc(p.name)}</strong><i>DIGITAL GOODS / ${esc(stock)}</i></div>`}<button type="button" class="tempo06-save ${saved?'saved':''}" data-t06-save="${p.id}" aria-label="${saved?'Remove':'Save'} ${esc(p.name)} ${saved?'from':'to'} wishlist">${T06_HEART}</button></div><div class="tempo-card-info"><small class="tempo-card-type">${esc(p.short_description||stock)}</small><h3>${esc(p.name)}</h3><strong class="tempo-card-price">${esc(price)}</strong></div><button type="button" class="tempo06-add" data-card-add="${p.id}" ${soldOut?'disabled':''}><span>+</span> ${soldOut?'Out of stock':p.access_type==='free'?'Get free product':'Add to cart'}</button></article>`}
 
 function launcherItems(){const tools=state.apps.map(x=>({...x,_kind:'app',_order:Number(x.display_order||0)}));const products=state.products.map(x=>({...x,_kind:'product',_order:Number(x.display_order||0)}));return [...products,...tools].sort((a,b)=>(b.badge_featured||b.featured||0)-(a.badge_featured||a.featured||0)||a._order-b._order||String(a.name).localeCompare(String(b.name)))}
 function launcherCard(x){return x._kind==='product'?productCard(x):appCard(x)}
@@ -98,7 +103,7 @@ function renderApps(){
   const goods=state.products.slice().filter(tempo06CategoryMatches).sort((a,b)=>{const sort=$('#tempo06Sort')?.value||'featured';if(sort==='low')return Number(a.price_minor||0)-Number(b.price_minor||0);if(sort==='high')return Number(b.price_minor||0)-Number(a.price_minor||0);if(sort==='newest')return Number(b.id)-Number(a.id);return (Number(b.featured||0)-Number(a.featured||0))||(Number(a.display_order||0)-Number(b.display_order||0))});
   // Match the public storefront: products followed by working tools in one two-column lineup.
   // Category-specific selections only show matching products; the separate Working Tools shelf remains below.
-  const lineup=[...goods.map(productCard),...((state.tempo06Category||'all')==='all'?state.apps.map(a=>appCard(a,true)):[])];
+  const lineup=[...goods.map((p,i)=>productCard(p,i<2)),...((state.tempo06Category||'all')==='all'?state.apps.map((a,i)=>appCard(a,true,goods.length+i<2)):[])];
   $('#homeProducts').innerHTML=lineup.length?lineup.join(''):empty('No products in this selection','Try Everything to browse all current goods.');
   $('#homeApps').innerHTML=state.apps.length?state.apps.map(appCard).join(''):empty('Working tools, coming soon','New tools will appear here when available.');
   const categories=['all','products','tools',...new Set(state.apps.map(a=>a.category).filter(Boolean))];$('#categoryChips').innerHTML=categories.map(c=>`<button class="chip ${state.appCategory===c?'active':''}" data-category="${esc(c)}">${c==='all'?'Everything':c==='products'?'Digital goods':c==='tools'?'Working tools':esc(c)}</button>`).join('');renderAppsPage();renderWishlist();
@@ -123,9 +128,62 @@ function productPrice(p){return p.access_type==='free'||Number(p.price_minor)===
 async function openProduct(id){
   try{const d=await api(`/api/products/${id}`);const p=d.product;state.wallet=d.wallet||state.wallet;state.cartCount=Number(d.cartCount||state.cartCount||0);updateBadges();const stock=p.stock_mode==='unlimited'?'Unlimited stock':Number(p.stock_quantity)>0?`${Number(p.stock_quantity)} in stock`:'Out of stock';const soldOut=p.stock_mode!=='unlimited'&&Number(p.stock_quantity)<=0;showDetail(`<div class="product-detail"><div class="product-balance"><span>Available balance</span><strong>${fmtMoney(state.wallet.balanceMinor,state.wallet.currency)}</strong></div><div class="product-cover">${p.display_image_url?`<img src="${esc(p.display_image_url)}" alt="${esc(p.name)}">`:`<div class="product-cover-fallback">${esc(initials(p.name))}</div>`}</div><div class="product-title-row"><div><span class="eyebrow">${p.premium?'PREMIUM PRODUCT':'DIGITAL PRODUCT'}</span><h2>${esc(p.name)}</h2></div><strong class="product-price">${esc(productPrice(p))}</strong></div><div class="product-stock ${soldOut?'sold-out':''}">${esc(stock)}</div><p class="product-description">${esc(p.description||p.short_description||'Digital product available through ToolCart.')}</p>${p.has_access?`<div class="product-owned-assets"><div class="product-files-head"><strong>Your product files</strong><span>${Number(p.asset_count||p.assets?.length||1)} file${Number(p.asset_count||p.assets?.length||1)===1?'':'s'}</span></div>${(p.assets&&p.assets.length?p.assets:[{fileName:p.file_name||'Product file',fileType:p.file_type||'file',url:`/api/products/${p.id}/file`}]).map((a,i)=>`<a class="product-file-link" href="${esc(a.url)}" target="_blank" rel="noopener"><span>${a.fileType==='pdf'?'PDF':'IMG'}</span><div><strong>${esc(a.fileName||`File ${i+1}`)}</strong><small>Open protected file</small></div><b>↗</b></a>`).join('')}</div><p class="product-owned-note">Purchased quantity: ${Number(p.owned_quantity||0)}</p>`:`<div class="product-buy-box"><div class="quantity-stepper"><button type="button" data-product-qty="minus">−</button><strong id="productQty">1</strong><button type="button" data-product-qty="plus" data-max="${p.stock_mode==='unlimited'?99:Number(p.stock_quantity||0)}">+</button></div><div class="product-actions"><button class="btn btn-secondary" data-add-cart="${p.id}" ${soldOut?'disabled':''}>Add to cart</button><button class="btn btn-primary" data-buy-product="${p.id}" ${soldOut?'disabled':''}>${p.access_type==='free'?'Get now':'Buy now'}</button></div></div>`}</div>`);$('#detailModal').classList.add('marketplace-detail');$('#detailContent').dataset.productId=String(p.id)}catch(e){toast(e.message,'error')}}
 async function refreshMarketplaceState(){try{const d=await api('/api/products');state.products=d.products||[];state.wallet=d.wallet||state.wallet;state.cartCount=Number(d.cartCount||0);renderApps();updateBadges()}catch{}}
-async function addCurrentProductToCart(id){const q=Number($('#productQty')?.textContent||1);try{const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:q}});state.cartCount=Number(d.cartCount||0);updateBadges();toast('Added to cart.');await openCart()}catch(e){toast(e.message,'error')}}
+async function addCurrentProductToCart(id){const q=Number($('#productQty')?.textContent||1);try{const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:q}});state.cartCount=Number(d.cartCount||0);updateBadges();updateLocalCartItem(Number(id),q);openCart();toast('Added to cart.')}catch(e){toast(e.message,'error')}}
 async function buyCurrentProduct(id){const q=Number($('#productQty')?.textContent||1);const b=$(`[data-buy-product="${id}"]`);if(b)b.disabled=true;try{const d=await api(`/api/products/${id}/buy`,{method:'POST',body:{quantity:q}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');await refreshMarketplaceState();await openProduct(Number(id))}catch(e){toast(e.message,'error');if(b)b.disabled=false}}
-async function openCart(){closeModals();closeStoreMenu();switchTab('cart');const cartBox=$('#cartContent');cartBox.innerHTML='<div class="tempo-cart-loading">Loading your cart…</div>';try{const d=await api('/api/cart');state.wallet=d.wallet||state.wallet;state.cartCount=Number(d.cartCount||0);updateBadges();cartBox.innerHTML=`<div class="cart-sheet"><div class="product-balance"><span>Available balance</span><strong>${fmtMoney(state.wallet.balanceMinor,state.wallet.currency)}</strong></div><div class="product-title-row"><div><span class="eyebrow">YOUR CART</span><h2>Cart</h2></div><strong>${fmtMoney(d.totalMinor,d.currency)}</strong></div>${d.items.length?`<div class="cart-items">${d.items.map(x=>`<article class="cart-item"><div class="cart-thumb">${x.display_image_url?`<img src="${esc(x.display_image_url)}" alt="">`:esc(initials(x.name))}</div><div class="cart-copy"><strong>${esc(x.name)}</strong><span>${esc(productPrice(x))}</span><div class="cart-qty"><button data-cart-qty="minus" data-cart-product-id="${x.id}" data-qty="${x.quantity}">−</button><b>${x.quantity}</b><button data-cart-qty="plus" data-cart-product-id="${x.id}" data-qty="${x.quantity}" data-max="${x.stock_mode==='unlimited'?99:x.stock_quantity}">+</button><button class="cart-remove" data-cart-remove="${x.id}">Remove</button></div></div></article>`).join('')}</div><button class="btn btn-primary cart-checkout" data-cart-checkout>Checkout ${fmtMoney(d.totalMinor,d.currency)}</button>`:empty('Your cart is empty','Add a product to your cart and it will appear here.')}</div>`; }catch(e){cartBox.innerHTML=empty('Cart unavailable',e.message);toast(e.message,'error')}}
+
+// Cart is hydrated from the authenticated bootstrap so it opens without waiting for a request.
+// GET /api/cart runs silently afterward and remains authoritative for balances, stock and checkout.
+function renderCart(){
+  const cartBox=$('#cartContent');if(!cartBox||!state.cartReady)return;
+  const d={items:state.cartItems,totalMinor:state.cartTotalMinor,currency:state.cartCurrency,wallet:state.wallet};
+  const signature=JSON.stringify([d.items.map(x=>[x.id,x.name,x.quantity,x.price_minor,x.display_image_url,x.stock_mode,x.stock_quantity]),d.totalMinor,d.currency,d.wallet.balanceMinor,d.wallet.currency]);
+  if(signature===state.cartRenderSignature)return;
+  state.cartRenderSignature=signature;
+  cartBox.innerHTML=`<div class="cart-sheet"><div class="product-balance"><span>Available balance</span><strong>${fmtMoney(state.wallet.balanceMinor,state.wallet.currency)}</strong></div><div class="product-title-row"><div><span class="eyebrow">YOUR CART</span><h2>Cart</h2></div><strong>${fmtMoney(d.totalMinor,d.currency)}</strong></div>${d.items.length?`<div class="cart-items">${d.items.map(x=>`<article class="cart-item"><div class="cart-thumb">${x.display_image_url?`<img src="${esc(x.display_image_url)}" alt="">`:esc(initials(x.name))}</div><div class="cart-copy"><strong>${esc(x.name)}</strong><span>${esc(productPrice(x))}</span><div class="cart-qty"><button data-cart-qty="minus" data-cart-product-id="${x.id}" data-qty="${x.quantity}">−</button><b>${x.quantity}</b><button data-cart-qty="plus" data-cart-product-id="${x.id}" data-qty="${x.quantity}" data-max="${x.stock_mode==='unlimited'?99:x.stock_quantity}">+</button><button class="cart-remove" data-cart-remove="${x.id}">Remove</button></div></div></article>`).join('')}</div><button class="btn btn-primary cart-checkout" data-cart-checkout>Checkout ${fmtMoney(d.totalMinor,d.currency)}</button>`:empty('Your cart is empty','Add a product to your cart and it will appear here.')}</div>`;
+}
+function applyCartData(d){
+  if(!Array.isArray(d?.items))return;
+  state.cartItems=d.items;
+  state.cartTotalMinor=Number(d.totalMinor||0);
+  state.cartCurrency=d.currency||'NGN';
+  if(d.wallet)state.wallet=d.wallet;
+  state.cartCount=Number(d.cartCount||0);
+  state.cartReady=true;
+  state.cartRevision++;
+  updateBadges();
+  renderWalletView();
+  renderCart();
+}
+function calculateCartTotal(){
+  state.cartTotalMinor=state.cartItems.reduce((sum,p)=>sum+(p.access_type==='free'?0:Number(p.price_minor||0)*Number(p.quantity||0)),0);
+  state.cartCurrency=state.cartItems[0]?.currency||'NGN';
+  state.cartReady=true;
+  state.cartRevision++;
+  state.cartRenderSignature=null;
+  renderCart();
+}
+function updateLocalCartItem(id,quantity){
+  const item=state.cartItems.find(x=>Number(x.id)===Number(id));
+  if(quantity<=0)state.cartItems=state.cartItems.filter(x=>Number(x.id)!==Number(id));
+  else if(item)item.quantity=quantity;
+  else{const product=state.products.find(x=>Number(x.id)===Number(id));if(product)state.cartItems.unshift({...product,quantity});}
+  calculateCartTotal();
+}
+async function refreshCart(){
+  const revision=state.cartRevision;
+  try{
+    const d=await api('/api/cart');
+    // Ignore server reads started before a newer cart mutation or reload completed.
+    if(revision!==state.cartRevision)return;
+    applyCartData(d);
+  }catch(e){if(!state.cartReady&&state.activeTab==='cart')toast('Could not refresh your cart. Try again.','error');}
+}
+function openCart(){
+  closeModals();closeStoreMenu();switchTab('cart');
+  renderCart();
+  void refreshCart();
+}
+
 async function checkoutCartNow(){const b=$('[data-cart-checkout]');if(b)b.disabled=true;try{const d=await api('/api/cart/checkout',{method:'POST',body:{}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');await refreshMarketplaceState();await openCart()}catch(e){toast(e.message,'error');if(b)b.disabled=false}}
 async function openApp(id){try{const d=await api(`/api/apps/${id}/open`,{method:'POST'});if(d.action==='open'){window.location.href=d.url;return}if(d.action==='maintenance')return showInfo('Under maintenance',d.message,'maintenance');if(d.action==='coming_soon')return showInfo('Coming soon',d.message,'soon');if(d.action==='upgrade')return openSetting('subscription',`This app requires ${d.requiredPlan}.`);showInfo('App unavailable',d.message||'This app cannot be opened right now.')}catch(e){toast(e.message,'error')}}
 async function toggleFavorite(id){try{const d=await api(`/api/apps/${id}/favorite`,{method:'POST'});const a=state.apps.find(x=>x.id===id);if(a)a.favorite=d.favorite;renderApps()}catch(e){toast(e.message,'error')}}
@@ -205,8 +263,8 @@ function bindGlobalEvents(){
     const addCart=e.target.closest('[data-add-cart]');if(addCart)return addCurrentProductToCart(Number(addCart.dataset.addCart));
     const buyProduct=e.target.closest('[data-buy-product]');if(buyProduct)return buyCurrentProduct(Number(buyProduct.dataset.buyProduct));
     const qty=e.target.closest('[data-product-qty]');if(qty){const el=$('#productQty');if(!el)return;let n=Number(el.textContent||1);if(qty.dataset.productQty==='plus')n=Math.min(Number(qty.dataset.max||99),n+1);else n=Math.max(1,n-1);el.textContent=String(n);return}
-    const cqty=e.target.closest('[data-cart-qty]');if(cqty){let n=Number(cqty.dataset.qty||1);if(cqty.dataset.cartQty==='plus')n=Math.min(Number(cqty.dataset.max||99),n+1);else n=Math.max(1,n-1);try{await api(`/api/cart/items/${cqty.dataset.cartProductId}`,{method:'PATCH',body:{quantity:n}});return openCart()}catch(err){return toast(err.message,'error')}}
-    const crem=e.target.closest('[data-cart-remove]');if(crem){try{const d=await api(`/api/cart/items/${crem.dataset.cartRemove}`,{method:'DELETE'});state.cartCount=Number(d.cartCount||0);updateBadges();return openCart()}catch(err){return toast(err.message,'error')}}
+    const cqty=e.target.closest('[data-cart-qty]');if(cqty){let n=Number(cqty.dataset.qty||1);if(cqty.dataset.cartQty==='plus')n=Math.min(Number(cqty.dataset.max||99),n+1);else n=Math.max(1,n-1);try{state.cartRevision++;const d=await api(`/api/cart/items/${cqty.dataset.cartProductId}`,{method:'PATCH',body:{quantity:n}});applyCartData(d);return}catch(err){void refreshCart();return toast(err.message,'error')}}
+    const crem=e.target.closest('[data-cart-remove]');if(crem){try{const d=await api(`/api/cart/items/${crem.dataset.cartRemove}`,{method:'DELETE'});state.cartCount=Number(d.cartCount||0);updateBadges();updateLocalCartItem(Number(crem.dataset.cartRemove),0);void refreshCart();return}catch(err){return toast(err.message,'error')}}
     if(e.target.closest('[data-cart-checkout]'))return checkoutCartNow();
     const upd=e.target.closest('[data-update-id]');if(upd)return openUpdate(Number(upd.dataset.updateId));
     const cat=e.target.closest('[data-category]');if(cat){state.appCategory=cat.dataset.category;renderApps();return}
@@ -241,6 +299,6 @@ function searchGroup(title,rows){return `<section class="search-group"><h3>${esc
 
 async function optimizeImage(file,max=512,quality=.86){if(file.type==='image/webp'&&file.size<700000)return file;const bmp=await createImageBitmap(file);const scale=Math.min(1,max/Math.max(bmp.width,bmp.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(bmp.width*scale));c.height=Math.max(1,Math.round(bmp.height*scale));c.getContext('2d',{alpha:false}).drawImage(bmp,0,0,c.width,c.height);bmp.close?.();return new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(new File([b],'image.webp',{type:'image/webp'})):reject(new Error('Could not optimize image.')),'image/webp',quality))}
 function setupViewportDock(){if(!window.visualViewport)return;const vv=window.visualViewport;const update=()=>{const keyboard=window.innerHeight-vv.height>150;$('#dock')?.classList.toggle('keyboard-hidden',keyboard)};vv.addEventListener('resize',update);vv.addEventListener('scroll',update);update()}
-window.addEventListener('pageshow',()=>{if(state.user&&!$('#appShell').classList.contains('hidden')){renderApp();switchTab(state.activeTab||'home',false);if(state.activeTab==='cart')openCart()}})
+window.addEventListener('pageshow',event=>{if(event.persisted&&state.user&&!$('#appShell').classList.contains('hidden')){if(state.activeTab==='cart')void refreshCart();}})
 
 boot();

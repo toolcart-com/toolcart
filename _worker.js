@@ -423,7 +423,7 @@ async function publicBootstrap(env) {
 }
 
 async function userBootstrap(env, user) {
-  const [apps, products, updates, notifs, plan, recents, promos, settings, wallet, cartCount] = await Promise.all([
+  const [apps, products, updates, notifs, plan, recents, promos, settings, cart] = await Promise.all([
     listAppsData(env, user.id),
     listProductsData(env, user.id),
     listUpdatesData(env, user.id, 8),
@@ -432,10 +432,9 @@ async function userBootstrap(env, user) {
     recentApps(env, user.id),
     activePromos(env, user.id),
     getPublicSettings(env),
-    getWallet(env, user.id),
-    getCartCount(env, user.id),
+    getCart(env, user.id),
   ]);
-  return apiOk({ user: sanitizeUser(user), apps, products, wallet, cartCount, updates, notifications: notifs, currentPlan: plan, recentApps: recents, promos, settings });
+  return apiOk({ user: sanitizeUser(user), apps, products, wallet:cart.wallet, cartCount:cart.cartCount, cartItems:cart.items, cartTotalMinor:cart.totalMinor, cartCurrency:cart.currency, updates, notifications: notifs, currentPlan: plan, recentApps: recents, promos, settings });
 }
 
 async function getProfile(env, userId) {
