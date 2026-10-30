@@ -357,9 +357,10 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
   50% { transform:translate3d(2%,0,0) rotateY(-3deg); }
 }
 
-/* V1.22 — keep the hero and artwork area plain white while the transparent
-   user-supplied gold delivery cart drives left -> right in an endless loop.
-   No rotations, shadows, color changes, scroll listeners or pause frames. */
+/* V1.23 — fully visible gold cart. Move gently across its available hero space,
+   never beyond the artwork viewport; soften the return to the left with a brief
+   motion blur instead of showing a half-cut entry. This is time-driven and runs
+   whether the visitor is scrolling or stationary. */
 .tempo06-hero .tempo06-hero-art {
   background:#fff!important;
   perspective:none!important;
@@ -381,17 +382,17 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
   background:transparent!important;
   transform-style:flat!important;
   backface-visibility:visible!important;
-  animation:toolcartCartDriveLeftToRight 5.2s linear infinite!important;
+  animation:toolcartCartAlwaysVisible 5.2s linear infinite!important;
   animation-play-state:running!important;
-  will-change:transform!important;
+  will-change:transform,filter!important;
 }
 .tempo06-hero .tempo06-bag-carousel .tempo06-bag-art.tempo06-cart-drive-art {
   display:block!important;
   flex:none!important;
-  width:auto!important;
-  height:min(240px,58vw)!important;
-  max-height:100%!important;
-  max-width:none!important;
+  width:84%!important;
+  height:auto!important;
+  max-height:94%!important;
+  max-width:260px!important;
   object-fit:contain!important;
   object-position:center!important;
   background:transparent!important;
@@ -402,24 +403,18 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
   opacity:1!important;
   animation:none!important;
 }
-@keyframes toolcartCartDriveLeftToRight {
-  from { transform:translate3d(-145%,0,0); }
-  to   { transform:translate3d(145%,0,0); }
+/* Translation is smaller than the image's free side margins (8% each), so
+   even the outermost pixel stays in the hero-art viewport at every frame. */
+@keyframes toolcartCartAlwaysVisible {
+  0%   {transform:translate3d(-6%,0,0);filter:blur(2.2px);}
+  10%  {filter:blur(.6px);}
+  20%  {filter:blur(0);}
+  82%  {transform:translate3d(6%,0,0);filter:blur(0);}
+  90%  {transform:translate3d(6%,0,0);filter:blur(1.4px);}
+  100% {transform:translate3d(-6%,0,0);filter:blur(2.2px);}
 }
-@media(max-width:430px){
-  .tempo06-hero .tempo06-bag-carousel .tempo06-bag-art.tempo06-cart-drive-art {
-    height:196px!important;
-  }
-}
-@media(max-width:370px){
-  .tempo06-hero .tempo06-bag-carousel .tempo06-bag-art.tempo06-cart-drive-art {
-    height:178px!important;
-  }
-}
-/* Preserve the original continuous-motion request while respecting reduced-motion
-   preferences with a slower, less frequent transit in the same left-right direction. */
 @media(prefers-reduced-motion:reduce){
   .tempo06-hero .tempo06-hero-art .tempo06-bag-carousel {
-    animation-duration:11s!important;
+    animation-duration:9s!important;
   }
 }
