@@ -1,23 +1,24 @@
 <!doctype html>
-<html lang="en" data-theme="midnight">
+<html lang="en" data-theme="pearl">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0c0d12" />
+  <meta name="theme-color" content="#171717" />
   <link rel="icon" href="/icon-192.png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/admin.css?v=1.28" />
+  <link rel="stylesheet" href="/admin-storefront.css?v=1.34" />
   <title>ToolCart Admin</title>
 </head>
 <body>
-  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div><div class="noise"></div>
+  
   <div id="toastHost" class="toast-host"></div>
 
   <main id="adminLogin" class="admin-login hidden">
     <section class="admin-login-card panel-enter">
-      <div class="auth-mark"><img src="/toolcart-v115-symbol.png" alt="" /></div>
-      <span class="eyebrow">TOOLCART CONTROL</span><h1>Administrator</h1><p>Secure access to ecosystem operations.</p>
+      <div class="admin-login-brand"><img class="admin-mark" src="/toolcart-v115-symbol.png" alt="" /><div class="admin-wordmark"><img src="/toolcart-v124-wordmark.png" alt="ToolCart" /></div></div>
+      <span class="eyebrow">THE DIGITAL GOODS COUNTER / CONTROL</span><h1>Administrator</h1><p>Manage your ToolCart digital storefront securely.</p>
       <form id="adminLoginForm" class="form-grid">
         <div class="field"><label>Email</label><input name="email" type="email" autocomplete="username" required></div>
         <div class="field"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div>
@@ -40,7 +41,7 @@
 
   <main id="adminShell" class="admin-shell hidden">
     <aside id="adminSidebar" class="admin-sidebar">
-      <div class="admin-brand"><img src="/toolcart-v115-symbol.png" alt=""><div><strong>ToolCart</strong><span>Administrator</span></div></div>
+      <div class="admin-brand"><img class="admin-brand-mark" src="/toolcart-v115-symbol.png" alt=""><div class="admin-brand-copy"><div class="admin-wordmark"><img src="/toolcart-v124-wordmark.png" alt="ToolCart"></div><span>Store administration</span></div></div>
       <nav id="adminNav">
         <button class="active" data-admin-tab="dashboard"><span>◫</span>Dashboard</button>
         <button data-admin-tab="customers"><span>◎</span>Customers</button>
@@ -62,7 +63,7 @@
     <div class="admin-main">
       <header class="admin-topbar">
         <button id="adminMenuBtn" class="icon-btn">☰</button>
-        <div><span class="eyebrow">TOOLCART ADMIN</span><h1 id="adminPageTitle">Dashboard</h1></div>
+        <div><span class="eyebrow">THE DIGITAL GOODS COUNTER / ADMIN</span><h1 id="adminPageTitle">Dashboard</h1></div>
         <button id="adminRefresh" class="icon-btn">↻</button>
       </header>
       <section id="adminContent" class="admin-content"></section>
