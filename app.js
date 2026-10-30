@@ -1,4 +1,4 @@
-const state={user:null,csrf:null,apps:[],products:[],wallet:{balanceMinor:0,currency:'NGN'},cartCount:0,cartItems:[],cartTotalMinor:0,cartCurrency:'NGN',cartReady:false,cartRevision:0,cartRenderSignature:null,updates:[],notifications:[],requests:[],recentApps:[],currentPlan:null,settings:{},promos:[],activeTab:'home',appCategory:'all',updateFilter:'all',notifFilter:'unread',purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0};
+const state={user:null,csrf:null,apps:[],products:[],wallet:{balanceMinor:0,currency:'NGN'},cartCount:0,cartItems:[],cartTotalMinor:0,cartCurrency:'NGN',cartReady:false,cartRevision:0,cartRenderSignature:null,updates:[],notifications:[],requests:[],recentApps:[],currentPlan:null,settings:{},promos:[],activeTab:'home',appCategory:'all',updateFilter:'all',notifFilter:'unread',purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0,purchasesRevision:0,checkoutInProgress:false};
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtDate=v=>{if(!v)return'';const d=new Date(v);return Number.isNaN(d)?'':new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:d.getFullYear()!==new Date().getFullYear()?'numeric':undefined}).format(d)};
@@ -85,6 +85,10 @@ async function enterPublic(){
   try{const data=await api('/api/public/bootstrap');state.settings=data.settings||{};setTheme(preferredVisualTheme(null,state.settings.default_theme||'pearl'));renderPublicApps(data.apps||[],data.products||[])}catch{setTheme(preferredVisualTheme(null,'pearl'));renderPublicApps([],[])}
 }
 function renderPublicApps(apps,products=[]){
+ state.publicCatalog={apps,products};
+ const selected=state.publicCategory||'all';
+ products=products.filter(p=>selected==='all'||(selected!=='web_tools'&&(p.store_section||'formats')===selected));
+ apps=selected==='all'||selected==='web_tools'?apps:[];
  const productCards=products.map((p,i)=>`<article class="tempo-merchant-card tempo-good-card" data-auth="register"><div class="tempo-card-media tempo-product-media">${p.display_image_url?`<img src="${esc(p.display_image_url)}" alt="${esc(p.name)}" loading="${i<8?'eager':'lazy'}" decoding="async" ${i<4?'fetchpriority="high"':''}>`:`<div class="tempo-product-placeholder"><small>DIGITAL GOODS / TOOLCART</small><strong>${esc(p.name)}</strong><i>DESIGNED FOR EVERYDAY USE</i></div>`}<button class="tempo06-save" data-auth="register" aria-label="Sign in to save ${esc(p.name)}">${T06_HEART}</button></div><div class="tempo-card-info"><small class="tempo-card-type">${esc(p.short_description||productAvailability(p))}</small><h3>${esc(p.name)}</h3><strong class="tempo-card-price">${esc(productPrice(p))}</strong></div><button class="tempo06-add" data-auth="register"><span>+</span> Add to cart</button></article>`);
  const toolCards=apps.map((a,i)=>`<article class="tempo-merchant-card tempo-tool-card" data-auth="register"><div class="tempo-card-media tempo-tool-media">${tempoToolCover(a,products.length+i<8,products.length+i<4)}</div><div class="tempo-card-info"><small class="tempo-card-type">WORKING TOOL</small><h3>${esc(a.name)}</h3><strong class="tempo-online ${appAvailability(a)}">${esc(humanStatus(a.status)||'AVAILABLE')}</strong></div><button class="tempo06-add" data-auth="register">Explore tool ↗</button></article>`);
  const all=[...productCards,...toolCards];$('#publicApps').innerHTML=all.length?all.slice(0,24).join(''):empty('New goods on the way','New digital products and working tools appear here when published.');
@@ -108,7 +112,7 @@ function t06ToggleSave(id){
   toast(isSaved?'Added to wishlist.':'Removed from wishlist.');
 }
 function renderWishlist(){const saved=new Set(t06Saved());const goods=state.products.filter(p=>saved.has(Number(p.id)));const el=$('#wishlistProducts');if(el)el.innerHTML=goods.length?goods.map(productCard).join(''):empty('Your wishlist is empty','Tap the heart on a product to save it here.','♡')}
-function tempo06CategoryMatches(p){const cat=state.tempo06Category||'all';if(cat==='all')return true;if(cat==='free')return p.access_type==='free'||Number(p.price_minor)===0;const text=`${p.name} ${p.short_description||''} ${p.description||''}`.toLowerCase();return cat==='ai'?/\bai\b|artificial intelligence|prompt|machine learning/.test(text):cat==='guide'?/guide|tutorial|handbook|pdf|ebook|course/.test(text):text.includes(cat)}
+function tempo06CategoryMatches(p){const cat=state.tempo06Category||'all';if(cat==='all')return true;if(cat==='free')return p.access_type==='free'||Number(p.price_minor)===0;return cat!=='web_tools'&&(p.store_section||'formats')===cat}
 async function addProductCardToCart(id,button){const oldLabel=button?.innerHTML;if(button){button.disabled=true;button.textContent='Adding…'}try{const d=await api('/api/cart/items',{method:'POST',body:{productId:Number(id),quantity:1}});state.cartCount=Number(d.cartCount||0);updateBadges();updateLocalCartItem(Number(id),1);void refreshCart();toast('Added to your cart.')}catch(e){toast(e.message,'error')}finally{if(button){button.disabled=false;button.innerHTML=oldLabel}}}
 
 async function enterApp(preloaded){
@@ -116,7 +120,7 @@ async function enterApp(preloaded){
   // Nonessential updates, notifications and promotions are loaded separately later.
   const data=preloaded||await api('/api/bootstrap');
   state.csrf=data.csrfToken||state.csrf;
-  Object.assign(state,{user:data.user,apps:data.apps||[],products:data.products||[],wallet:data.wallet||{balanceMinor:0,currency:'NGN'},cartCount:Number(data.cartCount||0),updates:data.updates||[],notifications:data.notifications||[],recentApps:data.recentApps||[],currentPlan:data.currentPlan,settings:data.settings||{},promos:data.promos||[],cartItems:data.cartItems||[],cartTotalMinor:Number(data.cartTotalMinor||0),cartCurrency:data.cartCurrency||'NGN',cartReady:Array.isArray(data.cartItems),cartRevision:state.cartRevision+1,cartRenderSignature:null,purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0});
+  Object.assign(state,{user:data.user,apps:data.apps||[],products:data.products||[],wallet:data.wallet||{balanceMinor:0,currency:'NGN'},cartCount:Number(data.cartCount||0),updates:data.updates||[],notifications:data.notifications||[],recentApps:data.recentApps||[],currentPlan:data.currentPlan,settings:data.settings||{},promos:data.promos||[],cartItems:data.cartItems||[],cartTotalMinor:Number(data.cartTotalMinor||0),cartCurrency:data.cartCurrency||'NGN',cartReady:Array.isArray(data.cartItems),cartRevision:state.cartRevision+1,cartRenderSignature:null,purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0,purchasesRevision:0,checkoutInProgress:false});
   setTheme(preferredVisualTheme(state.user.preferredTheme,state.settings.default_theme||'pearl'));
   renderApp();
   renderCart();
@@ -153,13 +157,13 @@ function renderApps(){
   const goods=state.products.slice().filter(tempo06CategoryMatches).sort((a,b)=>{const sort=$('#tempo06Sort')?.value||'featured';if(sort==='low')return Number(a.price_minor||0)-Number(b.price_minor||0);if(sort==='high')return Number(b.price_minor||0)-Number(a.price_minor||0);if(sort==='newest')return Number(b.id)-Number(a.id);return (Number(b.featured||0)-Number(a.featured||0))||(Number(a.display_order||0)-Number(b.display_order||0))});
   // Match the public storefront: products followed by working tools in one two-column lineup.
   // Category-specific selections only show matching products; the separate Working Tools shelf remains below.
-  const lineup=[...goods.map((p,i)=>productCard(p,i<8,i<4)),...((state.tempo06Category||'all')==='all'?state.apps.map((a,i)=>appCard(a,true,goods.length+i<8,goods.length+i<4)):[])];
+  const lineup=[...goods.map((p,i)=>productCard(p,i<8,i<4)),...(['all','web_tools'].includes(state.tempo06Category||'all')?state.apps.map((a,i)=>appCard(a,true,goods.length+i<8,goods.length+i<4)):[])];
   $('#homeProducts').innerHTML=lineup.length?lineup.join(''):empty('No products in this selection','Try Everything to browse all current goods.');
   $('#homeApps').innerHTML=state.apps.length?state.apps.map(appCard).join(''):empty('Working tools, coming soon','New tools will appear here when available.');
   warmStorefrontCovers([...goods.slice(8,24).map(p=>p.display_image_url),...state.apps.slice(Math.max(0,8-goods.length),12).map(a=>a.icon_url)]);
-  const categories=['all','products','tools',...new Set(state.apps.map(a=>a.category).filter(Boolean))];$('#categoryChips').innerHTML=categories.map(c=>`<button class="chip ${state.appCategory===c?'active':''}" data-category="${esc(c)}">${c==='all'?'Everything':c==='products'?'Digital goods':c==='tools'?'Working tools':esc(c)}</button>`).join('');renderAppsPage();renderWishlist();
+  const categories=[['all','Everything'],['formats','Formats'],['web_tools','Web Tools'],['premium_tools','Premium Tools'],['announcements','Announcements']];$('#categoryChips').innerHTML=categories.map(([c,label])=>`<button class="chip ${state.appCategory===c?'active':''}" data-category="${c}">${label}</button>`).join('');renderAppsPage();renderWishlist();
 }
-function renderAppsPage(){const q=($('#appSearch')?.value||'').toLowerCase().trim();let items=launcherItems();items=items.filter(x=>{const catOk=state.appCategory==='all'||(state.appCategory==='products'&&x._kind==='product')||(state.appCategory==='tools'&&x._kind==='app')||(x._kind==='app'&&x.category===state.appCategory);const hay=`${x.name} ${x.short_description||''} ${x.description||''} ${x.category||''}`.toLowerCase();return catOk&&(!q||hay.includes(q))});$('#appCount').textContent=`${items.length} find${items.length===1?'':'s'}`;$('#appsGrid').innerHTML=items.length?items.map(launcherCard).join(''):empty('Nothing on this shelf','Try another keyword or browse a different category.','⌕')}
+function renderAppsPage(){const q=($('#appSearch')?.value||'').toLowerCase().trim();let items=launcherItems();items=items.filter(x=>{const catOk=state.appCategory==='all'||(['tools','web_tools'].includes(state.appCategory)&&x._kind==='app')||(state.appCategory==='products'&&x._kind==='product')||(x._kind==='product'&&(x.store_section||'formats')===state.appCategory);const hay=`${x.name} ${x.short_description||''} ${x.description||''} ${x.category||''}`.toLowerCase();return catOk&&(!q||hay.includes(q))});$('#appCount').textContent=`${items.length} find${items.length===1?'':'s'}`;$('#appsGrid').innerHTML=items.length?items.map(launcherCard).join(''):empty('Nothing on this shelf','Try another keyword or browse a different category.','⌕')}
 function renderRecent(){const sec=$('#recentSection');if(!state.recentApps.length){sec.classList.add('hidden');return}sec.classList.remove('hidden');$('#recentApps').innerHTML=state.recentApps.slice(0,5).map(a=>{const availability=appAvailability(a);return `<article class="recent-card" data-app-id="${a.id}">${iconHtml(a,'app-icon')}<div><strong>${esc(a.name)}</strong><span class="availability ${availability}"><i></i>${availability.toUpperCase()}</span></div></article>`}).join('')}
 function updateCard(u){const unread=!u.is_read;return `<article class="update-card" data-update-id="${u.id}"><div class="update-type">${u.update_type==='security'?'!' : u.update_type==='maintenance'?'M':'U'}</div><div><h3>${esc(u.title)}</h3><p>${esc(u.summary||u.content?.slice(0,120)||'')}</p></div><div>${unread?'<i class="unread-mark"></i>':`<time>${fmtDate(u.publish_at)}</time>`}</div></article>`}
 function renderUpdates(){const home=state.updates.slice(0,3);$('#homeUpdates').innerHTML=home.length?home.map(updateCard).join(''):empty('You are up to date','New product and service updates will appear here.');renderUpdatesPage()}
@@ -182,6 +186,10 @@ function updatePurchaseBalance(){
 function renderPurchases(){
   const box=$('#purchasedProducts');if(!box)return;
   updatePurchaseBalance();
+  if(state.checkoutInProgress){
+    box.innerHTML='<div class="tc-checkout-status" role="status" aria-live="polite"><span class="tc-checkout-status-mark" aria-hidden="true">◇</span><strong>Processing your purchase</strong><p id="tcCheckoutStatusText">Confirming your cart and securing your files…</p><small>Your purchased files will appear here when payment is confirmed.</small></div>';
+    return;
+  }
   if(!state.purchasesLoaded){box.innerHTML='<div class="tc-purchases-loading" role="status">Checking your purchased items…</div>';return;}
   const items=state.purchases;
   if(!items.length){box.innerHTML=empty('No purchased items yet','After checkout, your purchased files will appear here, ready to open or save.');return;}
@@ -201,10 +209,16 @@ function renderPurchases(){
   }).join('');
 }
 async function loadPurchases(force=false){
-  if(!state.user||state.purchasesLoading)return;
+  if(!state.user||state.purchasesLoading||state.checkoutInProgress)return;
   if(!force&&state.purchasesLoaded&&Date.now()-state.purchasesLastLoad<20000)return;
   state.purchasesLoading=true;
-  try{const d=await api('/api/purchases');state.purchases=Array.isArray(d.purchases)?d.purchases:[];state.purchasesLoaded=true;state.purchasesLastLoad=Date.now();}
+  const revision=state.purchasesRevision;
+  try{
+    const d=await api('/api/purchases');
+    if(revision!==state.purchasesRevision)return; // A newer checkout completed while this GET was in flight.
+    state.purchases=Array.isArray(d.purchases)?d.purchases:[];
+    state.purchasesLoaded=true;state.purchasesLastLoad=Date.now();
+  }
   catch(e){if(!state.purchasesLoaded){const box=$('#purchasedProducts');if(box)box.innerHTML=`<div class="tc-purchase-error">Unable to load purchases. <button type="button" data-retry-purchases>Try again</button><p>${esc(e.message)}</p></div>`;}else toast('Could not refresh purchases.','error');return;}
   finally{state.purchasesLoading=false;}
   if(state.activeTab==='purchases')renderPurchases();
@@ -214,7 +228,8 @@ function showPurchasedOrder(data,{fromCart=false}={}){
   if(Array.isArray(data?.purchases)&&data.purchases.length){
     const fresh=data.purchases;
     state.purchases=[...fresh,...state.purchases.filter(p=>!fresh.some(f=>Number(f.entitlementId)===Number(p.entitlementId)))];
-    state.purchasesLoaded=true;state.purchasesLastLoad=0;
+    state.purchasesLoaded=true;state.purchasesLastLoad=Date.now();
+    state.purchasesRevision++;
   }
   if(data?.wallet)state.wallet=data.wallet;
   if(data?.cartCount!==undefined)state.cartCount=Number(data.cartCount);
@@ -223,7 +238,6 @@ function showPurchasedOrder(data,{fromCart=false}={}){
   state.cartRenderSignature=null;
   renderCart();updateBadges();
   closeModals();switchTab('purchases');
-  void loadPurchases(true);
 }
 
 function renderWalletView(){const el=$('#walletViewBalance');if(el)el.textContent=fmtMoney(state.wallet?.balanceMinor||0,state.wallet?.currency||'NGN')}
@@ -396,18 +410,18 @@ function queueCartQuantityWrite(id,desired){
       cartQuantityWrites.delete(id);
       // One authoritative refresh after all edits; do not overwrite other
       // still-pending optimistic quantities with stale server snapshots.
-      if(cartQuantityWrites.size===0)await refreshCart();
+      if(cartQuantityWrites.size===0&&!cartCheckoutPending)void refreshCart();
     }
     return succeeded;
   })();
 }
 async function refreshCart(){
-  if(cartQuantityWrites.size)return;
+  if(cartQuantityWrites.size||cartCheckoutPending)return;
   const revision=state.cartRevision;
   try{
     const d=await api('/api/cart');
     // Ignore reads started before newer edits, even after their writes finish.
-    if(revision!==state.cartRevision||cartQuantityWrites.size)return;
+    if(revision!==state.cartRevision||cartQuantityWrites.size||cartCheckoutPending)return;
     applyCartData(d);
   }catch(e){if(!state.cartReady&&state.activeTab==='cart')toast('Could not refresh your cart. Try again.','error');}
 }
@@ -420,16 +434,49 @@ function openCart(){
 }
 
 async function checkoutCartNow(){
-  if(cartCheckoutPending)return;
+  if(cartCheckoutPending||!state.cartReady||!state.cartItems.length)return;
   cartCheckoutPending=true;
-  const b=$('[data-cart-checkout]');if(b)b.disabled=true;try{
-  // Checkout must not race a pending optimistic quantity change.
-  if(cartQuantityWrites.size){
-    if(b)b.textContent='Confirming cart…';
-    const completed=await Promise.all([...cartQuantityWrites.values()].map(op=>op.promise));
-    if(completed.some(ok=>!ok))throw new Error('Cart quantity could not be saved. Please check your cart before checkout.');
+  state.checkoutInProgress=true;
+  // A checkout is authoritative: do not let an old cart refresh overwrite its result.
+  state.cartRevision++;
+  const b=$('[data-cart-checkout]');
+  if(b){b.disabled=true;b.textContent='Processing purchase…';}
+  closeModals();
+  switchTab('purchases'); // Immediate feedback; never claim a purchase before server confirmation.
+  try{
+    if(cartQuantityWrites.size){
+      const progress=$('#tcCheckoutStatusText');
+      if(progress)progress.textContent='Saving your latest cart quantities…';
+      // Await only required server PATCH writes, not a redundant cart GET.
+      const completed=await Promise.all([...cartQuantityWrites.values()].map(op=>op.promise));
+      if(completed.some(ok=>!ok))throw new Error('Cart quantity could not be saved. Please check your cart before checkout.');
+    }
+    const progress=$('#tcCheckoutStatusText');
+    if(progress)progress.textContent='Verifying payment and preparing your files…';
+    const d=await api('/api/cart/checkout',{method:'POST',body:{}});
+    if(d.method==='paystack'&&d.authorizationUrl){
+      if(progress)progress.textContent='Opening secure payment…';
+      location.href=d.authorizationUrl;
+      return;
+    }
+    if(!Array.isArray(d.purchases)||!d.purchases.length){
+      // Do not claim fulfillment without server-confirmed entitlements.
+      throw new Error('The purchase could not be confirmed. Please check Purchased Items before trying again.');
+    }
+    state.checkoutInProgress=false;
+    toast(d.message||'Purchase complete.');
+    showPurchasedOrder(d,{fromCart:true});
+    void refreshMarketplaceState();
+  }catch(e){
+    state.checkoutInProgress=false;
+    switchTab('cart');
+    toast(e.status?e.message:'Checkout could not be confirmed. Check Purchased Items before trying again.','error');
+  }finally{
+    state.checkoutInProgress=false;
+    cartCheckoutPending=false;
+    if(b?.isConnected){b.disabled=false;b.textContent=`Checkout ${fmtMoney(state.cartTotalMinor,state.cartCurrency)}`;}
   }
-  const d=await api('/api/cart/checkout',{method:'POST',body:{}});if(d.method==='paystack'&&d.authorizationUrl){location.href=d.authorizationUrl;return}toast(d.message||'Purchase complete.');showPurchasedOrder(d,{fromCart:true});void refreshMarketplaceState();void refreshCart()}catch(e){toast(e.message,'error');if(b)b.disabled=false}finally{cartCheckoutPending=false}}
+}
 let toolOpenPending=null;
 async function openApp(id){
   if(toolOpenPending===id)return;
@@ -505,6 +552,7 @@ function bindGlobalEvents(){
     if(e.target.closest('[data-menu-cart]')){closeStoreMenu();return openCart();}
     const menuSetting=e.target.closest('[data-menu-setting]');if(menuSetting){closeStoreMenu();return openSetting(menuSetting.dataset.menuSetting);}
     if(e.target.closest('[data-menu-logout]')){closeStoreMenu();$('#signOutBtn')?.click();return;}
+    const publicCat=e.target.closest('[data-public-t06-cat]');if(publicCat){state.publicCategory=publicCat.dataset.publicT06Cat;$$('[data-public-t06-cat]').forEach(b=>b.classList.toggle('active',b===publicCat));if(state.publicCatalog)renderPublicApps(state.publicCatalog.apps,state.publicCatalog.products);return;}
     const auth=e.target.closest('[data-auth]');if(auth)return openAuth(auth.dataset.auth);
     const sw=e.target.closest('[data-auth-switch]');if(sw)return openAuth(sw.dataset.authSwitch);
     if(e.target.closest('[data-close-modal]')||e.target.id==='modalBackdrop')return closeModals();

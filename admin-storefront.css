@@ -192,3 +192,7 @@ body {
 .wallet-credit-row b{font-size:13px;color:#977940;white-space:nowrap}
 @media(max-width:900px){.wallet-funding-layout{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:380px){.wallet-lookup{flex-direction:column}.wallet-lookup .btn{width:100%}.wallet-balance-overview strong{font-size:18px}}
+
+/* V1.47 — four section choices, in normal document flow (iPhone Safari). */
+.admin-manager-switch,.admin-create-switch{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;position:static!important;top:auto!important;z-index:auto!important;min-width:0!important}
+.admin-manager-switch button,.admin-create-switch button{min-width:0!important;white-space:normal!important;line-height:1.2!important;padding:10px 6px!important}
