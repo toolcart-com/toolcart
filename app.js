@@ -29,8 +29,22 @@ function toast(message,type='ok'){
     toastDismissTimer=null;
   },3600);
 }
-function setTheme(theme){document.documentElement.dataset.theme='pearl';document.querySelector('meta[name="theme-color"]').setAttribute('content','#000000');localStorage.setItem('toolcart_theme','pearl')}
-function preferredVisualTheme(preferred,fallback='pearl'){return 'pearl'}
+// V1.49: a customer-selected appearance must actually change the storefront.
+const isToolcartTheme=t=>t==='midnight'||t==='pearl';
+function setTheme(theme){
+  const selected=isToolcartTheme(theme)?theme:'pearl';
+  document.documentElement.dataset.theme=selected;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',selected==='midnight'?'#12110f':'#000000');
+  try{localStorage.setItem('toolcart_theme',selected)}catch{}
+  return selected;
+}
+function preferredVisualTheme(preferred,fallback='pearl'){
+  const defaultTheme=isToolcartTheme(fallback)?fallback:'pearl';
+  if(state.settings?.allow_user_theme===false)return defaultTheme;
+  if(isToolcartTheme(preferred))return preferred;
+  try{const saved=localStorage.getItem('toolcart_theme');if(isToolcartTheme(saved))return saved}catch{}
+  return defaultTheme;
+}
 function initials(name='ToolCart'){return name.trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'TC'}
 function iconHtml(app,cls='app-icon'){const style=`--accent:${esc(app.accent_color||app.accentColor||'#7b65ff')}`;return `<div class="${cls}" style="${style}">${app.icon_url?`<img src="${esc(app.icon_url)}" alt="">`:esc(initials(app.name))}</div>`}
 function tempoToolCover(app,priority=false,highPriority=false){return app.icon_url?`<img class="tempo-tool-cover" src="${esc(app.icon_url)}" alt="${esc(app.name)} cover" loading="${priority?'eager':'lazy'}" decoding="async" ${highPriority?'fetchpriority="high"':''}>`:`<div class="tempo-tool-fallback" style="--accent:${esc(app.accent_color||'#ae9ac9')}"><span>${esc(initials(app.name))}</span></div>`}
@@ -516,7 +530,7 @@ async function openSetting(kind,note=''){
 }
 function profileSetting(){const u=state.user;showDetail(`<h2>Account</h2><p class="modal-sub">Update the profile details connected to your collection account.</p><form id="profileForm" class="form-grid"><div class="field"><label>Profile picture</label><input type="file" id="avatarFile" accept="image/jpeg,image/png,image/webp"></div><div class="field"><label>Full name</label><input name="fullName" value="${esc(u.fullName)}" required></div><div class="field"><label>Email</label><input value="${esc(u.email)}" disabled></div><div class="field"><label>Phone</label><input name="phone" value="${esc(u.phone||'')}"></div><div class="field"><label>Country</label><input name="country" value="${esc(u.country||'')}"></div><div class="field"><label>Timezone</label><input name="timezone" value="${esc(u.timezone||Intl.DateTimeFormat().resolvedOptions().timeZone)}"></div><button class="btn btn-primary">Save profile</button></form>`);$('#profileForm').addEventListener('submit',async e=>{e.preventDefault();const fd=new FormData(e.currentTarget);try{await api('/api/profile',{method:'PATCH',body:{fullName:fd.get('fullName'),phone:fd.get('phone'),country:fd.get('country'),timezone:fd.get('timezone'),preferredLanguage:'en',preferredTheme:state.user.preferredTheme}});const file=$('#avatarFile').files[0];if(file){const optimized=await optimizeImage(file,512,.86);const up=new FormData();up.append('file',optimized,'avatar.webp');await api('/api/profile/avatar',{method:'POST',body:up})}const p=await api('/api/profile');state.user=p.user;renderHeader();renderSettingsProfile();closeModals();toast('Profile updated.')}catch(err){toast(err.message,'error')}})}
 function securitySetting(){showDetail(`<h2>Security</h2><p class="modal-sub">Use a strong password unique to ToolCart.</p><form id="passwordForm" class="form-grid"><div class="field"><label>Current password</label><input type="password" name="current" autocomplete="current-password" required></div><div class="field"><label>New password</label><input type="password" name="next" autocomplete="new-password" minlength="10" required></div><button class="btn btn-primary">Change password</button></form>`);$('#passwordForm').addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await api('/api/account/change-password',{method:'POST',body:{currentPassword:f.get('current'),newPassword:f.get('next')}});closeModals();toast('Password changed.')}catch(err){toast(err.message,'error')}})}
-function appearanceSetting(){const current=document.documentElement.dataset.theme;showDetail(`<h2>Appearance</h2><p class="modal-sub">ToolCart's Tempo storefront uses its signature bright black, white and gold design.</p><div class="form-grid"><button class="btn ${current==='midnight'?'btn-primary':'btn-secondary'}" data-theme-choice="midnight">Midnight</button><button class="btn ${current==='pearl'?'btn-primary':'btn-secondary'}" data-theme-choice="pearl">Pearl</button></div>`)}
+function appearanceSetting(){const current=document.documentElement.dataset.theme;showDetail(`<h2>Appearance</h2><p class="modal-sub">Choose the storefront appearance you prefer. Your selection is saved to your account.</p><div class="form-grid"><button type="button" class="btn ${current==='midnight'?'btn-primary':'btn-secondary'}" data-theme-choice="midnight" aria-pressed="${current==='midnight'}">Midnight · Dark</button><button type="button" class="btn ${current==='pearl'?'btn-primary':'btn-secondary'}" data-theme-choice="pearl" aria-pressed="${current==='pearl'}">Pearl · Light</button></div>`)}
 async function devicesSetting(){showDetail('<h2>Devices</h2><p class="modal-sub">Loading active sessions...</p>');try{const d=await api('/api/sessions');$('#detailContent').innerHTML=`<h2>Devices</h2><p class="modal-sub">Sessions signed into your ToolCart account.</p><div class="timeline">${d.sessions.map(s=>`<div class="timeline-item"><small>${s.current?'CURRENT DEVICE · ':''}${fmtDate(s.last_seen_at)}</small><p><strong>${esc(s.device_label||'Browser session')}</strong><br>${esc((s.user_agent||'').slice(0,90))}</p>${!s.current&&!s.revoked_at?`<button class="micro-btn" data-revoke-session="${s.id}">Revoke</button>`:''}</div>`).join('')}</div>`}catch(e){toast(e.message,'error')}}
 async function subscriptionSetting(note=''){showDetail(`<h2>Subscription</h2><p class="modal-sub">${esc(note||'Choose the membership that fits how you shop and work.')}</p><div id="plansBox">${empty('Loading plans','')}</div>`);try{const d=await api('/api/subscriptions/plans');$('#plansBox').innerHTML=`<div class="timeline">${d.plans.map(p=>`<div class="timeline-item"><small>${esc(p.billing_frequency.toUpperCase())}</small><p><strong>${esc(p.name)} · ${fmtMoney(p.price_minor,p.currency)}</strong><br>${esc(p.description)}</p><div style="color:var(--muted);font-size:12px;margin:8px 0">${(p.features||[]).map(x=>`• ${esc(x)}`).join('<br>')}</div>${p.price_minor>0?`<button class="btn btn-primary compact" data-buy-plan="${p.id}">Choose ${esc(p.name)}</button>`:'<span class="status-badge ok">Included</span>'}</div>`).join('')}</div>`}catch(e){$('#plansBox').innerHTML=empty('Could not load plans',e.message)}}
 async function paymentsSetting(){showDetail(`<h2>Payments</h2><p class="modal-sub">Verified payment history for your ToolCart account.</p><div id="paymentsBox">${empty('Loading payments','')}</div>`);try{const d=await api('/api/payments');$('#paymentsBox').innerHTML=d.payments.length?`<div class="timeline">${d.payments.map(p=>`<div class="timeline-item" data-payment-id="${p.id}"><small>${fmtDate(p.paid_at||p.created_at)} · ${esc(p.provider_reference)}</small><p><strong>${fmtMoney(p.amount_minor,p.currency)} · ${esc(humanStatus(p.status))}</strong><br>${esc(p.purpose)}</p></div>`).join('')}</div>`:empty('No payments yet','Completed and pending transactions will appear here.') }catch(e){$('#paymentsBox').innerHTML=empty('Could not load payments',e.message)}}
@@ -590,7 +604,22 @@ function bindGlobalEvents(){
     const na=e.target.closest('[data-notif-action]');if(na)return notifAction(Number(na.dataset.id),na.dataset.notifAction);
     const ext=e.target.closest('[data-external]');if(ext)return location.href=ext.dataset.external;
     const promo=e.target.closest('[data-promo-url]');if(promo)return location.href=promo.dataset.promoUrl;
-    const theme=e.target.closest('[data-theme-choice]');if(theme){setTheme(theme.dataset.themeChoice);state.user.preferredTheme=theme.dataset.themeChoice;try{await api('/api/profile',{method:'PATCH',body:{fullName:state.user.fullName,phone:state.user.phone,country:state.user.country,timezone:state.user.timezone,preferredLanguage:state.user.preferredLanguage||'en',preferredTheme:theme.dataset.themeChoice}})}catch{}return appearanceSetting()}
+    const theme=e.target.closest('[data-theme-choice]');if(theme){
+      const selected=theme.dataset.themeChoice;
+      if(!isToolcartTheme(selected)||state.settings.allow_user_theme===false)return;
+      const previous=document.documentElement.dataset.theme;
+      const previousPreference=state.user.preferredTheme;
+      setTheme(selected);state.user.preferredTheme=selected;
+      appearanceSetting();
+      if(previous===selected)return;
+      try{
+        await api('/api/profile',{method:'PATCH',body:{fullName:state.user.fullName,phone:state.user.phone,country:state.user.country,timezone:state.user.timezone,preferredLanguage:state.user.preferredLanguage||'en',preferredTheme:selected}});
+      }catch(err){
+        setTheme(previous);state.user.preferredTheme=previousPreference;
+        appearanceSetting();toast(err.message||'Could not save appearance. Please try again.','error');
+      }
+      return;
+    }
     const revoke=e.target.closest('[data-revoke-session]');if(revoke){try{await api(`/api/sessions/${revoke.dataset.revokeSession}/revoke`,{method:'POST'});toast('Session revoked.');devicesSetting()}catch(err){toast(err.message,'error')}return}
     const buy=e.target.closest('[data-buy-plan]');if(buy){buy.disabled=true;try{const d=await api('/api/payments/paystack/initialize',{method:'POST',body:{planId:Number(buy.dataset.buyPlan),callbackUrl:`${location.origin}/?payment=complete`}});location.href=d.authorizationUrl}catch(err){toast(err.message,'error');buy.disabled=false}return}
     if(e.target.closest('[data-support-new]')){closeModals();switchTab('requests');newRequest();return}

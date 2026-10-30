@@ -694,3 +694,159 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
     scroll-snap-align:none!important;
   }
 }
+
+
+/* ToolCart V1.49 — functional Midnight appearance, scoped to the customer storefront.
+   Pearl stays exactly as before. Preserve the black header, embedded hero photo,
+   product media, gold accents, layout and security-related UI. */
+html[data-theme="midnight"]{
+  color-scheme:dark;
+  --bg:#151410;--bg2:#151410;--surface:#23211d;--surface2:#302c25;--surface3:#393329;
+  --text:#f5f1e8;--muted:#b1a99a;--faint:#9e9585;--line:#453e32;
+  --tempo-black:#181714;--tempo-cream:#2a261e;--tempo-border:#504636;
+}
+html[data-theme="midnight"],html[data-theme="midnight"] body,
+html[data-theme="midnight"] #appShell,html[data-theme="midnight"] #signedOut,
+html[data-theme="midnight"] .mobile-shell,
+html[data-theme="midnight"] .tempo06-public,
+html[data-theme="midnight"] #homeView,
+html[data-theme="midnight"] .tempo06-body,
+html[data-theme="midnight"] .tempo-products-section,
+html[data-theme="midnight"] .tempo06-lineup,
+html[data-theme="midnight"] .tempo-tools-section{
+  background:#151410!important;color:#f5f1e8!important;
+}
+/* Keep the supplied white-to-photo hero design as a deliberately light artwork card. */
+html[data-theme="midnight"] .tempo06-hero{color:#191919!important}
+html[data-theme="midnight"] .tempo06-categories{
+  background:#1c1a17!important;border-color:#443c2f!important;
+}
+html[data-theme="midnight"] .tempo06-categories button{color:#bdb4a5!important}
+html[data-theme="midnight"] .tempo06-categories button.active{
+  color:#f6f0e5!important;border-bottom-color:#c7a260!important;
+}
+html[data-theme="midnight"] .tempo06-section-head h2,
+html[data-theme="midnight"] .tempo-section-head h2,
+html[data-theme="midnight"] .tempo06-lineup h2,
+html[data-theme="midnight"] .view-header h1,
+html[data-theme="midnight"] #cartView .product-title-row h2,
+html[data-theme="midnight"] .tc-purchases-title h2{
+  color:#f7f2e9!important;
+}
+html[data-theme="midnight"] .tempo06-sort-label{
+  background-color:#29251f!important;border-color:#554a3b!important;color:#e4d9c5!important;
+}
+html[data-theme="midnight"] .tempo-merchant-card.tempo-good-card,
+html[data-theme="midnight"] .tempo-merchant-card.tempo-tool-card,
+html[data-theme="midnight"] .tempo-merchant-card{
+  background:#24211c!important;border-color:#51483a!important;color:#f6f1e7!important;
+}
+html[data-theme="midnight"] .tempo-card-info h3,
+html[data-theme="midnight"] .tempo-card-info .tempo-card-price{
+  color:#f5eee1!important;
+}
+html[data-theme="midnight"] .tempo-card-info .tempo-card-type{color:#b4a892!important}
+html[data-theme="midnight"] .tempo06-add{background:#050505!important;color:#fff!important}
+html[data-theme="midnight"] .tempo06-save{background:#2b2822!important;color:#eee7d9!important}
+html[data-theme="midnight"] .tempo06-save.saved{color:#d5b26f!important}
+html[data-theme="midnight"] .tempo-inside-footer,
+html[data-theme="midnight"] .tempo06-footer{background:#151410!important;color:#b9ad99!important}
+html[data-theme="midnight"] .tempo-inside-footer strong,
+html[data-theme="midnight"] .tempo06-footer strong{color:#f0e7d6!important}
+html[data-theme="midnight"] #dock.tempo06-bottom,
+html[data-theme="midnight"] .tempo06-bottom{
+  background:#1a1815!important;border-top-color:#4b4031!important;
+}
+html[data-theme="midnight"] .tempo06-bottom button,
+html[data-theme="midnight"] .tempo06-bottom .dock-item,
+html[data-theme="midnight"] .tempo06-bottom .dock-home{
+  background:#1a1815!important;color:#b7aa93!important;
+}
+html[data-theme="midnight"] .tempo06-bottom button.active,
+html[data-theme="midnight"] .tempo06-bottom button.selected{color:#d6b675!important}
+/* Account, cart, purchased files and browsing pages share the dark surface. */
+html[data-theme="midnight"] #appsView,
+html[data-theme="midnight"] #wishlistView,
+html[data-theme="midnight"] #updatesView,
+html[data-theme="midnight"] #requestsView,
+html[data-theme="midnight"] #settingsView,
+html[data-theme="midnight"] #cartView,
+html[data-theme="midnight"] #purchasesView,
+html[data-theme="midnight"] #walletView{
+  background:#151410!important;color:#f3ecdf!important;
+}
+html[data-theme="midnight"] #appsView .view-header h1,
+html[data-theme="midnight"] #updatesView .view-header h1,
+html[data-theme="midnight"] #requestsView .view-header h1,
+html[data-theme="midnight"] #settingsView .view-header h1{color:#f3ecdf!important}
+html[data-theme="midnight"] #appsView .chip,
+html[data-theme="midnight"] .search-field,
+html[data-theme="midnight"] #settingsView .settings-group,
+html[data-theme="midnight"] #settingsView .settings-profile,
+html[data-theme="midnight"] #requestsView .request-card,
+html[data-theme="midnight"] #updatesView .update-card,
+html[data-theme="midnight"] .tempo-updates-section .update-card,
+html[data-theme="midnight"] .tempo-member-strip .subscription-card,
+html[data-theme="midnight"] #cartView .cart-item,
+html[data-theme="midnight"] .tc-account-tabs,
+html[data-theme="midnight"] .tc-purchased-card,
+html[data-theme="midnight"] .tc-purchase-details,
+html[data-theme="midnight"] .tc-file-item,
+html[data-theme="midnight"] .timeline-item,
+html[data-theme="midnight"] .form-note{
+  background:#24211d!important;color:#f0e8d9!important;border-color:#504638!important;
+}
+html[data-theme="midnight"] .search-field input,
+html[data-theme="midnight"] .field input,
+html[data-theme="midnight"] .field textarea,
+html[data-theme="midnight"] .field select{color:#f5efe4!important}
+html[data-theme="midnight"] .field input,
+html[data-theme="midnight"] .field textarea,
+html[data-theme="midnight"] .field select{background:#312c25!important;border-color:#544a3c!important}
+html[data-theme="midnight"] #cartView .cart-qty button,
+html[data-theme="midnight"] .tc-purchase-details strong,
+html[data-theme="midnight"] .tc-file-name strong,
+html[data-theme="midnight"] .tc-purchased-summary h3{color:#f7f0e6!important}
+html[data-theme="midnight"] .tc-account-tabs button{color:#b5a996!important}
+html[data-theme="midnight"] .tc-account-tabs button.active{
+  background:#363025!important;color:#f7eddc!important;
+}
+html[data-theme="midnight"] .tc-purchase-copy,
+html[data-theme="midnight"] .tc-file-view{color:#e0bd7a!important}
+html[data-theme="midnight"] .tc-file-save{background:#0d0d0d!important;color:#fff!important}
+html[data-theme="midnight"] .modal,
+html[data-theme="midnight"] .detail-sheet,
+html[data-theme="midnight"] .sheet,
+html[data-theme="midnight"] .notification-sheet,
+html[data-theme="midnight"] .search-sheet{
+  background:#23201b!important;color:#f4ecdc!important;border-color:#514638!important;
+}
+html[data-theme="midnight"] .modal h2,
+html[data-theme="midnight"] .detail-sheet h2{color:#f4ecdc!important}
+html[data-theme="midnight"] .modal-close{background:#322c23!important;color:#f0e5d0!important;border-color:#5c4e3a!important}
+html[data-theme="midnight"] .modal .btn-secondary,
+html[data-theme="midnight"] .detail-sheet .btn-secondary{
+  background:#342f26!important;color:#f2e6d4!important;border:1px solid #64543d!important;
+}
+html[data-theme="midnight"] .modal .btn-primary,
+html[data-theme="midnight"] .detail-sheet .btn-primary{
+  background:#b3944f!important;color:#100e0a!important;border:1px solid #b3944f!important;
+}
+/* Only the surface changes; no menu geometry, avatar or media behavior changes. */
+html[data-theme="midnight"] #toolcartMenu.tempo06-menu-drawer,
+html[data-theme="midnight"] .tempo06-menu-head{
+  background:#24211c!important;color:#f6f0e7!important;
+}
+html[data-theme="midnight"] .tempo06-menu-brand strong,
+html[data-theme="midnight"] .tempo06-menu-links button,
+html[data-theme="midnight"] .tempo06-menu-footer>button{color:#f6f0e7!important}
+html[data-theme="midnight"] .tempo06-menu-links button:hover,
+html[data-theme="midnight"] .tempo06-menu-links button:focus-visible{background:#342f27!important}
+html[data-theme="midnight"] .tempo06-menu-close{
+  background:#353025!important;color:#f4ebdb!important;border-color:#5a4f3b!important;
+}
+html[data-theme="midnight"] .tempo06-menu-head,
+html[data-theme="midnight"] .tempo06-menu-footer{border-color:#4b4032!important}
+html[data-theme="midnight"] .tempo06-menu-quick button{
+  background:#302a23!important;color:#efe5d3!important;border-color:#504333!important;
+}
