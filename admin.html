@@ -7,7 +7,7 @@
   <link rel="icon" href="/icon-192.png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="stylesheet" href="/styles.css" />
-  <link rel="stylesheet" href="/admin.css" />
+  <link rel="stylesheet" href="/admin.css?v=1.28" />
   <title>ToolCart Admin</title>
 </head>
 <body>
@@ -24,13 +24,14 @@
         <button class="btn btn-primary">Sign in</button>
       </form>
       <button type="button" id="showAdminSetup" class="admin-setup-link">First-time administrator setup</button>
-      <form id="adminSetupForm" class="form-grid admin-first-setup hidden">
+      <form id="adminSetupForm" class="form-grid admin-first-setup hidden" novalidate>
         <div class="admin-setup-note"><strong>Create the owner account once.</strong><span>Enter the temporary ADMIN_BOOTSTRAP_TOKEN you add in Cloudflare. After setup succeeds, remove that secret.</span></div>
         <div class="field"><label>Bootstrap token</label><input name="bootstrapToken" type="password" autocomplete="off" required></div>
         <div class="field"><label>Full name</label><input name="fullName" autocomplete="name" required></div>
         <div class="field"><label>Admin email</label><input name="email" type="email" autocomplete="username" required></div>
         <div class="field"><label>Admin password</label><input name="password" type="password" minlength="12" autocomplete="new-password" required></div>
-        <button class="btn btn-primary">Create owner administrator</button>
+        <button class="btn btn-primary" type="submit" id="adminSetupSubmit">Create owner administrator</button>
+        <div id="adminSetupStatus" class="admin-setup-status hidden" role="status" aria-live="polite"></div>
         <button type="button" id="cancelAdminSetup" class="btn btn-ghost">Back to sign in</button>
       </form>
       <a class="admin-back" href="/">Back to ToolCart</a>
@@ -78,6 +79,6 @@
 
   <div id="modalBackdrop" class="modal-backdrop hidden"></div>
   <section id="adminModal" class="modal detail-sheet hidden"><button class="modal-close" data-close-admin-modal>×</button><div id="adminModalContent"></div></section>
-  <script type="module" src="/admin.js"></script>
+  <script type="module" src="/admin.js?v=1.28"></script>
 </body>
 </html>

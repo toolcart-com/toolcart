@@ -1,5 +1,5 @@
 /* ToolCart V1.25: resilient static shell, never cache API or media data. */
-const CACHE='toolcart-shell-v1-27';
+const CACHE='toolcart-shell-v1-28';
 const SHELL=['/','/styles.css','/tempo.css','/tempo06.css','/app.js','/toolcart-v115-symbol.png','/toolcart-v124-wordmark.png','/toolcart-v122-hero-cart.png','/icon-192.png','/icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(async c=>{await Promise.allSettled(SHELL.map(u=>c.add(u)));await self.skipWaiting();})));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('toolcart-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
@@ -8,6 +8,11 @@ self.addEventListener('fetch',event=>{
   if(req.method!=='GET')return;
   const url=new URL(req.url);
   if(url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.pathname.startsWith('/media/'))return;
+  // Never serve an old (or homepage fallback) administrator page from the shell cache.
+  if(url.pathname==='/admin'||url.pathname==='/admin/'||url.pathname==='/admin.html'){
+    event.respondWith(fetch(req,{cache:'no-store'}));
+    return;
+  }
   if(req.mode==='navigate'){
     event.respondWith((async()=>{
       const cache=await caches.open(CACHE);
