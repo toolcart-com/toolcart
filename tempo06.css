@@ -529,3 +529,15 @@ body[data-active-view="settings"] #settingsView{padding-top:0!important;margin-t
   letter-spacing:-.045em!important;
   font-style:normal!important;
 }
+
+
+/* V1.36: Pre-blended photograph is embedded in initial HTML as the hero's CSS background.
+   Keep exactly the V1.35 hero dimensions and live heading layout (no separate image, no transitions). */
+.tempo06-hero{background-color:#fff!important; background-position:center center!important; background-repeat:no-repeat!important; background-size:100% 100%!important;}
+.tempo06-hero .tempo06-hero-copy{z-index:1!important;}
+.tempo06-hero .tempo06-art-tag{position:absolute!important;right:12px!important;bottom:8px!important;z-index:1!important;pointer-events:none;}
+.tempo06-hero .tempo06-hero-arrow{z-index:2!important;}
+.tempo06-hero .tempo06-hero-art{display:none!important;}
+/* Keep heading static so the first paint is fully formed. */
+.tempo06-hero h1 span{animation:none!important;opacity:1!important;transform:none!important;}
+@media(max-width:699px){.tempo06-hero .tempo06-art-tag{right:20px!important;bottom:8px!important;font-size:6px!important;}}
