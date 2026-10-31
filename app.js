@@ -694,8 +694,10 @@ function bindGlobalEvents(){
     const copyTransaction=e.target.closest('[data-copy-transaction]');if(copyTransaction){const id=copyTransaction.dataset.copyTransaction;if(navigator.clipboard?.writeText)navigator.clipboard.writeText(id).then(()=>toast('Transaction ID copied.')).catch(()=>toast('Could not copy automatically.'));else toast('Copy is unavailable on this browser.','error');return;}
     const tab=e.target.closest('[data-tab]');if(tab)return switchTab(tab.dataset.tab);
     if(e.target.closest('[data-go-home]'))return switchTab('home');
-    const category=e.target.closest('[data-t06-cat]');if(category){state.tempo06Category=category.dataset.t06Cat;$$('[data-t06-cat]').forEach(b=>b.classList.toggle('active',b===category));renderApps();switchTab('home',false);document.querySelector('.tempo-products-section')?.scrollIntoView({behavior:'auto',block:'start'});return}
-    if(e.target.closest('[data-show-free]')){state.tempo06Category='free';$$('[data-t06-cat]').forEach(b=>b.classList.toggle('active',false));renderApps();switchTab('home',false);document.querySelector('.tempo-products-section')?.scrollIntoView({behavior:'auto',block:'start'});return}
+    // V1.56: Category filtering changes the cards in place. Never scroll to the
+    // lineup or re-toggle the home view: customers decide when to scroll.
+    const category=e.target.closest('[data-t06-cat]');if(category){state.tempo06Category=category.dataset.t06Cat;$$('[data-t06-cat]').forEach(b=>b.classList.toggle('active',b===category));renderApps();return}
+    if(e.target.closest('[data-show-free]')){state.tempo06Category='free';$$('[data-t06-cat]').forEach(b=>b.classList.toggle('active',false));renderApps();return}
     const saver=e.target.closest('[data-t06-save]');if(saver){e.stopPropagation();return t06ToggleSave(Number(saver.dataset.t06Save))}
     const detailSave=e.target.closest('[data-detail-save]');if(detailSave){e.stopPropagation();return t06ToggleSave(Number(detailSave.dataset.detailSave))}
     const cardAdd=e.target.closest('[data-card-add]');if(cardAdd){e.stopPropagation();return addProductCardToCart(Number(cardAdd.dataset.cardAdd),cardAdd)}
