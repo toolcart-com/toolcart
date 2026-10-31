@@ -264,3 +264,14 @@ html[data-theme="midnight"] .status-badge {background:#373126!important;color:#d
 html[data-theme="midnight"] .wallet-warning {background:#352d23!important;color:#ddc7a0!important;border-color:#534331!important;}
 html[data-theme="midnight"] .wallet-customer-result strong,
 html[data-theme="midnight"] .wallet-balance-overview span {color:#ede2d0!important;}
+
+/* V1.55 - Admin link / text editor */
+.tc-content-add{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.tc-content-add .btn{flex:1 1 130px}
+.product-content-list{display:grid;gap:10px}
+.product-content-editor{padding:14px;border:1px solid var(--line,#e5ded1);border-radius:14px;background:var(--surface2,#fbfaf7);display:grid;gap:10px;min-width:0}
+.product-content-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.product-content-editor label{display:grid;gap:6px;font-size:12px;font-weight:650;min-width:0}
+.product-content-editor input,.product-content-editor textarea{display:block;width:100%;max-width:100%;box-sizing:border-box;border-radius:10px;border:1px solid #ded6c7;padding:11px;font:inherit;background:var(--surface,#fff);color:var(--text,#171717);resize:vertical}
+html[data-theme="midnight"] .product-content-editor{background:#26231f;border-color:#504a40}
+html[data-theme="midnight"] .product-content-editor input,html[data-theme="midnight"] .product-content-editor textarea{background:#1e1c19;color:#eee6db;border-color:#504a40}

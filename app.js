@@ -193,7 +193,7 @@ function renderApps(){
   $('#homeProducts').innerHTML=lineup.length?lineup.join(''):empty('No products in this selection','Try Everything to browse all current goods.');
   $('#homeApps').innerHTML=state.apps.length?state.apps.map(appCard).join(''):empty('Working tools, coming soon','New tools will appear here when available.');
   warmStorefrontCovers([...goods.slice(8,24).map(p=>p.display_image_url),...state.apps.slice(Math.max(0,8-goods.length),12).map(a=>a.icon_url)]);
-  const categories=[['all','Everything'],['formats','Formats'],['web_tools','Web Tools'],['premium_tools','Premium Tools'],['announcements','Announcements']];$('#categoryChips').innerHTML=categories.map(([c,label])=>`<button class="chip ${state.appCategory===c?'active':''}" data-category="${c}">${label}</button>`).join('');renderAppsPage();renderWishlist();
+  const categories=[['all','Everything'],['formats','Formats'],['web_tools','Web Tools'],['premium_tools','Premium Tools'],['announcements','Free Tools']];$('#categoryChips').innerHTML=categories.map(([c,label])=>`<button class="chip ${state.appCategory===c?'active':''}" data-category="${c}">${label}</button>`).join('');renderAppsPage();renderWishlist();
 }
 function renderAppsPage(){const q=($('#appSearch')?.value||'').toLowerCase().trim();let items=launcherItems();items=items.filter(x=>{const catOk=state.appCategory==='all'||(['tools','web_tools'].includes(state.appCategory)&&x._kind==='app')||(state.appCategory==='products'&&x._kind==='product')||(x._kind==='product'&&(x.store_section||'formats')===state.appCategory);const hay=`${x.name} ${x.short_description||''} ${x.description||''} ${x.category||''}`.toLowerCase();return catOk&&(!q||hay.includes(q))});$('#appCount').textContent=`${items.length} find${items.length===1?'':'s'}`;$('#appsGrid').innerHTML=items.length?items.map(launcherCard).join(''):empty('Nothing on this shelf','Try another keyword or browse a different category.','⌕')}
 function renderRecent(){const sec=$('#recentSection');if(!state.recentApps.length){sec.classList.add('hidden');return}sec.classList.remove('hidden');$('#recentApps').innerHTML=state.recentApps.slice(0,5).map(a=>{const availability=appAvailability(a);return `<article class="recent-card" data-app-id="${a.id}">${iconHtml(a,'app-icon')}<div><strong>${esc(a.name)}</strong><span class="availability ${availability}"><i></i>${availability.toUpperCase()}</span></div></article>`}).join('')}
@@ -224,7 +224,7 @@ function renderPurchases(){
   }
   if(!state.purchasesLoaded){box.innerHTML='<div class="tc-purchases-loading" role="status">Checking your purchased items…</div>';return;}
   const items=state.purchases;
-  if(!items.length){box.innerHTML=empty('No purchased items yet','After checkout, your purchased files will appear here, ready to open or save.');return;}
+  if(!items.length){box.innerHTML=empty('No purchased items yet','After checkout, your purchased content will appear here, ready to access.');return;}
   box.innerHTML=items.map(p=>{
     const files=p.files||[];
     return `<article class="tc-purchased-card" aria-label="Purchased ${esc(p.name)}">
@@ -234,8 +234,8 @@ function renderPurchases(){
       </div>
       <div class="tc-purchase-details"><div><small>AMOUNT PAID</small><strong>${esc(fmtMoney(p.amountMinor,p.currency))}</strong></div><div><small>TRANSACTION ID</small><code>${esc(p.transactionId)}</code><button type="button" class="tc-purchase-copy" data-copy-transaction="${esc(p.transactionId)}" aria-label="Copy transaction ID">Copy</button></div></div>
       ${p.paymentReference?`<div class="tc-purchase-reference">Payment reference: <span>${esc(p.paymentReference)}</span></div>`:''}
-      <div class="tc-purchased-files"><span class="tc-file-heading">YOUR FILES (${files.length})</span>
-        ${files.length?files.map(f=>`<div class="tc-file-item"><span class="tc-file-symbol">${f.fileType==='pdf'?'PDF':'IMG'}</span><div class="tc-file-name"><strong>${esc(f.fileName)}</strong><small>Yours to access anytime</small></div><a href="${esc(f.viewUrl)}" target="_blank" rel="noopener" class="tc-file-view">Open</a><a href="${esc(f.downloadUrl)}" download="${esc(f.fileName)}" class="tc-file-save">Save ↓</a></div>`).join(''):'<p class="tc-file-unavailable">No downloadable files are currently attached. Contact support if you expected a file.</p>'}
+      <div class="tc-purchased-files"><span class="tc-file-heading">YOUR ITEMS (${files.length})</span>
+        ${files.length?files.map((f,i)=>f.fileType==='text'?`<div class="tc-file-item tc-content-item"><span class="tc-file-symbol">TXT</span><div class="tc-file-name"><strong>${esc(f.fileName)}</strong><small>Protected text</small></div><button type="button" class="tc-file-view" data-read-owned-text="${p.entitlementId}:${i}">Read</button><button type="button" class="tc-file-save" data-copy-owned-text="${p.entitlementId}:${i}">Copy</button></div>`:f.fileType==='link'?`<div class="tc-file-item tc-content-item"><span class="tc-file-symbol">URL</span><div class="tc-file-name"><strong>${esc(f.fileName)}</strong><small>Protected web link</small></div><a href="${esc(f.content)}" target="_blank" rel="noopener noreferrer" class="tc-file-view">Open link</a></div>`:`<div class="tc-file-item"><span class="tc-file-symbol">${f.fileType==='pdf'?'PDF':'IMG'}</span><div class="tc-file-name"><strong>${esc(f.fileName)}</strong><small>Yours to access anytime</small></div><a href="${esc(f.viewUrl)}" target="_blank" rel="noopener" class="tc-file-view">Open</a><a href="${esc(f.downloadUrl)}" download="${esc(f.fileName)}" class="tc-file-save">Save ↓</a></div>`).join(''):'<p class="tc-file-unavailable">No downloadable files are currently attached. Contact support if you expected a file.</p>'}
       </div>
     </article>`;
   }).join('');
@@ -308,8 +308,10 @@ function productPrice(p){return p.access_type==='free'||Number(p.price_minor)===
 let productOpenRequest=0;
 function productDetailActions(p,verified){
   if(verified&&p.has_access){
-    const assets=p.assets&&p.assets.length?p.assets:[{fileName:p.file_name||'Product file',fileType:p.file_type||'file',url:`/api/products/${p.id}/file`}];
-    return `<div class="product-owned-assets"><div class="product-files-head"><strong>Your product files</strong><span>${Number(p.asset_count||assets.length)} file${Number(p.asset_count||assets.length)===1?'':'s'}</span></div>${assets.map((a,i)=>`<a class="product-file-link" href="${esc(a.url)}" target="_blank" rel="noopener"><span>${a.fileType==='pdf'?'PDF':'IMG'}</span><div><strong>${esc(a.fileName||`File ${i+1}`)}</strong><small>Open protected file</small></div><b>↗</b></a>`).join('')}</div><p class="product-owned-note">Purchased quantity: ${Math.max(1,Number(p.owned_quantity||1))}</p>`;
+    const assets=p.assets||[];const contentItems=p.contentItems||[];
+    const count=assets.length+contentItems.length;
+    const rows=[...assets.map((a,i)=>`<a class="product-file-link" href="${esc(a.url)}" target="_blank" rel="noopener"><span>${a.fileType==='pdf'?'PDF':'IMG'}</span><div><strong>${esc(a.fileName||`File ${i+1}`)}</strong><small>Open protected file</small></div><b>↗</b></a>`),...contentItems.map((c,i)=>c.kind==='link'?`<a class="product-file-link" href="${esc(c.content)}" target="_blank" rel="noopener noreferrer"><span>URL</span><div><strong>${esc(c.label)}</strong><small>Open protected link</small></div><b>↗</b></a>`:`<div class="product-file-link product-text-item"><span>TXT</span><div><strong>${esc(c.label)}</strong><small>Protected instructions</small></div><button type="button" class="tc-file-view" data-read-detail-text="${i}">Read</button></div>`)];
+    return `<div class="product-owned-assets"><div class="product-files-head"><strong>Your purchased content</strong><span>${count} item${count===1?'':'s'}</span></div>${rows.join('')}</div><p class="product-owned-note">Purchased quantity: ${Math.max(1,Number(p.owned_quantity||1))}</p>`;
   }
   if(!verified){
     return `<div class="tc-product-verify" role="status" aria-live="polite"><span class="tc-product-verify-dot" aria-hidden="true"></span>Checking availability and purchase access…</div>`;
@@ -321,12 +323,12 @@ function productDetailMarkup(p,verified){
   const stock=p.stock_mode==='unlimited'?'Unlimited stock':Number(p.stock_quantity)>0?`${Number(p.stock_quantity)} in stock`:'Out of stock';
   const soldOut=p.stock_mode!=='unlimited'&&Number(p.stock_quantity)<=0;
   const saved=t06Saved().includes(Number(p.id));
-  const sections={formats:'FORMATS',premium_tools:'PREMIUM TOOLS',announcements:'ANNOUNCEMENTS'};
+  const sections={formats:'FORMATS',premium_tools:'PREMIUM TOOLS',announcements:'FREE TOOLS'};
   const section=sections[p.store_section]||(p.premium?'PREMIUM PRODUCT':'DIGITAL PRODUCT');
-  return `<div class="product-detail tc-premium-detail"><div class="tc-product-media-frame"><div class="product-cover">${p.display_image_url?`<img src="${esc(p.display_image_url)}" loading="eager" decoding="async" alt="${esc(p.name)}">`:`<div class="product-cover-fallback">${esc(initials(p.name))}</div>`}</div></div><div class="tc-detail-heading"><div class="tc-detail-topline"><span class="eyebrow">${esc(section)} / TOOLCART</span><button type="button" class="tc-detail-save${saved?' is-saved':''}" data-detail-save="${p.id}" aria-pressed="${saved?'true':'false'}">${saved?'♥ Saved':'♡ Save'}</button></div><h2>${esc(p.name)}</h2>${p.short_description?`<p class="tc-detail-short">${esc(p.short_description)}</p>`:''}<div class="tc-detail-facts"><strong class="product-price" id="productDetailPrice">${esc(productPrice(p))}</strong><span id="productDetailStock" class="product-stock ${soldOut?'sold-out':''}">${esc(stock)}</span></div></div><section class="tc-detail-description"><strong>About this product</strong><p id="productDetailDescription" class="product-description">${esc(p.description||p.short_description||'Digital product available through ToolCart.')}</p></section><div class="product-balance"><span>Available wallet balance</span><strong id="productDetailBalance">${fmtMoney(state.wallet.balanceMinor,state.wallet.currency)}</strong></div><div id="productDetailActionSlot">${productDetailActions(p,verified)}</div><p class="tc-detail-assurance">Payment and file access are confirmed securely before any download is released.</p></div>`;
+  return `<div class="product-detail tc-premium-detail"><div class="tc-product-media-frame"><div class="product-cover">${p.display_image_url?`<img src="${esc(p.display_image_url)}" loading="eager" decoding="async" alt="${esc(p.name)}">`:`<div class="product-cover-fallback">${esc(initials(p.name))}</div>`}</div></div><div class="tc-detail-heading"><div class="tc-detail-topline"><span class="eyebrow">${esc(section)} / TOOLCART</span><button type="button" class="tc-detail-save${saved?' is-saved':''}" data-detail-save="${p.id}" aria-pressed="${saved?'true':'false'}">${saved?'♥ Saved':'♡ Save'}</button></div><h2>${esc(p.name)}</h2>${p.short_description?`<p class="tc-detail-short">${esc(p.short_description)}</p>`:''}<div class="tc-detail-facts"><strong class="product-price" id="productDetailPrice">${esc(productPrice(p))}</strong><span id="productDetailStock" class="product-stock ${soldOut?'sold-out':''}">${esc(stock)}</span></div></div><section class="tc-detail-description"><strong>About this product</strong><p id="productDetailDescription" class="product-description">${esc(p.description||p.short_description||'Digital product available through ToolCart.')}</p></section><div class="product-balance"><span>Available wallet balance</span><strong id="productDetailBalance">${fmtMoney(state.wallet.balanceMinor,state.wallet.currency)}</strong></div><div id="productDetailActionSlot">${productDetailActions(p,verified)}</div><p class="tc-detail-assurance">Payment and access to files, links and text are verified securely before delivery.</p></div>`;
 }
 async function openProduct(id){
-  const request=++productOpenRequest;
+  const request=++productOpenRequest;state.activeProductContentItems=[];
   const listing=state.products.find(p=>Number(p.id)===id);
   // This happens synchronously, before any network round trip.
   if(listing){
@@ -338,6 +340,7 @@ async function openProduct(id){
     const d=await api(`/api/products/${id}`),p=d.product;
     // Never bring an old product or a closed detail sheet back to the screen.
     if(request!==productOpenRequest||$('#detailModal').classList.contains('hidden')||Number($('#detailContent').dataset.productId)!==id)return;
+    state.activeProductContentItems=Array.isArray(p.contentItems)?p.contentItems:[];
     state.wallet=d.wallet||state.wallet;
     if(d.cartCount!==undefined)state.cartCount=Number(d.cartCount||0);
     updateBadges();
@@ -685,6 +688,9 @@ function bindGlobalEvents(){
     const filter=e.target.closest('[data-store-filter]');if(filter){state.appCategory=filter.dataset.storeFilter;switchTab('apps');renderApps();return;}
     const accountTab=e.target.closest('[data-account-tab]');if(accountTab)return switchTab(accountTab.dataset.accountTab);
     const retryPurchases=e.target.closest('[data-retry-purchases]');if(retryPurchases){state.purchasesLoaded=false;renderPurchases();return loadPurchases(true)}
+    const readOwned=e.target.closest('[data-read-owned-text]');if(readOwned){const [entitlement,index]=readOwned.dataset.readOwnedText.split(':').map(Number);const entry=state.purchases.find(p=>Number(p.entitlementId)===entitlement)?.files?.[index];if(entry?.fileType==='text')showInfo(entry.fileName,entry.content,'PURCHASED TEXT');return;}
+    const copyOwned=e.target.closest('[data-copy-owned-text]');if(copyOwned){const [entitlement,index]=copyOwned.dataset.copyOwnedText.split(':').map(Number);const entry=state.purchases.find(p=>Number(p.entitlementId)===entitlement)?.files?.[index];if(entry?.fileType==='text'){if(navigator.clipboard?.writeText)navigator.clipboard.writeText(entry.content).then(()=>toast('Text copied.')).catch(()=>toast('Could not copy text.','error'));else toast('Copy is unavailable on this browser.','error')}return;}
+    const readDetail=e.target.closest('[data-read-detail-text]');if(readDetail){const entry=state.activeProductContentItems?.[Number(readDetail.dataset.readDetailText)];if(entry?.kind==='text')showInfo(entry.label,entry.content,'PURCHASED TEXT');return;}
     const copyTransaction=e.target.closest('[data-copy-transaction]');if(copyTransaction){const id=copyTransaction.dataset.copyTransaction;if(navigator.clipboard?.writeText)navigator.clipboard.writeText(id).then(()=>toast('Transaction ID copied.')).catch(()=>toast('Could not copy automatically.'));else toast('Copy is unavailable on this browser.','error');return;}
     const tab=e.target.closest('[data-tab]');if(tab)return switchTab(tab.dataset.tab);
     if(e.target.closest('[data-go-home]'))return switchTab('home');

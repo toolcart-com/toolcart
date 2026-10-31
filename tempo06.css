@@ -926,3 +926,12 @@ html[data-theme="midnight"] .tempo06-wallet-topup{background:#242320;border-colo
 html[data-theme="midnight"] .tempo06-wallet-topup h3,html[data-theme="midnight"] .tempo06-wallet-funding-form label{color:#f4f0e8}
 html[data-theme="midnight"] .tempo06-wallet-funding-form input{background:#1b1a18;border-color:#4c453a;color:#f5f1e9}
 @media(max-width:370px){.tempo06-wallet-topup{margin-left:10px;margin-right:10px;padding:16px}}
+
+/* V1.55: secure link and text purchases */
+.tc-file-view,.tc-file-save{cursor:pointer;font-family:inherit}
+.tc-content-item .tc-file-name{min-width:0}
+.tc-content-item a.tc-file-view,.tc-content-item button.tc-file-view{display:inline-flex;align-items:center;justify-content:center;background:transparent}
+.product-text-item{display:flex;align-items:center}
+.product-text-item .tc-file-view{margin-left:auto;flex:none}
+#detailContent .detail-hero p{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:360px){.tc-content-item .tc-file-view,.tc-content-item .tc-file-save{padding:8px 6px;font-size:10px}}
