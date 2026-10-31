@@ -196,3 +196,71 @@ body {
 /* V1.47 — four section choices, in normal document flow (iPhone Safari). */
 .admin-manager-switch,.admin-create-switch{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;position:static!important;top:auto!important;z-index:auto!important;min-width:0!important}
 .admin-manager-switch button,.admin-create-switch button{min-width:0!important;white-space:normal!important;line-height:1.2!important;padding:10px 6px!important}
+
+/* V1.51: Midnight is a real admin appearance, while Pearl remains unchanged.
+   Restrict styling to the admin shell; all original spacing/layout stays intact. */
+html[data-theme="midnight"] {
+  --bg:#121210; --bg2:#191917; --surface:#242320; --surface2:#2b2925;
+  --surface3:#38342d; --line:#4b4437; --text:#f4f0e7;
+  --muted:#b9b0a1; --faint:#998f7e; --shadow:0 12px 35px rgba(0,0,0,.25);
+  color-scheme:dark;background:#121210;
+}
+html[data-theme="midnight"] body,
+html[data-theme="midnight"] .admin-main,
+html[data-theme="midnight"] .admin-content {background:#121210!important;color:#f4f0e7!important;}
+html[data-theme="midnight"] .admin-topbar,
+html[data-theme="midnight"] .admin-sidebar {background:#090909!important;}
+html[data-theme="midnight"] .admin-panel,
+html[data-theme="midnight"] .metric-card,
+html[data-theme="midnight"] .admin-app-card,
+html[data-theme="midnight"] .admin-request-row,
+html[data-theme="midnight"] .modal,
+html[data-theme="midnight"] .detail-sheet {background:#242320!important;color:#f4f0e7!important;border-color:#484136!important;box-shadow:0 3px 14px rgba(0,0,0,.12)!important;}
+html[data-theme="midnight"] .admin-panel-head h2,
+html[data-theme="midnight"] .metric-card strong,
+html[data-theme="midnight"] .admin-app-card h3,
+html[data-theme="midnight"] .admin-table td strong,
+html[data-theme="midnight"] .wallet-person-name,
+html[data-theme="midnight"] .wallet-balance-overview strong,
+html[data-theme="midnight"] .modal h2,
+html[data-theme="midnight"] .field label {color:#f4f0e7!important;}
+html[data-theme="midnight"] .admin-table th,
+html[data-theme="midnight"] .diag-card,
+html[data-theme="midnight"] .detail-hero,
+html[data-theme="midnight"] .timeline-item,
+html[data-theme="midnight"] .product-asset-row,
+html[data-theme="midnight"] .product-assets-empty,
+html[data-theme="midnight"] .admin-more-sheet button,
+html[data-theme="midnight"] .admin-manager-switch,
+html[data-theme="midnight"] .admin-create-switch {background:#2b2925!important;color:#ddd5c7!important;border-color:#4b4437!important;}
+html[data-theme="midnight"] .field input,
+html[data-theme="midnight"] .field textarea,
+html[data-theme="midnight"] .field select,
+html[data-theme="midnight"] .search-field,
+html[data-theme="midnight"] .wallet-lookup input,
+html[data-theme="midnight"] .wallet-customer-result,
+html[data-theme="midnight"] .wallet-selected-card,
+html[data-theme="midnight"] .wallet-balance-overview,
+html[data-theme="midnight"] .product-admin-cover,
+html[data-theme="midnight"] .admin-icon-preview {background:#302d27!important;color:#f4f0e7!important;border-color:#554b3c!important;}
+html[data-theme="midnight"] input::placeholder,
+html[data-theme="midnight"] textarea::placeholder {color:#b0a697!important;}
+html[data-theme="midnight"] .btn-primary,
+html[data-theme="midnight"] .admin-manager-switch button.active,
+html[data-theme="midnight"] .admin-create-switch button.active {background:#b39359!important;color:#15120e!important;}
+html[data-theme="midnight"] .btn-secondary,
+html[data-theme="midnight"] .btn-ghost,
+html[data-theme="midnight"] .icon-btn,
+html[data-theme="midnight"] .modal-close {background:#302d27!important;color:#f4f0e7!important;border-color:#554b3c!important;}
+html[data-theme="midnight"] .admin-manager-switch button:not(.active),
+html[data-theme="midnight"] .admin-create-switch button:not(.active) {color:#c1b5a2!important;}
+html[data-theme="midnight"] .admin-mobile-dock {background:rgba(25,24,22,.97)!important;border-top-color:#4b4437!important;}
+html[data-theme="midnight"] .admin-mobile-dock button {color:#aea38f!important;}
+html[data-theme="midnight"] .admin-mobile-dock button.active,
+html[data-theme="midnight"] .admin-mobile-dock button.active span {color:#d3b675!important;}
+html[data-theme="midnight"] .admin-table td {color:#d0c5b5!important;border-color:#494237!important;}
+html[data-theme="midnight"] .admin-table tr[data-open]:hover td {background:#302c25!important;}
+html[data-theme="midnight"] .status-badge {background:#373126!important;color:#d5b97c!important;border-color:#514636!important;}
+html[data-theme="midnight"] .wallet-warning {background:#352d23!important;color:#ddc7a0!important;border-color:#534331!important;}
+html[data-theme="midnight"] .wallet-customer-result strong,
+html[data-theme="midnight"] .wallet-balance-overview span {color:#ede2d0!important;}
