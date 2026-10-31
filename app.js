@@ -273,6 +273,29 @@ function showPurchasedOrder(data,{fromCart=false}={}){
 }
 
 function renderWalletView(){const el=$('#walletViewBalance');if(el)el.textContent=fmtMoney(state.wallet?.balanceMinor||0,state.wallet?.currency||'NGN')}
+let walletPaystackPending=false;
+async function startWalletPaystackFunding(form){
+  if(walletPaystackPending)return;
+  const button=form.querySelector('[type=submit]');
+  const input=form.querySelector('[name=amount]');
+  const raw=String(input?.value||'').trim();
+  const amount=Number(raw);
+  if(!raw||!/^(?:\d+)(?:\.\d{1,2})?$/.test(raw)||!Number.isFinite(amount)||amount<100||amount>1000000){
+    toast('Enter an amount from ₦100 to ₦1,000,000.','error');return;
+  }
+  walletPaystackPending=true;
+  if(button){button.disabled=true;button.textContent='Connecting securely…';}
+  try{
+    const d=await api('/api/payments/paystack/wallet/initialize',{
+      method:'POST',body:{amountMinor:Math.round(amount*100)}
+    });
+    if(!d.authorizationUrl||!d.authorizationUrl.startsWith('https://checkout.paystack.com/'))
+      throw new Error('Paystack did not return a valid checkout page.');
+    location.assign(d.authorizationUrl);
+  }catch(e){toast(e.message,'error');walletPaystackPending=false;
+    if(button?.isConnected){button.disabled=false;button.textContent='Pay securely with Paystack';}}
+}
+
 function updateStoreMenuAccount(){const u=state.user;if(!u)return;const name=$('#menuAccountName'),email=$('#menuAccountEmail'),av=$('#menuAccountAvatar');if(name)name.textContent=u.fullName||'My account';if(email)email.textContent=u.email||'';if(av){av.textContent=initials(u.fullName);av.style.backgroundImage=u.profileImageUrl?`url("${u.profileImageUrl}")`:'';if(u.profileImageUrl)av.textContent=''}}
 function openStoreMenu(){if(!state.user)return;updateStoreMenuAccount();$('#toolcartMenuBackdrop').classList.remove('hidden');$('#toolcartMenu').classList.remove('hidden');$('#menuBtn').setAttribute('aria-expanded','true');document.body.classList.add('tempo06-menu-open');$('#menuCloseBtn').focus()}
 function closeStoreMenu(){const el=$('#toolcartMenu');if(!el||el.classList.contains('hidden'))return;el.classList.add('hidden');$('#toolcartMenuBackdrop').classList.add('hidden');$('#menuBtn').setAttribute('aria-expanded','false');document.body.classList.remove('tempo06-menu-open')}
@@ -593,15 +616,60 @@ function authForm(mode='login',token=''){
 }
 function openAuth(mode,token=''){$('#authContent').innerHTML=authForm(mode,token);openModal('#authModal');bindAuthForms()}
 function bindAuthForms(){
-  $('#loginForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget),b=$('button',e.currentTarget);b.disabled=true;try{const d=await api('/api/auth/login',{method:'POST',body:{email:f.get('email'),password:f.get('password')}});state.user=d.user;state.csrf=d.csrfToken;closeModals();await enterApp()}catch(err){toast(err.message,'error');b.disabled=false}});
+  $('#loginForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget),b=$('button',e.currentTarget);b.disabled=true;try{const d=await api('/api/auth/login',{method:'POST',body:{email:f.get('email'),password:f.get('password')}});state.user=d.user;state.csrf=d.csrfToken;closeModals();await enterApp();void handleDeepLinks()}catch(err){toast(err.message,'error');b.disabled=false}});
   $('#registerForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget),b=$('button',e.currentTarget);b.disabled=true;try{const d=await api('/api/auth/register',{method:'POST',body:{fullName:f.get('fullName'),email:f.get('email'),password:f.get('password')}});if(d.user&&d.csrfToken){state.user=d.user;state.csrf=d.csrfToken;closeModals();toast('Account created. Welcome to ToolCart.');await enterApp();return}$('#authContent').innerHTML=`<h2>Check your email.</h2><p class="modal-sub">${esc(d.message)}</p><button class="btn btn-primary" data-auth-switch="login">Back to sign in</button>`}catch(err){toast(err.message,'error');b.disabled=false}});
   $('#forgotForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{const d=await api('/api/auth/forgot-password',{method:'POST',body:{email:f.get('email')}});$('#authContent').innerHTML=`<h2>Check your inbox.</h2><p class="modal-sub">${esc(d.message)}</p><button class="btn btn-primary" data-auth-switch="login">Back to sign in</button>`}catch(err){toast(err.message,'error')}});
   $('#resetForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{const d=await api('/api/auth/reset-password',{method:'POST',body:{token:e.currentTarget.dataset.token,password:f.get('password')}});toast(d.message);history.replaceState({},'',location.pathname);openAuth('login')}catch(err){toast(err.message,'error')}})
 }
-async function handleDeepLinks(){const p=new URLSearchParams(location.search);if(p.get('verify')){try{const d=await api('/api/auth/verify-email',{method:'POST',body:{token:p.get('verify')}});history.replaceState({},'',location.pathname);toast(d.message);openAuth('login')}catch(e){toast(e.message,'error')}}if(p.get('reset'))openAuth('reset',p.get('reset'));if(p.get('payment')==='complete'&&state.user){const ref=p.get('reference')||p.get('trxref');if(ref){try{const d=await api(`/api/payments/paystack/verify?reference=${encodeURIComponent(ref)}`);toast(d.status==='success'?'Payment confirmed.':'Payment is still being verified.');history.replaceState({},'',location.pathname);if(d.status==='success'&&p.get('order')){switchTab('purchases');void loadPurchases(true)}else if(d.status==='success'){void refreshMarketplaceState();}}catch(e){toast(e.message,'error')}}}}
+async function handleDeepLinks(){
+  const p=new URLSearchParams(location.search);
+  if(p.get('verify')){
+    try{const d=await api('/api/auth/verify-email',{method:'POST',body:{token:p.get('verify')}});
+      history.replaceState({},'',location.pathname);toast(d.message);openAuth('login');}
+    catch(e){toast(e.message,'error');}
+  }
+  if(p.get('reset'))openAuth('reset',p.get('reset'));
+  if(p.get('payment')==='complete'){
+    if(!state.user){toast('Sign in to confirm your Paystack payment.');return;}
+    const ref=p.get('reference')||p.get('trxref');
+    if(!ref)return;
+    try{
+      const d=await api(`/api/payments/paystack/verify?reference=${encodeURIComponent(ref)}`);
+      if(d.status==='success'){
+        history.replaceState({},'',location.pathname);
+        $('#walletPaymentStatus')?.classList.add('hidden');
+        $('#walletRecheckPayment')?.classList.add('hidden');
+        if(d.purpose==='ToolCart wallet top-up'){
+          if(d.wallet){state.wallet=d.wallet;updateHeaderWalletBalance();renderWalletView();}
+          switchTab('wallet');toast('Payment confirmed. Your wallet is funded.');
+          void refreshMarketplaceState();
+        }else if(p.get('order')){
+          toast('Payment confirmed.');switchTab('purchases');void loadPurchases(true);
+        }else {toast('Payment confirmed.');void refreshMarketplaceState();}
+      }else {
+        switchTab('wallet');toast('Payment not confirmed yet. Check again shortly.');
+        const status=$('#walletPaymentStatus');
+        if(status){status.classList.remove('hidden');status.textContent='Your payment is not confirmed yet. Tap Check payment status below.';}
+        $('#walletRecheckPayment')?.classList.remove('hidden');
+      }
+    }catch(e){switchTab('wallet');toast(e.message,'error');}
+  }
+}
 
 function bindGlobalEvents(){
+  document.addEventListener('submit',e=>{
+    if(e.target.id==='paystackWalletFundingForm'){
+      e.preventDefault();void startWalletPaystackFunding(e.target);
+    }
+  });
   document.addEventListener('click',async e=>{
+    if(e.target.closest('#walletRecheckPayment')){
+      const params=new URLSearchParams(location.search);
+      const reference=params.get('reference')||params.get('trxref');
+      if(reference){void handleDeepLinks();}
+      else toast('No pending payment reference. Open Payment history to check earlier transactions.');
+      return;
+    }
     if(e.target.closest('#menuBtn')){openStoreMenu();return;}
     if(e.target.closest('#menuCloseBtn')||e.target.id==='toolcartMenuBackdrop'){closeStoreMenu();return;}
     const menuTab=e.target.closest('[data-menu-tab]');if(menuTab){const tab=menuTab.dataset.menuTab;closeStoreMenu();switchTab(tab);return;}

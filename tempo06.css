@@ -910,3 +910,19 @@ html[data-theme="midnight"] .marketplace-detail .product-balance span{color:#c4b
 html[data-theme="midnight"] .marketplace-detail .product-buy-box{background:#24211c}
 html[data-theme="midnight"] .marketplace-detail .tc-product-verify,
 html[data-theme="midnight"] .marketplace-detail .tc-detail-assurance{color:#b7ab98}
+
+/* V1.52 Paystack wallet funding: scoped to Wallet & payments, Pearl + Midnight. */
+.tempo06-wallet-topup{margin:18px 16px 20px;border:1px solid #e7dfd3;border-radius:22px;background:#fff;padding:20px;box-shadow:0 6px 23px rgba(35,27,18,.04)}
+.tempo06-wallet-topup h3{font-size:21px;letter-spacing:-.04em;margin:7px 0;color:#1e1d1b}
+.tempo06-wallet-topup p{color:#898478;font-size:12px;line-height:1.5;margin:0 0 15px}
+.tempo06-wallet-funding-form{display:grid;gap:10px}.tempo06-wallet-funding-form label{font-size:13px;font-weight:700;color:#393631}
+.tempo06-wallet-funding-form input{width:100%;min-width:0;height:52px;padding:0 14px;border-radius:14px;border:1px solid #dcd5ca;background:#fff;color:#21201e;font-size:18px;box-sizing:border-box}
+.tempo06-wallet-funding-form button{min-height:51px;border-radius:14px;cursor:pointer}
+.tempo06-wallet-funding-form button:disabled{opacity:.6;cursor:progress}
+.tempo06-wallet-topup .tempo06-wallet-funding-note{margin:12px 0 0;font-size:11px}
+.tempo06-wallet-funding-status{font-size:12px;color:#9b6c25;margin:10px 0}
+.tempo06-wallet-recheck{background:transparent;border:0;text-decoration:underline;color:#9b7c39;font-size:12px;padding:10px 0;cursor:pointer}
+html[data-theme="midnight"] .tempo06-wallet-topup{background:#242320;border-color:#48433a}
+html[data-theme="midnight"] .tempo06-wallet-topup h3,html[data-theme="midnight"] .tempo06-wallet-funding-form label{color:#f4f0e8}
+html[data-theme="midnight"] .tempo06-wallet-funding-form input{background:#1b1a18;border-color:#4c453a;color:#f5f1e9}
+@media(max-width:370px){.tempo06-wallet-topup{margin-left:10px;margin-right:10px;padding:16px}}

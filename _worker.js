@@ -114,6 +114,7 @@ async function handleUserApi(request, env, ctx, url, auth) {
 
   if (path === '/api/subscriptions/plans' && method === 'GET') return listPlans(env);
   if (path === '/api/payments' && method === 'GET') return listPayments(env, user.id);
+  if (path === '/api/payments/paystack/wallet/initialize' && method === 'POST') return initializePaystackWalletFunding(request, env, user);
   if (path === '/api/payments/paystack/initialize' && method === 'POST') return initializePaystack(request, env, user);
   if (path === '/api/payments/paystack/verify' && method === 'GET') return verifyPaystackForUser(env, user.id, url.searchParams.get('reference'));
   if (path === '/api/search' && method === 'GET') return searchEcosystem(env, user.id, url.searchParams.get('q') || '');
@@ -777,6 +778,72 @@ async function serveProductAsset(request,env,userId,productId,assetId){if(!(awai
 
 // ---------- Payments ----------
 
+// V1.52: real NGN wallet funding. All amounts use kobo and are chosen by
+// authenticated customers; secret keys remain on the Worker only.
+async function initializePaystackWalletFunding(request, env, user) {
+  if (!env.PAYSTACK_SECRET_KEY) return apiError('Paystack is not configured yet. Please try again later.', 503);
+  if (user.status && user.status !== 'active') return apiError('This account cannot make payments.', 403);
+  const b = await readJson(request);
+  const amountMinor = Number(b?.amountMinor);
+  if (!Number.isSafeInteger(amountMinor) || amountMinor < 10000 || amountMinor > 100000000)
+    return apiError('Enter an amount between ₦100 and ₦1,000,000.', 400);
+  const wallet = await getWallet(env, user.id);
+  if (wallet.currency !== 'NGN') return apiError('Only NGN wallets can be funded through Paystack.', 409);
+  if (!Number.isSafeInteger(wallet.balanceMinor) || wallet.balanceMinor + amountMinor > Number.MAX_SAFE_INTEGER)
+    return apiError('This funding amount exceeds the supported wallet balance.', 400);
+  const reference = `TC-WAL-${Date.now()}-${randomToken(12).replace(/[^a-zA-Z0-9]/g, '').slice(0, 12)}`;
+  const origin = appOrigin(env, request);
+  await env.DB.prepare(`INSERT INTO payments(user_id,provider,provider_reference,amount_minor,currency,purpose,status)
+    VALUES(?,'paystack',?,?,'NGN','ToolCart wallet top-up','pending')`)
+    .bind(user.id, reference, amountMinor).run();
+  let response, payload;
+  try {
+    response = await fetch('https://api.paystack.co/transaction/initialize', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ email: user.email, amount: amountMinor, currency: 'NGN', reference,
+        callback_url: `${origin}/?payment=complete`, metadata: { toolcart_user_id: user.id, purpose: 'wallet_funding' } }),
+    });
+    payload = await response.json();
+  } catch (e) { console.error('Paystack wallet initialization unavailable', e); }
+  if (!response?.ok || !payload?.status || !safeHttpUrl(payload?.data?.authorization_url)
+      || String(payload?.data?.reference) !== reference) {
+    await env.DB.prepare(`UPDATE payments SET status='failed',updated_at=CURRENT_TIMESTAMP WHERE provider_reference=? AND status='pending'`).bind(reference).run();
+    return apiError('Paystack could not start this payment. You have not been charged by ToolCart.', 502);
+  }
+  return apiOk({ authorizationUrl: payload.data.authorization_url, reference, amountMinor, currency: 'NGN' });
+}
+
+// One atomic D1 batch makes the funding ledger and wallet balance inseparable.
+// The payment's pending -> success transition is the repeat-delivery guard.
+async function settlePaystackWalletFunding(env, payment, providerData) {
+  await ensureWallet(env, payment.user_id, 'NGN');
+  const wallet = await getWallet(env, payment.user_id);
+  const amount = Number(payment.amount_minor);
+  if (wallet.currency !== 'NGN' || !Number.isSafeInteger(amount) || amount < 1 ||
+      !Number.isSafeInteger(wallet.balanceMinor) || wallet.balanceMinor + amount > Number.MAX_SAFE_INTEGER)
+    throw new Error('Wallet payment received but its balance could not be updated safely.');
+  // Each SQL statement checks pending state. D1 batches run transactionally; a
+  // second concurrent webhook or callback sees status=success and makes no changes.
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE wallet_accounts SET balance_minor=balance_minor+?,updated_at=CURRENT_TIMESTAMP
+      WHERE user_id=? AND currency='NGN' AND EXISTS
+        (SELECT 1 FROM payments WHERE id=? AND user_id=? AND status='pending'
+          AND purpose='ToolCart wallet top-up' AND amount_minor=? AND currency='NGN')`)
+      .bind(amount, payment.user_id, payment.id, payment.user_id, amount),
+    env.DB.prepare(`INSERT INTO wallet_transactions(user_id,amount_minor,currency,transaction_type,reference,note)
+      SELECT user_id, amount_minor, currency, 'funding', provider_reference, 'Paystack wallet top-up'
+      FROM payments WHERE id=? AND user_id=? AND status='pending' AND purpose='ToolCart wallet top-up'`)
+      .bind(payment.id, payment.user_id),
+    env.DB.prepare(`UPDATE payments SET status='success', payment_method=?, provider_payload_json=?,
+      paid_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'
+      AND purpose='ToolCart wallet top-up'`)
+      .bind(cleanText(providerData?.channel || '', 40) || null,
+        JSON.stringify(redactProviderPayload(providerData)), payment.id),
+  ]);
+  return true;
+}
+
 async function initializePaystack(request, env, user) {
   if (!env.PAYSTACK_SECRET_KEY) return apiError('Paystack is not configured yet.', 503);
   const b = await readJson(request);
@@ -807,13 +874,17 @@ async function verifyPaystackForUser(env, userId, reference) {
   if (!reference) return apiError('Payment reference is required.', 400);
   const payment = await env.DB.prepare('SELECT * FROM payments WHERE provider_reference=? AND user_id=?').bind(reference, userId).first();
   if (!payment) return apiError('Payment not found.', 404);
-  if (payment.status === 'success') return apiOk({ status: 'success' });
+  if (payment.status === 'success') return apiOk({ status: 'success', purpose: payment.purpose,
+    wallet: payment.purpose === 'ToolCart wallet top-up' ? await getWallet(env, userId) : undefined });
   if (!env.PAYSTACK_SECRET_KEY) return apiError('Paystack is not configured.', 503);
   const res = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, { headers: { authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}` } });
   const data = await res.json().catch(() => null);
-  if (res.ok && data?.status && data.data?.status === 'success') await finalizeSuccessfulPayment(env, reference, data.data);
-  const updated = await env.DB.prepare('SELECT status FROM payments WHERE provider_reference=? AND user_id=?').bind(reference, userId).first();
-  return apiOk({ status: updated?.status || 'pending' });
+  if (!res.ok || !data?.status) return apiError('Paystack verification is temporarily unavailable. Your payment has not been credited yet.', 502);
+  if (data.data?.status === 'success') await finalizeSuccessfulPayment(env, reference, data.data);
+  const updated = await env.DB.prepare('SELECT status,purpose FROM payments WHERE provider_reference=? AND user_id=?').bind(reference, userId).first();
+  return apiOk({ status: updated?.status || 'pending', purpose: updated?.purpose || payment.purpose,
+    wallet: updated?.status === 'success' && payment.purpose === 'ToolCart wallet top-up'
+      ? await getWallet(env,userId) : undefined });
 }
 
 async function paystackWebhook(request, env) {
@@ -828,9 +899,25 @@ async function paystackWebhook(request, env) {
 
 async function finalizeSuccessfulPayment(env, reference, providerData) {
   const payment = await env.DB.prepare('SELECT * FROM payments WHERE provider_reference=?').bind(reference).first();
-  if (!payment || payment.status === 'success') return;
+  if (!payment || payment.status === 'success' || payment.status !== 'pending') return;
+  // Protect against reference substitution, incomplete transactions, amount mismatch
+  // and using a test-domain verification for a live merchant (or vice versa).
+  const expectedDomain = env.PAYSTACK_SECRET_KEY?.startsWith('sk_live_') ? 'live'
+    : env.PAYSTACK_SECRET_KEY?.startsWith('sk_test_') ? 'test' : null;
+  if (providerData?.status !== 'success' || String(providerData?.reference || '') !== reference ||
+      (expectedDomain && providerData?.domain !== expectedDomain)) {
+    console.error('Paystack transaction identity/status mismatch', reference); return;
+  }
   if (Number(providerData.amount) !== Number(payment.amount_minor) || String(providerData.currency).toUpperCase() !== String(payment.currency).toUpperCase()) {
     console.error('Payment verification mismatch', reference);
+    return;
+  }
+  if (payment.purpose === 'ToolCart wallet top-up') {
+    await settlePaystackWalletFunding(env, payment, providerData);
+    try { await createSystemNotification(env, payment.user_id, 'Wallet funded',
+      'Your Paystack payment was verified and added to your ToolCart wallet.',
+      'payment_received', 'important'); }
+    catch (e) { console.error('Wallet notification unavailable', e); }
     return;
   }
   const plan = payment.plan_id ? await env.DB.prepare('SELECT * FROM subscription_plans WHERE id=?').bind(payment.plan_id).first() : null;

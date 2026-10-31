@@ -75,7 +75,12 @@
         <div class="tc-purchases-title"><div><small>YOUR COLLECTION</small><h2>Purchased items.</h2><p>Open or save your purchased PDFs and images anytime.</p></div></div>
         <div id="purchasedProducts" class="tc-purchased-list" aria-live="polite"></div>
       </section>
-      <section id="walletView" class="view tempo06-wallet-view"><div class="tempo06-section-head"><div><small>YOUR ACCOUNT</small><h2>Wallet & payments.</h2></div></div><div class="tempo06-wallet-balance"><span>Available balance</span><strong id="walletViewBalance">₦0.00</strong></div><div class="tempo06-menu-quick"><button data-setting="payments">Payment history <span>›</span></button><button data-tab="purchases">My purchases <span>›</span></button><button data-tab="requests">Payment support <span>›</span></button></div></section>
+      <section id="walletView" class="view tempo06-wallet-view"><div class="tempo06-section-head"><div><small>YOUR ACCOUNT</small><h2>Wallet & payments.</h2></div></div><div class="tempo06-wallet-balance"><span>Available balance</span><strong id="walletViewBalance">₦0.00</strong></div>
+          <div class="tempo06-wallet-topup"><span class="eyebrow">SECURE WALLET FUNDING</span><h3>Fund with Paystack</h3><p>Pay securely in NGN. Your balance updates only when Paystack confirms payment.</p>
+          <form id="paystackWalletFundingForm" class="tempo06-wallet-funding-form"><label for="paystackWalletAmount">Amount (₦)</label><input id="paystackWalletAmount" name="amount" type="number" inputmode="decimal" min="100" max="1000000" step="0.01" placeholder="Enter amount" required autocomplete="off"><button type="submit" class="btn btn-primary">Pay securely with Paystack</button></form>
+          <p class="tempo06-wallet-funding-note">Paystack may charge processing fees. Funding is verified by ToolCart before your wallet is credited.</p>
+          <div id="walletPaymentStatus" class="tempo06-wallet-funding-status hidden" role="status"></div><button id="walletRecheckPayment" type="button" class="tempo06-wallet-recheck hidden">Check payment status</button></div>
+          <div class="tempo06-menu-quick"><button data-setting="payments">Payment history <span>›</span></button><button data-tab="purchases">My purchases <span>›</span></button><button data-tab="requests">Payment support <span>›</span></button></div></section>
 
       <section id="wishlistView" class="view tempo06-wishlist-view"><div class="tempo06-section-head"><div><small>CURATED BY YOU</small><h2>Your wishlist.</h2></div></div><p class="tempo06-wishlist-note">Your saved products on this device.</p><div id="wishlistProducts" class="tempo-product-grid"></div></section>
 
@@ -138,6 +143,6 @@
   <section id="notificationSheet" class="modal notification-sheet hidden" role="dialog" aria-modal="true"><div class="sheet-grab"></div><div class="view-header"><div><span class="eyebrow">INBOX</span><h1>Notifications</h1></div><button class="icon-btn" data-close-modal>×</button></div><div id="notificationFilters" class="chip-row"><button class="chip active" data-notif-filter="unread">Unread</button><button class="chip" data-notif-filter="all">All</button><button class="chip" data-notif-filter="important">Important</button></div><div id="notificationList" class="notification-list"></div></section>
   <section id="searchSheet" class="modal search-sheet hidden" role="dialog" aria-modal="true"><div class="search-field large"><span>⌕</span><input id="globalSearch" placeholder="Search ToolCart" autocomplete="off" /><button data-close-modal>×</button></div><div id="searchResults" class="search-results"><div class="empty-state compact"><span>⌕</span><h3>Search the collection</h3><p>Find tools, products, updates, requests and settings.</p></div></div></section>
 
-  <script type="module" src="/app.js?v=1.50"></script>
+  <script type="module" src="/app.js?v=1.52"></script>
 </body>
 </html>
