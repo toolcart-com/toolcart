@@ -140,6 +140,12 @@ async function handleAdminApi(request, env, ctx, url, admin) {
   if (path.match(/^\/api\/admin\/apps\/\d+$/) && method === 'DELETE') return adminDeleteApp(env, admin, Number(path.split('/')[4]));
   if (path === '/api/admin/uploads/icon' && method === 'POST') return adminUploadIcon(request, env, admin);
 
+  // V1.57 managed-service definitions are administrator-only, and never enter product checkout.
+  if (path === '/api/admin/premium-services' && method === 'GET') return adminPremiumServices(env, admin);
+  if (path === '/api/admin/premium-services' && method === 'POST') return adminCreatePremiumService(request, env, admin);
+  if (path.match(/^\/api\/admin\/premium-services\/\d+$/) && method === 'PATCH') return adminUpdatePremiumService(request, env, admin, Number(path.split('/')[4]));
+  if (path.match(/^\/api\/admin\/premium-services\/\d+$/) && method === 'DELETE') return adminArchivePremiumService(request, env, admin, Number(path.split('/')[4]));
+
   if (path === '/api/admin/products' && method === 'GET') return adminProducts(env);
   if (path === '/api/admin/products' && method === 'POST') return adminCreateProduct(request, env, admin);
   if (path.match(/^\/api\/admin\/products\/\d+$/) && method === 'PATCH') return adminUpdateProduct(request, env, admin, Number(path.split('/')[4]));
@@ -1213,6 +1219,88 @@ async function adminUploadIcon(request, env, admin) {
 }
 
 // ---------- Admin products ----------
+
+// ---------- V1.57: Premium Services foundation (admin-only drafts) ----------
+// Orders, provider routing and customer submissions are intentionally not enabled.
+function requirePremiumServiceOwner(admin){return admin.user.role==='owner'?null:apiError('Only the owner can manage service pricing and provider assignments.',403)}
+function premiumServiceDefinition(row){return {...row,requirements:safeJson(row.requirements_json,[]),orderingEnabled:false,providerAssignmentVerified:false};}
+async function adminPremiumServices(env,admin){
+  const denied=requirePremiumServiceOwner(admin);if(denied)return denied;
+  const result=await env.DB.prepare(`SELECT * FROM premium_service_definitions WHERE archived_at IS NULL ORDER BY display_order,id DESC`).all();
+  return apiOk({services:result.results.map(premiumServiceDefinition),ordersEnabled:false});
+}
+function parsePremiumServiceDefinition(body){
+  if(!body||typeof body!=='object'||Array.isArray(body))return{error:'Invalid service configuration.'};
+  const name=cleanText(body.name,120);
+  const shortDescription=cleanText(body.shortDescription,280);
+  const description=cleanText(body.description,12000);
+  const coverKey=cleanText(body.coverKey,500)||null;
+  if(name.length<3)return{error:'Service name must have at least 3 characters.'};
+  if(!shortDescription)return{error:'A short description is required.'};
+  if(!description)return{error:'A main service description is required.'};
+  if(coverKey&&!/^product-covers\/[a-zA-Z0-9/_.-]+$/.test(coverKey))return{error:'Invalid service cover key.'};
+  const customerPriceMinor=Number(body.customerPriceMinor);
+  const providerPriceMinor=Number(body.providerPriceMinor);
+  if(!Number.isSafeInteger(customerPriceMinor)||customerPriceMinor<100||customerPriceMinor>1000000000)return{error:'Customer price must be between ₦1 and ₦10,000,000.'};
+  if(!Number.isSafeInteger(providerPriceMinor)||providerPriceMinor<0||providerPriceMinor>customerPriceMinor)return{error:'Provider payout must be non-negative and no higher than the customer price.'};
+  const providerCode=cleanText(body.providerCode,32).toUpperCase()||null;
+  if(providerCode&&!/^[A-Z0-9][A-Z0-9-]{3,31}$/.test(providerCode))return{error:'Provider code must be 4–32 letters, numbers, or hyphens.'};
+  const displayOrder=Number(body.displayOrder??0);
+  if(!Number.isSafeInteger(displayOrder)||Math.abs(displayOrder)>1000000)return{error:'Invalid display order.'};
+  const status=body.status==='configured'?'configured':'draft';
+  if(!Array.isArray(body.requirements)||body.requirements.length>25)return{error:'Choose up to 25 requirement fields.'};
+  const types=new Set(['short_text','long_text','phone','email','number','select','date','image','file']);
+  const requirements=[],keys=new Set();
+  for(let i=0;i<body.requirements.length;i++){
+    const f=body.requirements[i];
+    if(!f||typeof f!=='object'||Array.isArray(f))return{error:`Requirement ${i+1} is invalid.`};
+    const label=cleanText(f.label,100),help=cleanText(f.help,280),type=cleanText(f.type,32);
+    if(label.length<2||!types.has(type))return{error:`Requirement ${i+1} needs a valid label and field type.`};
+    const key=cleanText(f.key,40)||`field_${i+1}`;
+    if(!/^[a-z][a-z0-9_]{1,39}$/.test(key)||keys.has(key))return{error:`Requirement ${i+1} has an invalid or repeated key.`};
+    keys.add(key);
+    let options=[];
+    if(type==='select'){
+      if(!Array.isArray(f.options)||f.options.length<2||f.options.length>30)return{error:`Dropdown ${i+1} needs 2–30 choices.`};
+      options=f.options.map(o=>cleanText(o,100));
+      if(options.some(o=>!o)||new Set(options.map(o=>o.toLowerCase())).size!==options.length)return{error:`Dropdown ${i+1} has empty or repeated choices.`};
+    }
+    requirements.push({key,label,type,required:f.required===true,help,options});
+  }
+  if(status==='configured'&&requirements.length===0)return{error:'Add at least one requirement before marking configured.'};
+  // A provider code is an unverified assignment note until V1.58 provider accounts exist.
+  const slug=slugify(name);
+  if(!slug)return{error:'Choose a service name containing letters or numbers.'};
+  return{slug,name,shortDescription,description,coverKey,customerPriceMinor,providerPriceMinor,providerCode,displayOrder,status,requirementsJson:JSON.stringify(requirements)};
+}
+function premiumServiceSqlError(err){return /UNIQUE constraint failed/i.test(String(err))?apiError('A service with that name already exists.',409):null}
+async function adminCreatePremiumService(request,env,admin){
+  const denied=requirePremiumServiceOwner(admin);if(denied)return denied;
+  const x=parsePremiumServiceDefinition(await readJson(request));if(x.error)return apiError(x.error,400);
+  let result;
+  try{result=await env.DB.prepare(`INSERT INTO premium_service_definitions(slug,name,short_description,description,cover_key,customer_price_minor,provider_price_minor,provider_code,requirements_json,status,display_order) VALUES(?,?,?,?,?,?,?,?,?,?,?)`).bind(x.slug,x.name,x.shortDescription,x.description,x.coverKey,x.customerPriceMinor,x.providerPriceMinor,x.providerCode,x.requirementsJson,x.status,x.displayOrder).run();}
+  catch(err){const conflict=premiumServiceSqlError(err);if(conflict)return conflict;throw err}
+  const id=Number(result.meta.last_row_id);
+  await audit(env,admin.user.id,'premium_service_created','premium_service',String(id),{name:x.name,status:x.status,requirementsCount:JSON.parse(x.requirementsJson).length},request);
+  return apiOk({id,message:'Service saved. Ordering is not enabled yet.'},201);
+}
+async function adminUpdatePremiumService(request,env,admin,id){
+  const denied=requirePremiumServiceOwner(admin);if(denied)return denied;
+  const old=await env.DB.prepare(`SELECT id FROM premium_service_definitions WHERE id=? AND archived_at IS NULL`).bind(id).first();
+  if(!old)return apiError('Service not found.',404);
+  const x=parsePremiumServiceDefinition(await readJson(request));if(x.error)return apiError(x.error,400);
+  try{await env.DB.prepare(`UPDATE premium_service_definitions SET slug=?,name=?,short_description=?,description=?,cover_key=?,customer_price_minor=?,provider_price_minor=?,provider_code=?,requirements_json=?,status=?,display_order=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND archived_at IS NULL`).bind(x.slug,x.name,x.shortDescription,x.description,x.coverKey,x.customerPriceMinor,x.providerPriceMinor,x.providerCode,x.requirementsJson,x.status,x.displayOrder,id).run();}
+  catch(err){const conflict=premiumServiceSqlError(err);if(conflict)return conflict;throw err}
+  await audit(env,admin.user.id,'premium_service_modified','premium_service',String(id),{name:x.name,status:x.status,requirementsCount:JSON.parse(x.requirementsJson).length},request);
+  return apiOk({message:'Service updated. Ordering remains disabled.'});
+}
+async function adminArchivePremiumService(request,env,admin,id){
+  const denied=requirePremiumServiceOwner(admin);if(denied)return denied;
+  const result=await env.DB.prepare(`UPDATE premium_service_definitions SET archived_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,status='draft' WHERE id=? AND archived_at IS NULL`).bind(id).run();
+  if(!result.meta.changes)return apiError('Service not found.',404);
+  await audit(env,admin.user.id,'premium_service_archived','premium_service',String(id),{},request);
+  return apiOk({message:'Service removed from your active admin list.'});
+}
 
 async function adminProducts(env){await releaseExpiredProductOrders(env);const rows=await env.DB.prepare(`SELECT p.*,(SELECT COUNT(DISTINCT e.user_id) FROM product_entitlements e WHERE e.product_id=p.id) AS buyers,(SELECT COALESCE(SUM(i.quantity),0) FROM product_order_items i JOIN product_orders o ON o.id=i.order_id WHERE i.product_id=p.id AND o.status='fulfilled') AS sold_quantity,(SELECT COUNT(*) FROM product_assets pa WHERE pa.product_id=p.id) AS asset_count FROM products p WHERE p.archived_at IS NULL ORDER BY p.display_order,p.name`).all();const assetRows=(await env.DB.prepare('SELECT pa.* FROM product_assets pa JOIN products p ON p.id=pa.product_id WHERE p.archived_at IS NULL ORDER BY pa.product_id,pa.display_order,pa.id').all()).results;const byProduct=new Map();for(const a of assetRows){if(!byProduct.has(a.product_id))byProduct.set(a.product_id,[]);byProduct.get(a.product_id).push(a)}const contentRows=(await env.DB.prepare('SELECT c.* FROM product_content_items c JOIN products p ON p.id=c.product_id WHERE p.archived_at IS NULL ORDER BY c.product_id,c.display_order,c.id').all()).results;const contentByProduct=new Map();for(const c of contentRows){if(!contentByProduct.has(c.product_id))contentByProduct.set(c.product_id,[]);contentByProduct.get(c.product_id).push(c)}return apiOk({products:rows.results.map(p=>({...mapProductMedia(p),asset_count:Number(p.asset_count||0)+(contentByProduct.get(p.id)||[]).length,assets:byProduct.get(p.id)||[],contentItems:contentByProduct.get(p.id)||[]}))})}
 function parseProductAssets(b={}){let raw=Array.isArray(b.assets)?b.assets:[];if(!Array.isArray(b.assets)&&!raw.length&&(b.fileKey||b.file_key))raw=[{key:b.fileKey||b.file_key,fileName:b.fileName||b.file_name,fileType:b.fileType||b.file_type,mimeType:b.mimeType||b.mime_type,displayOrder:0}];const assets=[];for(let i=0;i<raw.length;i++){const a=raw[i]||{},key=cleanText(a.key??a.r2_key,500),fileName=cleanText(a.fileName??a.file_name,180),fileType=['pdf','image'].includes(a.fileType??a.file_type)?(a.fileType??a.file_type):null,mimeType=cleanText(a.mimeType??a.mime_type,100);if(!key||!fileName||!fileType||!mimeType)return{error:`Protected file ${i+1} is incomplete.`};assets.push({key,fileName,fileType,mimeType,displayOrder:i})}return{assets}}
