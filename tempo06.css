@@ -935,3 +935,10 @@ html[data-theme="midnight"] .tempo06-wallet-funding-form input{background:#1b1a1
 .product-text-item .tc-file-view{margin-left:auto;flex:none}
 #detailContent .detail-hero p{white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:360px){.tc-content-item .tc-file-view,.tc-content-item .tc-file-save{padding:8px 6px;font-size:10px}}
+
+/* V1.58: discreet provider entry in the existing right-side navigation drawer. */
+.tempo06-menu-links .tempo06-provider-link{width:100%;min-height:46px;border:0;border-radius:12px;background:transparent;display:flex;align-items:center;text-align:left;gap:8px;padding:5px 8px;color:inherit;text-decoration:none;font-size:12px;font-weight:700;overflow-wrap:anywhere}
+.tempo06-menu-links .tempo06-provider-link:hover,.tempo06-menu-links .tempo06-provider-link:focus-visible{background:#f2f1eb;color:#222b20}
+html[data-theme="midnight"] .tempo06-menu-links .tempo06-provider-link:hover{background:#342f27;color:#f3e5cc}
+
+html[data-theme="midnight"] .tempo06-menu-links .tempo06-provider-link{color:#e7e0d4}

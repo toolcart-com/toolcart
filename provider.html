@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en" data-theme="pearl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#171717">
+  <link rel="icon" href="/toolcart-v153-favicon-32.png" type="image/png">
+  <link rel="apple-touch-icon" href="/toolcart-v153-touch-180.png">
+  <link rel="stylesheet" href="/provider.css?v=1.58">
+  <title>Service Providers · ToolCart</title>
+</head>
+<body>
+  <header class="provider-topbar">
+    <a href="/" class="provider-mark" aria-label="ToolCart storefront"><img src="/toolcart-v153-favicon-48.png" alt=""><span>Tool<span class="gold">Cart</span></span></a>
+    <a class="provider-back" href="/">← Back to shop</a>
+  </header>
+  <main class="provider-main">
+    <div class="provider-intro"><span class="eyebrow">TOOLCART / SERVICE PARTNERS</span><h1>Service Provider Portal</h1><p>Apply to fulfill managed services through ToolCart. Customer data, purchases, and payment decisions remain controlled by the platform.</p></div>
+    <div id="providerStatus" role="status" aria-live="polite" class="provider-alert hidden"></div>
+    <section id="providerLoading" class="provider-panel"><div class="provider-centered"><span class="provider-spinner" aria-hidden="true"></span><p>Checking your secure account…</p></div></section>
+    <section id="providerAuth" class="provider-panel hidden" aria-label="Provider account login">
+      <div class="provider-switch"><button type="button" id="providerShowLogin" class="active">Sign in</button><button type="button" id="providerShowRegister">Create account</button></div>
+      <div id="providerLoginPane">
+        <h2>Welcome back</h2><p class="provider-subtitle">Sign in with your existing ToolCart account, or create one to apply.</p>
+        <form id="providerLoginForm" class="provider-form">
+          <label>Email<input name="email" type="email" autocomplete="email" required maxlength="254"></label>
+          <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+          <button class="provider-primary" type="submit">Sign in securely</button>
+        </form>
+      </div>
+      <div id="providerRegisterPane" class="hidden">
+        <h2>Create your ToolCart account</h2><p class="provider-subtitle">Already a customer? Use your existing login. One account can be a customer and an approved provider.</p>
+        <form id="providerRegisterForm" class="provider-form">
+          <label>Full name<input name="fullName" autocomplete="name" required maxlength="120" minlength="2"></label>
+          <label>Email<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
+          <label>Password<input name="password" type="password" minlength="10" autocomplete="new-password" required></label>
+          <button class="provider-primary" type="submit">Create account</button>
+        </form>
+        <small class="provider-hint">Your application form appears after signing in or verifying your email, if required.</small>
+      </div>
+    </section>
+    <section id="providerApply" class="provider-panel hidden" aria-label="Apply as a service provider">
+      <div class="provider-panel-head"><div><span class="eyebrow">STEP 1 OF 2 / PROVIDER PROFILE</span><h2>Your provider application</h2></div><button class="provider-outline" type="button" data-provider-logout>Sign out</button></div>
+      <p class="provider-subtitle">Tell us who you are and how our team can contact you. We will review your application before activating your service dashboard.</p>
+      <form id="providerApplyForm" class="provider-form">
+        <label>Full name<input name="fullName" autocomplete="name" required maxlength="120" minlength="2"></label>
+        <label>WhatsApp number (including country code)<input name="whatsapp" type="tel" inputmode="tel" autocomplete="tel" placeholder="+2348012345678" required maxlength="32"></label>
+        <label>What services can you offer? <span class="optional">Optional</span><textarea name="serviceSummary" rows="4" maxlength="1000" placeholder="Briefly describe your areas of expertise"></textarea></label>
+        <p class="provider-hint">Your WhatsApp number is used for owner review and support. It is not shown to customers.</p>
+        <button type="submit" class="provider-primary">Submit application</button>
+      </form>
+    </section>
+    <section id="providerDashboard" class="provider-panel hidden" aria-live="polite"></section>
+  </main>
+  <footer class="provider-footer">© 2026 ToolCart · Provider access is subject to owner approval · <a href="/">Return to store</a></footer>
+  <script type="module" src="/provider.js?v=1.58"></script>
+</body>
+</html>

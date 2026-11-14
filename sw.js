@@ -1,5 +1,5 @@
 /* ToolCart V1.25: resilient static shell, never cache API or media data. */
-const CACHE='toolcart-shell-v1-57';
+const CACHE='toolcart-shell-v1-58';
 const SHELL=['/','/styles.css','/tempo.css','/tempo06.css','/app.js','/toolcart-v115-symbol.png','/toolcart-v124-wordmark.png','/toolcart-v153-favicon.ico','/toolcart-v153-favicon-32.png','/toolcart-v153-icon-192.png','/toolcart-v153-icon-512.png','/toolcart-v153-touch-180.png'];
 // Public catalog covers are safe to cache for instant repeat views; no private purchases/avatars.
 const COVER_CACHE='toolcart-public-covers-v1';
@@ -32,6 +32,10 @@ self.addEventListener('fetch',event=>{
     return;
   }
   // Never serve an old (or homepage fallback) administrator page from the shell cache.
+  if(url.pathname==='/provider'||url.pathname==='/provider/'||url.pathname==='/provider.html'){
+    event.respondWith(fetch(req,{cache:'no-store'}));
+    return;
+  }
   if(url.pathname==='/admin'||url.pathname==='/admin/'||url.pathname==='/admin.html'){
     event.respondWith(fetch(req,{cache:'no-store'}));
     return;

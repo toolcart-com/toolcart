@@ -12,6 +12,15 @@ export default {
       if (url.pathname.startsWith('/media/')) {
         return await serveMedia(request, env, url.pathname.slice('/media/'.length), ctx);
       }
+      if (url.pathname === '/provider' || url.pathname === '/provider/') {
+        const assetUrl = new URL(request.url);
+        assetUrl.pathname = '/provider.html';
+        assetUrl.search = '';
+        const result = await env.ASSETS.fetch(new Request(assetUrl.toString(), { method: 'GET', headers: request.headers }));
+        const headers = new Headers(result.headers);
+        headers.set('cache-control', 'no-store');
+        return new Response(result.body, { status: result.status, headers });
+      }
       if (url.pathname === '/admin' || url.pathname === '/admin/') {
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/admin.html';
@@ -75,6 +84,10 @@ async function handleUserApi(request, env, ctx, url, auth) {
   if (path === '/api/bootstrap' && method === 'GET') return userBootstrap(env, user, auth.session.csrf_token);
   if (path === '/api/bootstrap/deferred' && method === 'GET') return userBootstrapDeferred(env, user);
   if (path === '/api/session' && method === 'GET') return apiOk({ user: sanitizeUser(user), csrfToken: auth.session.csrf_token });
+  // Provider access is always scoped to the authenticated user, never a supplied provider ID.
+  if (path === '/api/provider/me' && method === 'GET') return providerMe(env, user);
+  if (path === '/api/provider/apply' && method === 'POST') return providerApply(request, env, user);
+  if (path === '/api/provider/application' && method === 'PATCH') return providerUpdateApplication(request, env, user);
   if (path === '/api/profile' && method === 'GET') return getProfile(env, user.id);
   if (path === '/api/profile' && method === 'PATCH') return updateProfile(request, env, user.id);
   if (path === '/api/profile/avatar' && method === 'POST') return uploadProfileAvatar(request, env, user.id);
@@ -141,6 +154,9 @@ async function handleAdminApi(request, env, ctx, url, admin) {
   if (path === '/api/admin/uploads/icon' && method === 'POST') return adminUploadIcon(request, env, admin);
 
   // V1.57 managed-service definitions are administrator-only, and never enter product checkout.
+  // Owner-only provider approvals. No provider wallet or customer requests exist in V1.58.
+  if (path === '/api/admin/providers' && method === 'GET') return adminProviderList(env, admin, url.searchParams);
+  if (path.match(/^\/api\/admin\/providers\/\d+\/review$/) && method === 'POST') return adminReviewProvider(request, env, admin, Number(path.split('/')[4]));
   if (path === '/api/admin/premium-services' && method === 'GET') return adminPremiumServices(env, admin);
   if (path === '/api/admin/premium-services' && method === 'POST') return adminCreatePremiumService(request, env, admin);
   if (path.match(/^\/api\/admin\/premium-services\/\d+$/) && method === 'PATCH') return adminUpdatePremiumService(request, env, admin, Number(path.split('/')[4]));
@@ -1220,6 +1236,98 @@ async function adminUploadIcon(request, env, admin) {
 
 // ---------- Admin products ----------
 
+// ---------- V1.58: Service provider registration and owner-controlled permissions ----------
+// Provider sessions reuse ToolCart's existing protected customer sessions and CSRF.
+// Providers never receive another customer's profile, orders, files or payment data.
+function privateOk(data={},status=200){return new Response(JSON.stringify({ok:true,...data}),{status,headers:{...jsonHeaders,'cache-control':'no-store'}});}
+function providerPublicProfile(row){
+  if(!row)return null;
+  return {providerCode:row.provider_code,fullName:row.full_name,whatsapp:row.whatsapp,serviceSummary:row.service_summary,
+    status:row.status,reviewMessage:row.review_message||'',createdAt:row.created_at,updatedAt:row.updated_at,reviewedAt:row.reviewed_at};
+}
+function validateProviderApplication(body){
+  if(!body||typeof body!=='object'||Array.isArray(body))return {error:'Enter your provider application details.'};
+  const fullName=cleanText(body.fullName,120);
+  const whatsapp=cleanText(body.whatsapp,32).replace(/[ ()\-]/g,'');
+  const serviceSummary=cleanText(body.serviceSummary,1000);
+  if(fullName.length<2)return {error:'Enter your full name.'};
+  if(!/^\+?[0-9]{8,15}$/.test(whatsapp))return {error:'Enter a valid WhatsApp number with your country code.'};
+  return {fullName,whatsapp,serviceSummary};
+}
+function generateProviderCode(){
+  const bytes=crypto.getRandomValues(new Uint8Array(8));
+  return 'TC-SP-'+[...bytes].map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+async function providerMe(env,user){
+  const row=await env.DB.prepare('SELECT * FROM provider_profiles WHERE user_id=?').bind(user.id).first();
+  return privateOk({user:{fullName:user.full_name,email:user.email},profile:providerPublicProfile(row),
+    capabilities:{canReceiveOrders:false,canUploadDelivery:false,canWithdraw:false},orders:[],earningsMinor:0});
+}
+async function providerApply(request,env,user){
+  const x=validateProviderApplication(await readJson(request));if(x.error)return apiError(x.error,400);
+  if(!user.email_verified_at)return apiError('Verify your account email before applying.',403);
+  if(await env.DB.prepare('SELECT id FROM provider_profiles WHERE user_id=?').bind(user.id).first())return apiError('You already have a provider application. Check your dashboard.',409);
+  const tooMany=await enforceRateLimit(request,env,'provider_apply',5,3600);if(tooMany)return tooMany;
+  for(let i=0;i<4;i++){
+    const code=generateProviderCode();
+    try{
+      await env.DB.prepare(`INSERT INTO provider_profiles(user_id,provider_code,full_name,whatsapp,service_summary)
+        VALUES(?,?,?,?,?)`).bind(user.id,code,x.fullName,x.whatsapp,x.serviceSummary).run();
+      return privateOk({providerCode:code,status:'pending',message:'Application submitted. Our support team will review your information.'},201);
+    }catch(err){
+      const message=String(err);
+      if(/provider_profiles\.user_id|UNIQUE constraint failed: provider_profiles\.user_id/i.test(message))return apiError('You already have a provider application.',409);
+      if(!/provider_profiles\.provider_code/i.test(message))throw err;
+    }
+  }
+  return apiError('Could not generate a provider ID. Please try again.',503);
+}
+async function providerUpdateApplication(request,env,user){
+  const x=validateProviderApplication(await readJson(request));if(x.error)return apiError(x.error,400);
+  const changed=await env.DB.prepare(`UPDATE provider_profiles SET full_name=?,whatsapp=?,service_summary=?,updated_at=CURRENT_TIMESTAMP
+    WHERE user_id=? AND status='pending'`).bind(x.fullName,x.whatsapp,x.serviceSummary,user.id).run();
+  if(!changed.meta.changes)return apiError('Only pending applications can be edited. Contact support for other changes.',403);
+  return privateOk({message:'Pending application updated.'});
+}
+async function adminProviderList(env,admin,params){
+  const denied=requirePremiumServiceOwner(admin);if(denied)return denied;
+  const filter=String(params.get('status')||'all');
+  if(!['all','pending','approved','rejected','restricted','banned'].includes(filter))return apiError('Invalid provider status filter.',400);
+  const query=`SELECT p.id,p.provider_code,p.full_name,p.whatsapp,p.service_summary,p.status,p.review_message,
+      p.created_at,p.updated_at,p.reviewed_at,u.email,u.customer_id,u.status AS user_status
+    FROM provider_profiles p JOIN users u ON u.id=p.user_id`;
+  const statement=filter==='all'?env.DB.prepare(query+' ORDER BY p.created_at DESC,p.id DESC LIMIT 200'):
+    env.DB.prepare(query+' WHERE p.status=? ORDER BY p.created_at DESC,p.id DESC LIMIT 200').bind(filter);
+  const rows=await statement.all();
+  const summary=await env.DB.prepare(`SELECT status,COUNT(*) AS total FROM provider_profiles GROUP BY status`).all();
+  return privateOk({providers:rows.results,summary:summary.results,ordersEnabled:false,withdrawalsEnabled:false});
+}
+async function adminReviewProvider(request,env,admin,id){
+  const denied=requirePremiumServiceOwner(admin);if(denied)return denied;
+  if(!Number.isSafeInteger(id)||id<=0)return apiError('Invalid provider.',400);
+  const body=await readJson(request);
+  const status=String(body?.status||'');
+  if(!['approved','rejected','restricted','banned'].includes(status))return apiError('Invalid provider decision.',400);
+  const message=cleanText(body?.message,400);
+  if(status!=='approved'&&message.length<5)return apiError('Provide an explanation of at least 5 characters.',400);
+  const old=await env.DB.prepare('SELECT p.id,p.provider_code,p.status,u.status AS user_status FROM provider_profiles p JOIN users u ON u.id=p.user_id WHERE p.id=?').bind(id).first();
+  if(!old)return apiError('Provider not found.',404);
+  if(old.status==='banned')return apiError('This provider is permanently banned. No status changes are permitted.',403);
+  if(status==='approved'&&old.user_status!=='active')return apiError('This provider customer account is not active. Approval is blocked.',409);
+  if(status==='restricted'&&old.status!=='approved')return apiError('Only approved providers can be restricted.',409);
+  if(status==='rejected'&&old.status!=='pending')return apiError('Only pending applicants can be rejected.',409);
+  if(status==='approved'&&!['pending','rejected','restricted'].includes(old.status))return apiError('Provider is already approved or cannot be approved.',409);
+  if(status==='banned'&&old.status==='banned')return apiError('Provider is already banned.',409);
+  const result=await env.DB.prepare(`UPDATE provider_profiles SET status=?,review_message=?,reviewed_by=?,
+    reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status=? AND status!='banned'`)
+    .bind(status,message,admin.user.id,id,old.status).run();
+  if(!result.meta.changes)return apiError('Provider status changed in another session. Refresh and try again.',409);
+  await env.DB.prepare(`INSERT INTO provider_review_events(provider_id,admin_id,from_status,to_status,message) VALUES(?,?,?,?,?)`)
+    .bind(id,admin.user.id,old.status,status,message).run();
+  await audit(env,admin.user.id,'provider_reviewed','provider',String(id),{providerCode:old.provider_code,fromStatus:old.status,toStatus:status},request);
+  return privateOk({message:status==='banned'?'Provider permanently banned.':'Provider status updated.',status});
+}
+
 // ---------- V1.57: Premium Services foundation (admin-only drafts) ----------
 // Orders, provider routing and customer submissions are intentionally not enabled.
 function requirePremiumServiceOwner(admin){return admin.user.role==='owner'?null:apiError('Only the owner can manage service pricing and provider assignments.',403)}
@@ -1227,7 +1335,13 @@ function premiumServiceDefinition(row){return {...row,requirements:safeJson(row.
 async function adminPremiumServices(env,admin){
   const denied=requirePremiumServiceOwner(admin);if(denied)return denied;
   const result=await env.DB.prepare(`SELECT * FROM premium_service_definitions WHERE archived_at IS NULL ORDER BY display_order,id DESC`).all();
-  return apiOk({services:result.results.map(premiumServiceDefinition),ordersEnabled:false});
+  const codes=[...new Set(result.results.map(r=>r.provider_code).filter(Boolean))];
+  const verified=new Set();
+  for(const code of codes){
+    const provider=await env.DB.prepare(`SELECT p.provider_code FROM provider_profiles p JOIN users u ON u.id=p.user_id WHERE p.provider_code=? AND p.status='approved' AND u.status='active'`).bind(code).first();
+    if(provider)verified.add(code);
+  }
+  return apiOk({services:result.results.map(row=>({...premiumServiceDefinition(row),providerAssignmentVerified:verified.has(row.provider_code)})),ordersEnabled:false});
 }
 function parsePremiumServiceDefinition(body){
   if(!body||typeof body!=='object'||Array.isArray(body))return{error:'Invalid service configuration.'};
@@ -1268,7 +1382,8 @@ function parsePremiumServiceDefinition(body){
     requirements.push({key,label,type,required:f.required===true,help,options});
   }
   if(status==='configured'&&requirements.length===0)return{error:'Add at least one requirement before marking configured.'};
-  // A provider code is an unverified assignment note until V1.58 provider accounts exist.
+  // Codes are visible in admin; assignment becomes verified only for an approved provider.
+  // No work is routed or charged at this stage.
   const slug=slugify(name);
   if(!slug)return{error:'Choose a service name containing letters or numbers.'};
   return{slug,name,shortDescription,description,coverKey,customerPriceMinor,providerPriceMinor,providerCode,displayOrder,status,requirementsJson:JSON.stringify(requirements)};
