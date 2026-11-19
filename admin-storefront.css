@@ -365,3 +365,156 @@ html[data-theme="midnight"] .product-content-editor input,html[data-theme="midni
 .provider-admin-hint{color:var(--muted);font-size:11px;line-height:1.4}
 @media(max-width:820px){.provider-list{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:390px){.provider-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.provider-admin-card{padding:14px}}
+/* ToolCart V1.59 — Admin control center refresh.
+   Restrained monochrome / muted metallic-gold UI. Presentation only. */
+:root,html[data-theme="pearl"]{
+  --admin-ui-bg:#f7f7f5;--admin-ui-card:#fff;--admin-ui-text:#191919;
+  --admin-ui-muted:#797a78;--admin-ui-border:#e5e5e2;--admin-ui-subtle:#f1f1ef;
+}
+html[data-theme="midnight"]{
+  --admin-ui-bg:#131312;--admin-ui-card:#222220;--admin-ui-text:#f5f4ef;
+  --admin-ui-muted:#b6b4ad;--admin-ui-border:#363632;--admin-ui-subtle:#292926;
+}
+/* Drawer: a quiet, scrollable black navigation with a genuine close control. */
+.admin-sidebar{
+  width:268px;padding:18px 13px 16px;background:#161616;color:#f8f8f6;
+  border-right:1px solid #2a2a28;box-shadow:none;z-index:60;
+}
+.admin-brand{min-height:63px;display:flex;align-items:center;gap:9px;min-width:0;
+  padding:0 3px 17px;margin-bottom:11px;border-bottom:1px solid #30302c}
+.admin-brand .admin-brand-mark{width:38px;height:38px;flex:0 0 38px}
+.admin-brand-copy .admin-wordmark{width:128px;height:31px}
+.admin-brand-copy>span{color:#af9a71;font-size:9px;letter-spacing:.13em;font-weight:650}
+.admin-sidebar-close{display:none;flex:0 0 36px;place-items:center;width:36px;height:36px;
+  border-radius:10px;border:1px solid #393936;background:#242423;color:#f6f4ee;cursor:pointer;margin-left:auto}
+.admin-sidebar-close svg{width:19px;height:19px}
+.admin-sidebar nav{display:flex;flex-direction:column;gap:2px;flex:1;min-height:0;
+  overflow-y:auto;overscroll-behavior:contain;padding:3px 0 12px;scrollbar-width:thin;scrollbar-color:#57554f transparent}
+.admin-sidebar nav button{flex:0 0 auto;min-height:43px;padding:0 12px;display:flex;gap:13px;
+  align-items:center;background:transparent;color:#b9b9b5;border-radius:9px;font-size:13px;
+  font-weight:560;line-height:1.25;transition:background .12s ease,color .12s ease}
+.admin-sidebar nav button:hover{background:#242424;color:#fafaf9}
+.admin-sidebar nav button.active{color:#fff;background:#292927;box-shadow:inset 2px 0 0 #b8a074;font-weight:675}
+.admin-sidebar nav button .admin-nav-symbol{width:21px;height:21px;flex:0 0 21px;display:grid;place-items:center;color:inherit}
+.admin-sidebar nav button.active .admin-nav-symbol{color:#c3ab81}
+.admin-sidebar-foot{padding:14px 6px 0;margin-top:0;border-top:1px solid #343430}
+.admin-sidebar-foot strong{font-size:13px;font-weight:700;color:#f8f8f5}
+.admin-sidebar-foot span{font-size:11px;color:#999992;line-height:1.5;overflow-wrap:anywhere}
+.admin-sidebar-foot .micro-btn{border:1px solid #4a4945;background:transparent;color:#ddd7ca;min-height:38px;border-radius:9px;font-weight:650}
+.admin-nav-scrim[hidden]{display:none!important}
+.admin-nav-scrim{position:fixed;inset:0;z-index:55;background:rgba(15,15,15,.32);
+  border:0;padding:0;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);cursor:default}
+/* Calm white command header rather than a heavy black banner. */
+.admin-main{margin-left:268px;background:var(--admin-ui-bg);min-width:0}
+.admin-topbar{min-height:91px;padding:19px 29px;gap:15px;background:var(--admin-ui-card);
+  border-bottom:1px solid var(--admin-ui-border);color:var(--admin-ui-text);box-shadow:none}
+.admin-topbar .eyebrow{font-size:9px;letter-spacing:.14em;color:#a48a5f;font-weight:720}
+.admin-topbar h1{font-size:clamp(23px,2.6vw,29px);letter-spacing:-.045em;
+  font-weight:750;color:var(--admin-ui-text);margin:4px 0 0;line-height:1.15}
+.admin-topbar .icon-btn{display:grid;place-items:center;width:40px;height:40px;flex:0 0 40px;
+  border:1px solid var(--admin-ui-border);background:var(--admin-ui-card);
+  color:var(--admin-ui-text);border-radius:11px;box-shadow:none}
+.admin-topbar .icon-btn svg{width:19px;height:19px}
+.admin-topbar .icon-btn:hover{border-color:#ad9871;background:var(--admin-ui-subtle)}
+.admin-content{padding:25px 29px 116px;background:var(--admin-ui-bg)}
+/* Dashboard: hierarchy, not ten equally emphasized cards. */
+.admin-overview-heading{display:flex;align-items:flex-end;gap:15px;justify-content:space-between;margin:0 0 22px}
+.admin-overview-heading h2{font-size:clamp(24px,3vw,32px);line-height:1.15;
+  color:var(--admin-ui-text);letter-spacing:-.05em;margin:7px 0 6px;font-weight:760}
+.admin-overview-heading p{color:var(--admin-ui-muted);font-size:13px;margin:0;line-height:1.5}
+.admin-overview-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.admin-quick-link{border:1px solid var(--admin-ui-border);background:var(--admin-ui-card);
+  color:var(--admin-ui-text);border-radius:9px;padding:11px 13px;font-size:12px;font-weight:680;cursor:pointer;white-space:nowrap}
+.admin-quick-link:hover{border-color:#bca57c;background:var(--admin-ui-subtle)}
+.admin-featured-stats{display:grid;grid-template-columns:minmax(0,1.55fr) repeat(2,minmax(0,1fr));gap:12px;margin:0 0 25px}
+.admin-revenue-card,.admin-focus-card{min-width:0;min-height:154px;padding:22px;border-radius:16px;
+  display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.admin-revenue-card{background:#1b1b1b;color:#fff;border:1px solid #1b1b1b}
+.admin-focus-card{background:var(--admin-ui-card);border:1px solid var(--admin-ui-border);color:var(--admin-ui-text)}
+.admin-revenue-card span,.admin-focus-card span{font-size:12px;font-weight:680;letter-spacing:.005em}
+.admin-revenue-card span{color:#cfbea0}.admin-focus-card span{color:var(--admin-ui-muted)}
+.admin-revenue-card strong,.admin-focus-card strong{display:block;font-size:clamp(28px,3.2vw,38px);
+  line-height:1.05;letter-spacing:-.045em;font-weight:750;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.admin-revenue-card small,.admin-focus-card small{font-size:11px;color:#aeadab;font-weight:500}
+.admin-focus-card small{color:var(--admin-ui-muted)}
+.admin-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.admin-section-heading h3{color:var(--admin-ui-text);font-size:17px;letter-spacing:-.025em;font-weight:730;margin:0}
+.admin-section-heading>span{color:var(--admin-ui-muted);font-size:11px}
+.metric-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.metric-card{min-width:0;min-height:122px;padding:17px;border-radius:14px;
+  border:1px solid var(--admin-ui-border);border-top:1px solid var(--admin-ui-border);
+  background:var(--admin-ui-card);box-shadow:none;animation:none;display:flex;flex-direction:column;justify-content:space-between}
+.metric-card span{color:var(--admin-ui-muted);font-size:11px;line-height:1.4;
+  letter-spacing:0;text-transform:none;font-weight:630}
+.metric-card strong{color:var(--admin-ui-text);font-size:26px;line-height:1.08;letter-spacing:-.04em;
+  font-weight:745;margin:8px 0 3px;font-variant-numeric:tabular-nums}
+.metric-card small{color:var(--admin-ui-muted);font-size:10px;line-height:1.35}
+.admin-grid-2{gap:13px;margin-top:18px}
+.admin-panel,.admin-app-card,.admin-request-row,.diag-card{border:1px solid var(--admin-ui-border);
+  border-radius:15px;background:var(--admin-ui-card);box-shadow:none}
+.admin-panel{padding:20px}.admin-panel-head h2{color:var(--admin-ui-text);font-weight:715}
+.admin-table th{background:var(--admin-ui-subtle);color:var(--admin-ui-muted);letter-spacing:.08em}
+.admin-table tr[data-open]:hover td{background:var(--admin-ui-subtle)}
+/* Mobile dock uses consistent line icons; active tab is a slim gold marker. */
+.admin-mobile-dock .admin-nav-symbol{width:22px;height:22px;display:grid;place-items:center}
+.admin-mobile-dock .admin-nav-symbol svg{width:21px;height:21px}
+@media(max-width:1180px){.metric-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:820px){
+  body.admin-drawer-open{overflow:hidden}
+  .admin-sidebar{width:min(330px,87vw);max-width:none;height:100dvh;inset:0 auto 0 0;
+    padding:calc(15px + var(--safe-t)) 13px calc(17px + var(--safe-b));
+    transform:translateX(-103%);transition:transform .18s ease-out;box-shadow:14px 0 42px rgba(0,0,0,.2)}
+  .admin-sidebar.open{transform:translateX(0)}
+  .admin-sidebar-close{display:grid}
+  .admin-main{margin-left:0}
+  .admin-topbar{min-height:79px;padding:calc(12px + var(--safe-t)) 16px 13px;gap:12px}
+  .admin-topbar #adminMenuBtn{display:grid}
+  .admin-topbar h1{font-size:24px}
+  .admin-topbar .eyebrow{font-size:8px;letter-spacing:.11em}
+  .admin-content{padding:21px 15px calc(115px + var(--safe-b))}
+  .admin-overview-heading{align-items:flex-start;flex-direction:column;gap:13px;margin-bottom:18px}
+  .admin-overview-actions{justify-content:flex-start}
+  .admin-overview-heading h2{font-size:27px}
+  .admin-featured-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:22px}
+  .admin-revenue-card{grid-column:1/-1;min-height:143px}
+  .admin-focus-card{min-height:133px}
+  .admin-revenue-card,.admin-focus-card{padding:18px}
+  .admin-revenue-card strong{font-size:36px}.admin-focus-card strong{font-size:32px}
+  .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .metric-card{padding:15px;min-height:116px}
+  .metric-card strong{font-size:25px}
+  .admin-mobile-dock{left:0;right:0;bottom:0;height:calc(71px + var(--safe-b));
+    padding:6px 6px calc(5px + var(--safe-b));border:0;border-top:1px solid var(--admin-ui-border);
+    border-radius:0;background:var(--admin-ui-card);box-shadow:0 -3px 15px rgba(0,0,0,.025);backdrop-filter:none}
+  .admin-mobile-dock button{position:relative;border-radius:8px;color:var(--admin-ui-muted);
+    background:transparent;gap:4px;min-width:0}
+  .admin-mobile-dock button.active{background:transparent;color:var(--admin-ui-text)}
+  .admin-mobile-dock button.active::before{content:"";width:22px;height:2px;
+    background:#ae9467;border-radius:3px;position:absolute;top:0;left:calc(50% - 11px)}
+  .admin-mobile-dock em{font-size:10px;font-weight:620;line-height:1.2}
+}
+@media(max-width:480px){
+  .admin-content{padding-left:13px;padding-right:13px}
+  .admin-overview-heading h2{font-size:25px}
+  .admin-quick-link{padding:10px 11px;font-size:11px}
+  .admin-revenue-card strong{font-size:34px}
+  .admin-focus-card strong{font-size:30px}
+  .metric-card{padding:13px}
+}
+/* Midnight uses exactly the same visual hierarchy, with dark neutral surfaces. */
+html[data-theme="midnight"] .admin-main,
+html[data-theme="midnight"] .admin-content{background:var(--admin-ui-bg)!important}
+html[data-theme="midnight"] .admin-topbar{background:var(--admin-ui-card)!important;border-bottom:1px solid var(--admin-ui-border)!important}
+html[data-theme="midnight"] .admin-topbar h1{color:var(--admin-ui-text)!important}
+html[data-theme="midnight"] .admin-revenue-card{background:#080808;color:#fff;border-color:#080808}
+html[data-theme="midnight"] .admin-focus-card,
+html[data-theme="midnight"] .metric-card,
+html[data-theme="midnight"] .admin-panel,
+html[data-theme="midnight"] .admin-app-card,
+html[data-theme="midnight"] .admin-request-row{background:var(--admin-ui-card)!important;border-color:var(--admin-ui-border)!important;box-shadow:none!important}
+html[data-theme="midnight"] .metric-card strong,
+html[data-theme="midnight"] .admin-focus-card strong{color:var(--admin-ui-text)!important}
+html[data-theme="midnight"] .metric-card span,
+html[data-theme="midnight"] .metric-card small{color:var(--admin-ui-muted)!important}
+html[data-theme="midnight"] .admin-mobile-dock{background:var(--admin-ui-card)!important;border-top-color:var(--admin-ui-border)!important}
+@media(prefers-reduced-motion:reduce){.admin-sidebar{transition:none!important}}

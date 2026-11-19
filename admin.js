@@ -15,7 +15,22 @@ function badge(s){const cls=['success','active','online','resolved'].includes(s)
 function icon(a){return `<div class="app-icon" style="--accent:${esc(a.accent_color||'#7b65ff')}">${a.icon_url?`<img src="${esc(a.icon_url)}" alt="">`:esc(initials(a.name))}</div>`}
 
 async function boot(){bind();try{const s=await api('/api/admin/session');state.admin=s.admin;state.csrf=s.csrfToken;enterShell();loadTab('dashboard')}catch{$('#adminLogin').classList.remove('hidden')}}
-function enterShell(){$('#adminLogin').classList.add('hidden');$('#adminShell').classList.remove('hidden');$('#adminIdentity').innerHTML=`<strong>${esc(state.admin.fullName)}</strong><span>${esc(state.admin.role)} · ${esc(state.admin.email)}</span>`;void api('/api/admin/settings').then(d=>applyAdminAppearance(d.settings?.default_theme)).catch(()=>{});}
+function enterShell(){$('#adminLogin').classList.add('hidden');$('#adminShell').classList.remove('hidden');setAdminDrawer(false);$('#adminIdentity').innerHTML=`<strong>${esc(state.admin.fullName)}</strong><span>${esc(state.admin.role)} · ${esc(state.admin.email)}</span>`;void api('/api/admin/settings').then(d=>applyAdminAppearance(d.settings?.default_theme)).catch(()=>{});}
+// V1.59: one accessible mobile navigation state, independent of admin modals.
+function setAdminDrawer(open=false,restoreFocus=false){
+  const drawer=$('#adminSidebar'),scrim=$('#adminNavScrim'),toggle=$('#adminMenuBtn');
+  if(!drawer||!scrim||!toggle)return;
+  const next=Boolean(open&&window.matchMedia('(max-width:820px)').matches);
+  drawer.classList.toggle('open',next);
+  drawer.inert=!next&&window.matchMedia('(max-width:820px)').matches;
+  scrim.hidden=!next;
+  document.body.classList.toggle('admin-drawer-open',next);
+  toggle.setAttribute('aria-expanded',String(next));
+  toggle.setAttribute('aria-label',next?'Close navigation menu':'Open navigation menu');
+  if(restoreFocus&&!next)toggle.focus();
+  if(next)$('#adminSidebarClose')?.focus();
+}
+
 function bind(){
   $('#adminLoginForm').addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget),b=$('button',e.currentTarget);b.disabled=true;try{const d=await api('/api/admin/login',{method:'POST',body:{email:f.get('email'),password:f.get('password')}});state.admin=d.admin;state.csrf=d.csrfToken;enterShell();loadTab('dashboard')}catch(err){toast(err.message,'error');b.disabled=false}});
   $('#showAdminSetup')?.addEventListener('click',()=>{$('#adminLoginForm').classList.add('hidden');$('#showAdminSetup').classList.add('hidden');$('#adminSetupForm').classList.remove('hidden');$('#adminSetupStatus').className='admin-setup-status hidden'});
@@ -80,16 +95,46 @@ function bind(){
     const open=e.target.closest('[data-open]');if(open)return handleOpen(open.dataset.open,open.dataset.id);
     const walletPick=e.target.closest('[data-wallet-select]');if(walletPick)return selectWalletCustomer(Number(walletPick.dataset.walletSelect));
     const action=e.target.closest('[data-action]');if(action)return handleAction(action);
-    if(e.target.closest('#adminMenuBtn'))return $('#adminSidebar').classList.toggle('open');
+    if(e.target.closest('#adminMenuBtn'))return setAdminDrawer(!$('#adminSidebar').classList.contains('open'));
+    if(e.target.closest('#adminSidebarClose')||e.target.closest('#adminNavScrim'))return setAdminDrawer(false,true);
     if(e.target.closest('#adminMore'))return showMore();
     if(e.target.id==='adminRefresh')return loadTab(state.tab,true);
   });
   $('#adminLogout').addEventListener('click',async()=>{try{await api('/api/admin/logout',{method:'POST'})}catch{}location.reload()});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();$('#adminSidebar').classList.remove('open')}})
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#adminSidebar')?.classList.contains('open'))setAdminDrawer(false,true);else closeModal();}});
+  window.addEventListener('resize',()=>{if(!$('#adminSidebar')?.classList.contains('open'))setAdminDrawer(false);else if(window.innerWidth>820)setAdminDrawer(false);});
 }
-async function loadTab(tab,refresh=false){const managerTab=['products','premium_tools','announcements'].includes(tab)?'apps':tab;state.tab=tab;const title=['apps','products','premium_tools','announcements'].includes(tab)?'Store Listings':tab==='wallet'?'Wallet Funding':tab==='services'?'Premium Services':tab==='providers'?'Service Providers':human(tab);$('#adminPageTitle').textContent=title;$$('[data-admin-tab]').forEach(b=>b.classList.toggle('active',b.dataset.adminTab===managerTab));$('#adminSidebar').classList.remove('open');$('#adminContent').innerHTML=empty('Loading',`Opening ${title}...`);try{if(tab==='dashboard')await dashboard();else if(tab==='customers')await customers();else if(tab==='wallet')await walletFunding();else if(tab==='services')await premiumServices();else if(tab==='providers')await serviceProviders();else if(tab==='apps')await apps('tools');else if(tab==='products')await apps('products');else if(tab==='premium_tools')await apps('premium_tools');else if(tab==='announcements')await apps('announcements');else if(tab==='subscriptions')await subscriptions();else if(tab==='payments')await payments();else if(tab==='updates')await updates();else if(tab==='requests')await requests();else if(tab==='notifications')await notifications();else if(tab==='analytics')await analytics();else if(tab==='appearance')await appearance();else if(tab==='settings')await settings();else if(tab==='audit')await auditLog();else if(tab==='diagnostics')await diagnostics();else $('#adminContent').innerHTML=empty('Not available','This section is not ready.')}catch(e){if(e.status===401)return location.reload();$('#adminContent').innerHTML=empty('Could not load this section',e.message)}}
+async function loadTab(tab,refresh=false){const managerTab=['products','premium_tools','announcements'].includes(tab)?'apps':tab;state.tab=tab;const title=['apps','products','premium_tools','announcements'].includes(tab)?'Store Listings':tab==='wallet'?'Wallet Funding':tab==='services'?'Premium Services':tab==='providers'?'Service Providers':human(tab);$('#adminPageTitle').textContent=title;$$('[data-admin-tab]').forEach(b=>b.classList.toggle('active',b.dataset.adminTab===managerTab));setAdminDrawer(false);$('#adminContent').innerHTML=empty('Loading',`Opening ${title}...`);try{if(tab==='dashboard')await dashboard();else if(tab==='customers')await customers();else if(tab==='wallet')await walletFunding();else if(tab==='services')await premiumServices();else if(tab==='providers')await serviceProviders();else if(tab==='apps')await apps('tools');else if(tab==='products')await apps('products');else if(tab==='premium_tools')await apps('premium_tools');else if(tab==='announcements')await apps('announcements');else if(tab==='subscriptions')await subscriptions();else if(tab==='payments')await payments();else if(tab==='updates')await updates();else if(tab==='requests')await requests();else if(tab==='notifications')await notifications();else if(tab==='analytics')await analytics();else if(tab==='appearance')await appearance();else if(tab==='settings')await settings();else if(tab==='audit')await auditLog();else if(tab==='diagnostics')await diagnostics();else $('#adminContent').innerHTML=empty('Not available','This section is not ready.')}catch(e){if(e.status===401)return location.reload();$('#adminContent').innerHTML=empty('Could not load this section',e.message)}}
 
-async function dashboard(){const d=await api('/api/admin/dashboard');const m=d.metrics;const cards=[['Total customers',m.totalCustomers],['Active customers',m.activeCustomers],['New signups',m.newSignups],['Paid subscribers',m.paidSubscribers],['Monthly revenue',fmtMoney(m.monthlyRevenueMinor,'NGN')],['Tools online',m.appsOnline],['Maintenance',m.appsMaintenance],['Open requests',m.openRequests],['New requests',m.unreadRequests],['Notifications sent',m.notificationsSent]];$('#adminContent').innerHTML=`<div class="metric-grid">${cards.map((c,i)=>`<article class="metric-card" style="animation-delay:${i*35}ms"><span>${esc(c[0])}</span><strong>${esc(c[1])}</strong><small>Live ecosystem metric</small></article>`).join('')}</div><div class="admin-grid-2"><section class="admin-panel"><div class="admin-panel-head"><h2>Recent payments</h2><button class="text-btn" data-admin-tab="payments">View all</button></div>${tablePayments(d.recentPayments)}</section><section class="admin-panel"><div class="admin-panel-head"><h2>Recent tool activity</h2></div>${d.recentActivity.length?`<div class="timeline">${d.recentActivity.map(x=>`<div class="timeline-item"><small>${fmtDate(x.created_at)}</small><p><strong>${esc(x.full_name)}</strong><br>Opened ${esc(x.app_name)}</p></div>`).join('')}</div>`:empty('No activity yet','Tool opens will appear here.')}</section></div>`}
+async function dashboard(){
+  const d=await api('/api/admin/dashboard');
+  const m=d.metrics;
+  const metrics=[
+    ['Active customers',m.activeCustomers,'Accounts currently active'],
+    ['New signups',m.newSignups,'Recent new accounts'],
+    ['Paid subscribers',m.paidSubscribers,'Subscribed customers'],
+    ['Tools online',m.appsOnline,'Published online tools'],
+    ['Maintenance',m.appsMaintenance,'Tools in maintenance'],
+    ['New requests',m.unreadRequests,'Not yet reviewed'],
+    ['Notifications sent',m.notificationsSent,'Total notifications']
+  ];
+  $('#adminContent').innerHTML=`
+    <div class="admin-overview-heading">
+      <div><span class="eyebrow">OPERATIONS OVERVIEW</span><h2>Store performance</h2><p>Store activity and requests in one place.</p></div>
+      <div class="admin-overview-actions"><button class="admin-quick-link" type="button" data-admin-tab="services">Premium Services</button><button class="admin-quick-link" type="button" data-admin-tab="providers">Review Providers</button></div>
+    </div>
+    <section class="admin-featured-stats" aria-label="Primary store metrics">
+      <article class="admin-revenue-card"><span>Monthly revenue</span><strong>${esc(fmtMoney(m.monthlyRevenueMinor,'NGN'))}</strong><small>Current month</small></article>
+      <article class="admin-focus-card"><span>Total customers</span><strong>${esc(m.totalCustomers)}</strong><small>Registered accounts</small></article>
+      <article class="admin-focus-card"><span>Open requests</span><strong>${esc(m.openRequests)}</strong><small>Awaiting resolution</small></article>
+    </section>
+    <div class="admin-section-heading"><h3>At a glance</h3><span>Store operations</span></div>
+    <div class="metric-grid">${metrics.map(c=>`<article class="metric-card"><span>${esc(c[0])}</span><strong>${esc(c[1])}</strong><small>${esc(c[2])}</small></article>`).join('')}</div>
+    <div class="admin-grid-2">
+      <section class="admin-panel"><div class="admin-panel-head"><h2>Recent payments</h2><button class="text-btn" data-admin-tab="payments">View all</button></div>${tablePayments(d.recentPayments)}</section>
+      <section class="admin-panel"><div class="admin-panel-head"><h2>Recent tool activity</h2></div>${d.recentActivity.length?`<div class="timeline">${d.recentActivity.map(x=>`<div class="timeline-item"><small>${fmtDate(x.created_at)}</small><p><strong>${esc(x.full_name)}</strong><br>Opened ${esc(x.app_name)}</p></div>`).join('')}</div>`:empty('No activity yet','Tool opens will appear here.')}</section>
+    </div>`;
+}
 
 async function customers(q=''){const d=await api(`/api/admin/customers${q?`?q=${encodeURIComponent(q)}`:''}`);$('#adminContent').innerHTML=`<div class="admin-toolbar"><div class="search-field"><span>⌕</span><input id="customerSearch" placeholder="Search name, email, phone or customer ID" value="${esc(q)}"></div></div><section class="admin-panel"><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Customer</th><th>ID</th><th>Plan</th><th>Status</th><th>Joined</th></tr></thead><tbody>${d.customers.map(u=>`<tr data-open="customer" data-id="${u.id}"><td><strong>${esc(u.full_name)}</strong><br>${esc(u.email)}</td><td>${esc(u.customer_id)}</td><td>${esc(u.plan_name||'Free')}</td><td>${badge(u.status)}</td><td>${fmtDate(u.created_at)}</td></tr>`).join('')}</tbody></table></div></section>`;let t;$('#customerSearch').addEventListener('input',e=>{clearTimeout(t);t=setTimeout(()=>customers(e.target.value),280)})}
 async function openCustomer(id){const d=await api(`/api/admin/customers/${id}`),u=d.user;showModal(`<div class="detail-hero"><span class="eyebrow">${esc(u.customerId)}</span><h2>${esc(u.fullName)}</h2><p>${esc(u.email)}${u.phone?` · ${esc(u.phone)}`:''}</p><div class="detail-meta">${badge(u.status)}<span class="status-badge">${esc(d.currentPlan?.name||'Free')}</span><span class="status-badge">Balance ${fmtMoney(d.wallet?.balanceMinor||0,d.wallet?.currency||'NGN')}</span></div></div><div class="admin-actions"><button class="btn btn-secondary compact" data-action="customer-wallet" data-id="${id}">Adjust balance</button><button class="btn btn-secondary compact" data-action="customer-disable" data-id="${id}">${u.status==='disabled'?'Restore account':'Disable account'}</button><button class="btn btn-secondary compact" data-action="customer-gift" data-id="${id}">Gift subscription</button><button class="btn btn-secondary compact" data-action="customer-notify" data-id="${id}">Send notification</button><button class="btn btn-secondary compact admin-danger" data-action="customer-delete" data-id="${id}" data-email="${esc(u.email)}">Delete</button></div><section class="admin-panel" style="margin-top:16px"><div class="admin-panel-head"><h2>Recent payments</h2></div>${tablePayments(d.payments)}</section><section class="admin-panel" style="margin-top:12px"><div class="admin-panel-head"><h2>Requests</h2></div>${d.requests.length?d.requests.slice(0,8).map(r=>`<div class="timeline-item"><small>${esc(r.reference_number)} · ${fmtDate(r.updated_at)}</small><p><strong>${esc(r.subject)}</strong><br>${esc(human(r.status))}</p></div>`).join(''):empty('No requests','This customer has no support requests.')}</section>`)}
