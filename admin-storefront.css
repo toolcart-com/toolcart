@@ -532,3 +532,6 @@ html[data-theme="midnight"] .admin-mobile-dock{background:var(--admin-ui-card)!i
 .provider-service-response small{display:block;margin-bottom:6px;color:#80776b;font-size:11px;font-weight:750}
 .provider-service-response p{margin:0;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
 .provider-service-response a{display:block;overflow-wrap:anywhere;color:#94713b}
+
+
+.tc-admin-delivery-preview{display:block;width:100%;max-height:380px;object-fit:contain;border:1px solid #dedad2;border-radius:12px;background:#f5f3ef;}

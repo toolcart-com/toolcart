@@ -973,3 +973,12 @@ html[data-theme=midnight] .tc-account-role,html[data-theme=midnight] .tc-managed
 html[data-theme="midnight"] .tc-service-field input,html[data-theme="midnight"] .tc-service-field select,html[data-theme="midnight"] .tc-service-field textarea{background:#222;color:#f7f5f0;border-color:#524a3d}
 html[data-theme="midnight"] .tc-order-item,html[data-theme="midnight"] .tc-service-price{background:#202020;border-color:#4d453b}
 @media(max-width:380px){.tc-order-item{flex-direction:column}.tc-order-item>div:last-child{text-align:left;justify-items:start}.tc-service-price{align-items:start}}
+
+
+/* V1.62 - private service delivery review */
+.tc-delivery-preview{margin:18px 0;padding:10px;border:1px solid var(--line,#dbd5c8);border-radius:18px;background:#f6f3ed;}
+.tc-delivery-preview img{display:block;width:100%;height:auto;max-height:460px;object-fit:contain;border-radius:10px;}
+.tc-delivery-preview small{display:block;color:#666;margin-top:9px;font-size:.79rem;}
+.tc-delivery-actions{display:grid;gap:10px;margin:16px 0;}
+.tc-delivery-actions .btn{width:100%;white-space:normal;}
+@media(min-width:620px){.tc-delivery-actions{grid-template-columns:1fr 1fr;}}

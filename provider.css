@@ -36,3 +36,10 @@
 .provider-service-response a{display:block;overflow-wrap:anywhere;color:#9f7a36;font-weight:750}
 #providerOrderDetail{display:grid;gap:10px}
 #providerOrderDetail.hidden{display:none}
+
+
+/* V1.62 private delivery uploads */
+.provider-delivery-form{display:grid;gap:14px;margin:20px 0;padding:18px;border:1px solid #d9d4ca;border-radius:18px;background:rgba(255,255,255,.035)}
+.provider-delivery-form label{display:grid;gap:8px;font-weight:600;min-width:0}
+.provider-delivery-form input,.provider-delivery-form textarea{box-sizing:border-box;width:100%;max-width:100%;min-width:0;padding:12px;border:1px solid #d7d2c8;border-radius:10px;background:var(--panel,#fff);color:inherit;font:inherit}
+.provider-delivery-form button{white-space:normal}

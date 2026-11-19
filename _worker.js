@@ -96,10 +96,14 @@ async function handleUserApi(request, env, ctx, url, auth) {
   if (path === '/api/provider/orders' && method === 'GET') return providerServiceOrders(env,user);
   if (path.match(/^\/api\/provider\/orders\/\d+$/) && method === 'GET') return providerServiceOrderDetail(env,user,Number(path.split('/')[4]));
   if (path.match(/^\/api\/provider\/orders\/\d+\/start$/) && method === 'POST') return providerStartServiceOrder(env,user,Number(path.split('/')[4]));
+  if (path.match(/^\/api\/provider\/orders\/\d+\/delivery$/) && method === 'POST') return providerDeliverServiceOrder(request,env,user,Number(path.split('/')[4]));
+  if (path.match(/^\/api\/provider\/orders\/\d+\/delivery\/preview$/) && method === 'GET') return secureServiceDeliveryFile(request,env,user,Number(path.split('/')[4]),'preview','provider');
   if (path === '/api/service-orders' && method === 'GET') return listMyServiceOrders(env,user);
   if (path === '/api/service-orders' && method === 'POST') return serviceCheckout(request,env,user);
   if (path.match(/^\/api\/service-orders\/\d+$/) && method === 'GET') return readMyServiceOrder(env,user,Number(path.split('/')[3]));
   if (path.match(/^\/api\/service-orders\/\d+\/submit$/) && method === 'POST') return submitServiceRequirements(request,env,user,Number(path.split('/')[3]));
+  if (path.match(/^\/api\/service-orders\/\d+\/delivery\/decision$/) && method === 'POST') return customerDecideServiceDelivery(request,env,user,Number(path.split('/')[3]));
+  if (path.match(/^\/api\/service-orders\/\d+\/delivery\/(preview|original)$/) && method === 'GET') return secureServiceDeliveryFile(request,env,user,Number(path.split('/')[3]),path.split('/')[5]);
   if (path.match(/^\/api\/service-orders\/\d+\/uploads\/[a-z][a-z0-9_]{1,39}$/) && method === 'POST') return uploadServiceRequirement(request,env,user,Number(path.split('/')[3]),path.split('/')[5]);
   if (path.match(/^\/api\/service-orders\/\d+\/files\/\d+$/) && method === 'GET') return serviceRequirementFile(request,env,user,Number(path.split('/')[3]),Number(path.split('/')[5]));
   if (path === '/api/tour/status' && method === 'GET') return tourStatus(env,user,url.searchParams.get('context'));
@@ -174,6 +178,7 @@ async function handleAdminApi(request, env, ctx, url, admin) {
   if (path === '/api/admin/providers' && method === 'GET') return adminProviderList(env, admin, url.searchParams);
   if (path === '/api/admin/service-orders' && method === 'GET') return adminServiceOrders(env,admin);
   if (path.match(/^\/api\/admin\/service-orders\/\d+$/) && method === 'GET') return adminServiceOrderDetail(env,admin,Number(path.split('/')[4]));
+  if (path.match(/^\/api\/admin\/service-orders\/\d+\/delivery\/(preview|original)$/) && method === 'GET') {const denied=requirePremiumServiceOwner(admin);if(denied)return denied;return secureServiceDeliveryFile(request,env,admin.user,Number(path.split('/')[4]),path.split('/')[6],'admin');}
   if (path.match(/^\/api\/admin\/service-orders\/\d+\/files\/\d+$/) && method === 'GET') {const denied=requirePremiumServiceOwner(admin);if(denied)return denied;return serviceRequirementFile(request,env,admin.user,Number(path.split('/')[4]),Number(path.split('/')[6]),true);}
   if (path === '/api/admin/provider-services' && method === 'GET') return adminProviderServices(env,admin);
   if (path.match(/^\/api\/admin\/provider-services\/\d+\/status$/) && method === 'POST') return adminProviderServiceModerate(request,env,admin,Number(path.split('/')[4]));
@@ -1882,12 +1887,12 @@ async function serviceCheckout(request,env,user){
 }
 async function listMyServiceOrders(env,user){
   const rows=await env.DB.prepare('SELECT * FROM service_orders WHERE user_id=? ORDER BY id DESC LIMIT 100').bind(user.id).all();
-  return privateOk({orders:rows.results.map(r=>serviceOrderView(r))});
+  const deliveries=await serviceDeliveryMap(env,rows.results);return privateOk({orders:rows.results.map(r=>({...serviceOrderView(r),delivery:deliveries.get(Number(r.id))||null}))});
 }
 async function readMyServiceOrder(env,user,id){
   const r=await env.DB.prepare('SELECT * FROM service_orders WHERE id=? AND user_id=?').bind(id,user.id).first();
   if(!r)return apiError('Order not found.',404);
-  return privateOk({order:serviceOrderView(r,true)});
+  return privateOk({order:{...serviceOrderView(r,true),delivery:await serviceDeliveryForOrder(env,r.id)}});
 }
 function validateServiceAnswers(fields,raw,uploads){
   if(!raw||typeof raw!=='object'||Array.isArray(raw))return{error:'Enter the required details.'};
@@ -1984,13 +1989,13 @@ async function serviceRequirementFile(request,env,auth,orderId,uploadId,asAdmin=
 async function providerServiceOrders(env,user){
   const p=await requireApprovedServiceProvider(env,user);if(!p)return apiError('Approved provider access required.',403);
   const rows=await env.DB.prepare(`SELECT * FROM service_orders WHERE provider_id=? AND status IN ('submitted','in_progress') ORDER BY submitted_at DESC,id DESC LIMIT 100`).bind(p.id).all();
-  return privateOk({orders:rows.results.map(r=>serviceOrderView(r))});
+  const deliveries=await serviceDeliveryMap(env,rows.results);return privateOk({orders:rows.results.map(r=>({...serviceOrderView(r),delivery:deliveries.get(Number(r.id))||null}))});
 }
 async function providerServiceOrderDetail(env,user,id){
   const p=await requireApprovedServiceProvider(env,user);if(!p)return apiError('Approved provider access required.',403);
   const order=await env.DB.prepare(`SELECT * FROM service_orders WHERE id=? AND provider_id=? AND status IN ('submitted','in_progress')`).bind(id,p.id).first();
   if(!order)return apiError('Request unavailable.',404);
-  return privateOk({order:serviceOrderView(order,true)});
+  return privateOk({order:{...serviceOrderView(order,true),delivery:await serviceDeliveryForOrder(env,id)}});
 }
 async function providerStartServiceOrder(env,user,id){
   const p=await requireApprovedServiceProvider(env,user);if(!p)return apiError('Approved provider access required.',403);
@@ -2001,11 +2006,127 @@ async function providerStartServiceOrder(env,user,id){
 async function adminServiceOrders(env,admin){
   const denied=requirePremiumServiceOwner(admin);if(denied)return denied;
   const rows=await env.DB.prepare(`SELECT o.*,p.provider_code,p.full_name AS provider_name,u.email AS customer_email FROM service_orders o JOIN provider_profiles p ON p.id=o.provider_id JOIN users u ON u.id=o.user_id ORDER BY o.id DESC LIMIT 150`).all();
-  return privateOk({orders:rows.results.map(r=>({...serviceOrderView(r),providerCode:r.provider_code,providerName:r.provider_name,customerEmail:r.customer_email}))});
+  const deliveries=await serviceDeliveryMap(env,rows.results);return privateOk({orders:rows.results.map(r=>({...serviceOrderView(r),providerCode:r.provider_code,providerName:r.provider_name,customerEmail:r.customer_email,delivery:deliveries.get(Number(r.id))||null}))});
 }
 async function adminServiceOrderDetail(env,admin,id){
   const denied=requirePremiumServiceOwner(admin);if(denied)return denied;
   const r=await env.DB.prepare(`SELECT o.*,p.provider_code,p.full_name AS provider_name,u.email AS customer_email FROM service_orders o JOIN provider_profiles p ON p.id=o.provider_id JOIN users u ON u.id=o.user_id WHERE o.id=?`).bind(id).first();
   if(!r)return apiError('Service order not found.',404);
-  return privateOk({order:{...serviceOrderView(r,true),providerCode:r.provider_code,providerName:r.provider_name,customerEmail:r.customer_email}});
+  return privateOk({order:{...serviceOrderView(r,true),providerCode:r.provider_code,providerName:r.provider_name,customerEmail:r.customer_email,delivery:await serviceDeliveryForOrder(env,id)}});
+}
+
+
+// ---------- V1.62: private deliverables, preview gating, and customer decisions ----------
+function serviceDeliveryView(row){
+ if(!row)return null;
+ return {id:Number(row.id),revision:Number(row.revision),status:row.status,originalName:row.original_name,
+   originalMime:row.original_mime,providerNote:row.provider_note,customerFeedback:row.customer_feedback||'',
+   deliveredAt:row.delivered_at,decidedAt:row.decided_at};
+}
+async function latestServiceDelivery(env,orderId){
+ return env.DB.prepare('SELECT * FROM service_deliveries WHERE order_id=? ORDER BY revision DESC LIMIT 1').bind(orderId).first();
+}
+async function serviceDeliveryForOrder(env,orderId){return serviceDeliveryView(await latestServiceDelivery(env,orderId))}
+async function serviceDeliveryMap(env,orders){
+ const ids=orders.map(x=>Number(x.id)).filter(x=>Number.isSafeInteger(x)&&x>0);
+ const result=new Map();if(!ids.length)return result;
+ const placeholders=ids.map(()=>'?').join(',');
+ const rows=await env.DB.prepare(`SELECT d.* FROM service_deliveries d JOIN (
+  SELECT order_id,MAX(revision) AS revision FROM service_deliveries
+  WHERE order_id IN (${placeholders}) GROUP BY order_id) newest
+  ON newest.order_id=d.order_id AND newest.revision=d.revision`).bind(...ids).all();
+ for(const row of rows.results)result.set(Number(row.order_id),serviceDeliveryView(row));
+ return result;
+}
+function validDeliveryMagic(type,head){
+ if(type==='application/pdf')return head[0]===37&&head[1]===80&&head[2]===68&&head[3]===70&&head[4]===45;
+ if(type==='image/png')return head[0]===137&&head[1]===80&&head[2]===78&&head[3]===71;
+ if(type==='image/jpeg')return head[0]===255&&head[1]===216&&head[2]===255;
+ if(type==='image/webp')return head[0]===82&&head[1]===73&&head[2]===70&&head[3]===70&&head[8]===87&&head[9]===69&&head[10]===66&&head[11]===80;
+ return false;
+}
+async function checkDeliveryUpload(file,types,max){
+ if(!(file instanceof File)||!types.includes(file.type)||file.size<1||file.size>max)return false;
+ return validDeliveryMagic(file.type,new Uint8Array(await file.slice(0,16).arrayBuffer()));
+}
+async function providerDeliverServiceOrder(request,env,user,id){
+ if(!env.MEDIA)return apiError('Private delivery storage is unavailable.',503);
+ const p=await requireApprovedServiceProvider(env,user);
+ if(!p)return apiError('Approved provider access required.',403);
+ const order=await env.DB.prepare(`SELECT * FROM service_orders WHERE id=? AND provider_id=? AND status='in_progress'`).bind(id,p.id).first();
+ if(!order)return apiError('This request is not available for delivery.',404);
+ const prior=await latestServiceDelivery(env,id);
+ if(prior&&prior.status!=='revision_requested')return apiError('Wait for the customer to review the current delivery.',409);
+ if(prior&&prior.revision>=100)return apiError('Please contact support for additional revisions.',409);
+ let form;try{form=await request.formData()}catch{return apiError('Invalid delivery form.',400)}
+ const original=form.get('original'),preview=form.get('preview');
+ const types=['image/jpeg','image/png','image/webp','application/pdf'];
+ if(!await checkDeliveryUpload(original,types,16*1024*1024))return apiError('Upload a JPEG, PNG, WebP or PDF final file (maximum 16 MB).',400);
+ if(!await checkDeliveryUpload(preview,['image/jpeg'],4*1024*1024))return apiError('Upload a JPEG watermarked preview image (maximum 4 MB).',400);
+ const note=cleanText(form.get('note'),1200);
+ const rand=randomToken(18).replace(/[^a-zA-Z0-9]/g,'').slice(0,20);
+ const originalKey=`service-deliveries/${id}/${rand}-original`;
+ const previewKey=`service-deliveries/${id}/${rand}-preview`;
+ let wroteOriginal=false,wrotePreview=false;
+ try{
+  await env.MEDIA.put(originalKey,original.stream(),{httpMetadata:{contentType:'application/octet-stream',cacheControl:'private, no-store'}});wroteOriginal=true;
+  await env.MEDIA.put(previewKey,preview.stream(),{httpMetadata:{contentType:'application/octet-stream',cacheControl:'private, no-store'}});wrotePreview=true;
+  const result=await env.DB.prepare(`INSERT INTO service_deliveries
+   (order_id,revision,provider_id,original_r2_key,preview_r2_key,original_name,original_mime,original_size,preview_size,provider_note)
+   VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(id,(prior?.revision||0)+1,p.id,originalKey,previewKey,
+   cleanText(original.name,160)||'delivered-file',original.type,original.size,preview.size,note).run();
+  const deliveryId=Number(result.meta.last_row_id);
+  try{await env.DB.prepare(`INSERT INTO service_delivery_events(order_id,delivery_id,actor_role,actor_user_id,event_type,note)
+    VALUES(?,?,?,?,?,?)`).bind(id,deliveryId,'provider',user.id,'delivered',note).run()}catch(e){console.error('Delivery audit event failed',e)}
+  return privateOk({delivery:await serviceDeliveryForOrder(env,id),message:'Work delivered for customer review.'},201);
+ }catch(error){
+  if(wroteOriginal)try{await env.MEDIA.delete(originalKey)}catch{}
+  if(wrotePreview)try{await env.MEDIA.delete(previewKey)}catch{}
+  const message=String(error);
+  if(message.includes('delivery_pending_customer')||message.includes('delivery_revision_conflict'))return apiError('This delivery was updated elsewhere. Refresh your order.',409);
+  if(message.includes('delivery_provider_unavailable'))return apiError('This provider account cannot deliver this order.',403);
+  throw error;
+ }
+}
+async function customerDecideServiceDelivery(request,env,user,id){
+ const order=await env.DB.prepare(`SELECT id,status FROM service_orders WHERE id=? AND user_id=?`).bind(id,user.id).first();
+ if(!order)return apiError('Service order not found.',404);
+ const payload=await readJson(request),decision=payload?.decision;
+ if(!['accept','revision'].includes(decision))return apiError('Select accept or request revision.',400);
+ const reason=decision==='revision'?cleanText(payload?.reason,1200):'';
+ if(decision==='revision'&&reason.length<10)return apiError('Please explain what needs to be corrected (at least 10 characters).',400);
+ const row=await latestServiceDelivery(env,id);
+ if(!row)return apiError('No delivery has been submitted yet.',409);
+ const target=decision==='accept'?'accepted':'revision_requested';
+ const out=await env.DB.prepare(`UPDATE service_deliveries SET status=?,customer_feedback=?,decided_at=CURRENT_TIMESTAMP
+  WHERE id=? AND order_id=? AND status='delivered' AND id=(SELECT id FROM service_deliveries WHERE order_id=? ORDER BY revision DESC LIMIT 1)`)
+  .bind(target,decision==='revision'?reason:null,row.id,id,id).run();
+ if(!out.meta.changes)return apiError('This delivery has already been reviewed. Refresh your order.',409);
+ try{await env.DB.prepare(`INSERT INTO service_delivery_events(order_id,delivery_id,actor_role,actor_user_id,event_type,note)
+ VALUES(?,?,?,?,?,?)`).bind(id,row.id,'customer',user.id,target,reason).run()}catch(e){console.error('Delivery decision audit failed',e)}
+ return privateOk({delivery:await serviceDeliveryForOrder(env,id),message:target==='accepted'?'Accepted. Your original file is now available.':'Revision requested. The provider can submit an updated version.'});
+}
+async function secureServiceDeliveryFile(request,env,auth,id,kind,role='customer'){
+ if(!env.MEDIA)return new Response('Unavailable',{status:503});
+ const order=await env.DB.prepare(`SELECT o.id,o.user_id,o.provider_id,o.status FROM service_orders o WHERE o.id=?`).bind(id).first();
+ if(!order)return new Response('Not found',{status:404});
+ if(role==='customer'&&Number(order.user_id)!==Number(auth.id))return new Response('Forbidden',{status:403});
+ if(role==='provider'){
+  const p=await requireApprovedServiceProvider(env,auth);
+  if(!p||Number(p.id)!==Number(order.provider_id))return new Response('Forbidden',{status:403});
+ }
+ const delivery=await latestServiceDelivery(env,id);
+ if(!delivery)return new Response('Not found',{status:404});
+ if(kind==='original'&&role==='customer'&&delivery.status!=='accepted')return new Response('Forbidden',{status:403});
+ if(kind!=='original'&&kind!=='preview')return new Response('Not found',{status:404});
+ const key=kind==='original'?delivery.original_r2_key:delivery.preview_r2_key;
+ const object=await env.MEDIA.get(key);
+ if(!object)return new Response('Not found',{status:404});
+ const fileName=kind==='original'?delivery.original_name:`toolcart-preview-${id}.jpg`;
+ const name=String(fileName).replace(/["\\\r\n]/g,'_');
+ const headers={'content-type':kind==='preview'?'image/jpeg':'application/octet-stream',
+  'content-disposition':`${kind==='preview'?'inline':'attachment'}; filename="${name}"`,
+  'cache-control':'private, no-store, max-age=0','x-content-type-options':'nosniff',
+  'content-security-policy':'sandbox','referrer-policy':'no-referrer','x-frame-options':'DENY'};
+ return new Response(request.method==='HEAD'?null:object.body,{headers});
 }

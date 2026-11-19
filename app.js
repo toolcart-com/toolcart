@@ -686,6 +686,8 @@ function bindGlobalEvents(){
     const svc=e.target.closest('[data-premium-service]');if(svc){if(!state.user)return openAuth('register');return openPremiumServiceDetail(Number(svc.dataset.premiumService),svc.dataset.premiumServiceSource||'provider');}
     const serviceBuy=e.target.closest('[data-service-buy]');if(serviceBuy)return buyPremiumService(serviceBuy);
     const serviceOpen=e.target.closest('[data-service-order-open]');if(serviceOpen)return openMyServiceOrder(Number(serviceOpen.dataset.serviceOrderOpen));
+    const deliveryAccept=e.target.closest('[data-service-accept]');if(deliveryAccept)return decideMyServiceDelivery(Number(deliveryAccept.dataset.serviceAccept),'accept');
+    const deliveryReject=e.target.closest('[data-service-reject]');if(deliveryReject)return decideMyServiceDelivery(Number(deliveryReject.dataset.serviceReject),'revision');
     if(e.target.closest('[data-service-to-wallet]')){closeModals();return switchTab('wallet');}
     if(e.target.closest('[data-start-customer-tour]')){void startCustomerTour(true);return;}
     const auth=e.target.closest('[data-auth]');if(auth)return openAuth(auth.dataset.auth);
@@ -813,7 +815,7 @@ async function loadServiceOrders(){
   const box=$('#serviceOrdersList');if(!box)return;
   box.innerHTML='<p class="tc-service-muted" role="status">Loading your private service orders…</p>';
   try{const d=await api('/api/service-orders');state.serviceOrders=d.orders||[];
-    box.innerHTML=state.serviceOrders.length?state.serviceOrders.map(o=>`<article class="tc-order-item"><div><small>${esc(o.orderNumber)} · ${fmtDate(o.createdAt)}</small><h3>${esc(o.serviceName)}</h3><p>${o.status==='awaiting_requirements'?'Add the required information to begin fulfillment.':o.status==='submitted'?'Your details are with the provider.':'Your provider is working on your request.'}</p></div><div><span class="status-badge">${esc(humanStatus(o.status))}</span><strong>${fmtMoney(o.customerPriceMinor,'NGN')}</strong><button type="button" class="btn btn-secondary compact" data-service-order-open="${o.id}">${o.status==='awaiting_requirements'?'Complete requirements':'View progress'}</button></div></article>`).join(''):'<div class="tc-order-empty">No service requests yet. Browse Premium Tools to get started.</div>';
+    box.innerHTML=state.serviceOrders.length?state.serviceOrders.map(o=>`<article class="tc-order-item"><div><small>${esc(o.orderNumber)} · ${fmtDate(o.createdAt)}</small><h3>${esc(o.serviceName)}</h3><p>${o.status==='awaiting_requirements'?'Add the required information to begin fulfillment.':o.delivery?.status==='accepted'?'Accepted · final file unlocked':o.delivery?.status==='delivered'?'Ready for your review':o.delivery?.status==='revision_requested'?'Revision requested · provider notified':o.status==='submitted'?'Your details are with the provider.':'Your provider is working on your request.'}</p></div><div><span class="status-badge">${esc(o.delivery?.status==='delivered'?'Ready to review':o.delivery?.status==='accepted'?'Accepted':o.delivery?.status==='revision_requested'?'Revision requested':humanStatus(o.status))}</span><strong>${fmtMoney(o.customerPriceMinor,'NGN')}</strong><button type="button" class="btn btn-secondary compact" data-service-order-open="${o.id}">${o.status==='awaiting_requirements'?'Complete requirements':'View progress'}</button></div></article>`).join(''):'<div class="tc-order-empty">No service requests yet. Browse Premium Tools to get started.</div>';
   }catch(e){box.textContent=e.message;}
 }
 function serviceInputMarkup(f){
@@ -833,7 +835,9 @@ async function openMyServiceOrder(id){
       showDetail(`<div class="tc-managed-detail"><span class="eyebrow">PAID / ${esc(order.orderNumber)}</span><h2>Complete your service details</h2><p>${esc(order.serviceName)} · ${fmtMoney(order.customerPriceMinor,'NGN')} paid</p><p class="tc-managed-notice">Only your assigned approved provider and authorized ToolCart administrators can view the details you submit. Please supply only information required for this service.</p><form id="serviceRequirementsForm" class="tc-service-form" data-order-id="${id}">${order.requirements.map(serviceInputMarkup).join('')}<button class="btn btn-primary" type="submit">Submit to provider</button></form><p class="tc-service-muted">Your payment has been confirmed. You can return here from My service requests to finish this form.</p></div>`);
       $('#serviceRequirementsForm').addEventListener('submit',submitMyServiceRequirements);
     }else{
-      showDetail(`<div class="tc-managed-detail"><span class="eyebrow">${esc(order.orderNumber)}</span><h2>${esc(order.serviceName)}</h2><div class="tc-service-status-step">${order.status==='in_progress'?'In progress':'Waiting for provider'}</div><p>Your requirements were submitted securely on ${fmtDate(order.submittedAt)}. ${order.status==='submitted'?'Your provider will review them and begin working.':'Your provider has started the service.'}</p><p class="tc-managed-notice">Delivery, watermarked previews, acceptance and withdrawals will be introduced in a later update. Provider earnings remain pending.</p><button class="btn btn-secondary" type="button" data-close-modal>Done</button></div>`);
+      const d=order.delivery;const preview=d?`<div class="tc-delivery-preview"><img src="/api/service-orders/${id}/delivery/preview?r=${d.revision}" alt="Watermarked preview of delivered work" loading="eager"><small>ToolCart watermarked review copy. The original is held privately.</small></div>`:'';
+      const controls=d?.status==='delivered'?`<div class="tc-delivery-actions"><button class="btn btn-primary" type="button" data-service-accept="${id}">Accept and unlock original</button><button class="btn btn-secondary" type="button" data-service-reject="${id}">Request correction</button></div>`:d?.status==='accepted'?`<a class="btn btn-primary" href="/api/service-orders/${id}/delivery/original">Download accepted original</a><p class="tc-managed-notice">Acceptance has been recorded. Payment disputes and statutory rights may still apply.</p>`:d?.status==='revision_requested'?`<p class="tc-managed-notice">Your feedback was sent: ${esc(d.customerFeedback)}. The provider can upload a revised file.</p>`:'<p class="tc-managed-notice">Waiting for your provider to submit completed work.</p>';
+      showDetail(`<div class="tc-managed-detail"><span class="eyebrow">${esc(order.orderNumber)}</span><h2>${esc(order.serviceName)}</h2><div class="tc-service-status-step">${d?.status==='delivered'?'Review delivery':d?.status==='accepted'?'Accepted':d?.status==='revision_requested'?'Revision requested':order.status==='in_progress'?'In progress':'Waiting for provider'}</div><p>Your requirements were submitted securely on ${fmtDate(order.submittedAt)}.</p>${preview}${d?.providerNote?`<p><strong>Provider note:</strong> ${esc(d.providerNote)}</p>`:''}${controls}<p class="tc-service-muted">Provider earnings and withdrawals remain on hold until the payout system is ready.</p><button class="btn btn-secondary" type="button" data-close-modal>Done</button></div>`);
     }
   }catch(e){toast(e.message,'error')}
 }
@@ -899,4 +903,20 @@ function closeCustomerTour(save=true){
   document.querySelector('.tc-tour-highlight')?.classList.remove('tc-tour-highlight');
   document.querySelector('#tcCustomerTour')?.remove();tcTour=null;
   if(save&&state.user)void api('/api/tour/complete',{method:'POST',body:{context:'customer'}}).catch(()=>{});
+}
+
+// V1.62: acceptance is a final-file access decision, NOT an automatic provider payout.
+async function decideMyServiceDelivery(id,decision){
+ let reason='';
+ if(decision==='accept'){
+   if(!confirm('Accept this work and unlock the original file? Your acceptance will be recorded and cannot be undone in ToolCart. This does not waive legal refund or dispute rights.'))return;
+ }else{
+   reason=prompt('Describe what needs correcting (at least 10 characters).','')||'';
+   if(!reason)return;
+   if(reason.trim().length<10)return toast('Please give a clear reason (at least 10 characters).','error');
+ }
+ const selector=decision==='accept'?'[data-service-accept]':'[data-service-reject]';
+ document.querySelectorAll(selector).forEach(b=>b.disabled=true);
+ try{await api(`/api/service-orders/${id}/delivery/decision`,{method:'POST',body:{decision,reason}});toast(decision==='accept'?'Original file unlocked.':'Correction request sent.');await openMyServiceOrder(id);void loadServiceOrders();}
+ catch(e){toast(e.message,'error');document.querySelectorAll(selector).forEach(b=>b.disabled=false);}
 }
