@@ -1,4 +1,4 @@
-const state={user:null,csrf:null,apps:[],products:[],premiumServices:[],wallet:{balanceMinor:0,currency:'NGN'},cartCount:0,cartItems:[],cartTotalMinor:0,cartCurrency:'NGN',cartReady:false,cartRevision:0,cartRenderSignature:null,updates:[],notifications:[],requests:[],recentApps:[],currentPlan:null,settings:{},promos:[],activeTab:'home',appCategory:'all',updateFilter:'all',notifFilter:'unread',purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0,purchasesRevision:0,checkoutInProgress:false};
+const state={user:null,csrf:null,apps:[],products:[],premiumServices:[],wallet:{balanceMinor:0,currency:'NGN'},cartCount:0,cartItems:[],cartTotalMinor:0,cartCurrency:'NGN',cartReady:false,cartRevision:0,cartRenderSignature:null,updates:[],notifications:[],requests:[],recentApps:[],currentPlan:null,settings:{},promos:[],activeTab:'home',appCategory:'all',updateFilter:'all',notifFilter:'unread',purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0,purchasesRevision:0,checkoutInProgress:false,serviceOrders:[],servicePurchasePending:false};
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtDate=v=>{if(!v)return'';const d=new Date(v);return Number.isNaN(d)?'':new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:d.getFullYear()!==new Date().getFullYear()?'numeric':undefined}).format(d)};
@@ -153,7 +153,7 @@ async function enterApp(preloaded){
   // Nonessential updates, notifications and promotions are loaded separately later.
   const data=preloaded||await api('/api/bootstrap');
   state.csrf=data.csrfToken||state.csrf;
-  Object.assign(state,{user:data.user,apps:data.apps||[],products:data.products||[],premiumServices:data.premiumServices||[],wallet:data.wallet||{balanceMinor:0,currency:'NGN'},cartCount:Number(data.cartCount||0),updates:data.updates||[],notifications:data.notifications||[],recentApps:data.recentApps||[],currentPlan:data.currentPlan,settings:data.settings||{},promos:data.promos||[],cartItems:data.cartItems||[],cartTotalMinor:Number(data.cartTotalMinor||0),cartCurrency:data.cartCurrency||'NGN',cartReady:Array.isArray(data.cartItems),cartRevision:state.cartRevision+1,cartRenderSignature:null,purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0,purchasesRevision:0,checkoutInProgress:false});
+  Object.assign(state,{user:data.user,apps:data.apps||[],products:data.products||[],premiumServices:data.premiumServices||[],wallet:data.wallet||{balanceMinor:0,currency:'NGN'},cartCount:Number(data.cartCount||0),updates:data.updates||[],notifications:data.notifications||[],recentApps:data.recentApps||[],currentPlan:data.currentPlan,settings:data.settings||{},promos:data.promos||[],cartItems:data.cartItems||[],cartTotalMinor:Number(data.cartTotalMinor||0),cartCurrency:data.cartCurrency||'NGN',cartReady:Array.isArray(data.cartItems),cartRevision:state.cartRevision+1,cartRenderSignature:null,purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0,purchasesRevision:0,checkoutInProgress:false,serviceOrders:[],servicePurchasePending:false});
   setTheme(preferredVisualTheme(state.user.preferredTheme,state.settings.default_theme||'pearl'));
   renderApp();
   renderCart();
@@ -581,7 +581,7 @@ async function openApp(id){
 async function toggleFavorite(id){try{const d=await api(`/api/apps/${id}/favorite`,{method:'POST'});const a=state.apps.find(x=>x.id===id);if(a)a.favorite=d.favorite;renderApps()}catch(e){toast(e.message,'error')}}
 async function openUpdate(id){const u=state.updates.find(x=>x.id===id);if(!u)return;try{if(!u.is_read){await api(`/api/updates/${id}/read`,{method:'POST'});u.is_read=1;updateBadges();renderUpdates()} }catch{}showDetail(`<div class="detail-hero"><span class="eyebrow">${esc(humanStatus(u.update_type))}</span><h2>${esc(u.title)}</h2><p>${esc(u.summary)}</p><div class="detail-meta"><span class="status-badge">${esc(humanStatus(u.priority))}</span><span class="status-badge">${fmtDate(u.publish_at)}</span></div></div><div class="detail-body"><p style="white-space:pre-wrap;line-height:1.65;color:var(--muted)">${esc(u.content)}</p>${u.external_url?`<div class="detail-actions"><button class="btn btn-primary" data-external="${esc(u.external_url)}">${esc(u.cta_label||'Open link')}</button></div>`:''}</div>`)}
 
-function switchTab(tab,scroll=true){closeStoreMenu();const valid=['home','apps','wishlist','cart','purchases','wallet','updates','requests','settings'];if(!valid.includes(tab))tab='home';state.activeTab=tab;$$('.view').forEach(v=>v.classList.remove('active'));const view=$(`#${tab}View`)||$('#homeView');view.classList.add('active');$$('#dock [data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$('#dock [data-open-cart]')?.classList.toggle('active',tab==='cart'||tab==='purchases');document.body.dataset.activeView=tab;if(tab==='home'){renderHeader()}if(tab==='wishlist')renderWishlist();if(tab==='purchases'){renderPurchases();void loadPurchases();}if(tab==='wallet')renderWalletView();if(tab==='requests')loadRequests();if(scroll)window.scrollTo({top:0,left:0,behavior:'auto'})}
+function switchTab(tab,scroll=true){closeStoreMenu();const valid=['home','apps','wishlist','cart','purchases','wallet','serviceOrders','updates','requests','settings'];if(!valid.includes(tab))tab='home';state.activeTab=tab;$$('.view').forEach(v=>v.classList.remove('active'));const view=$(`#${tab}View`)||$('#homeView');view.classList.add('active');$$('#dock [data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$('#dock [data-open-cart]')?.classList.toggle('active',tab==='cart'||tab==='purchases');document.body.dataset.activeView=tab;if(tab==='home'){renderHeader()}if(tab==='wishlist')renderWishlist();if(tab==='purchases'){renderPurchases();void loadPurchases();}if(tab==='wallet')renderWalletView();if(tab==='requests')loadRequests();if(tab==='serviceOrders')void loadServiceOrders();if(scroll)window.scrollTo({top:0,left:0,behavior:'auto'})}
 
 async function loadRequests(){try{const d=await api('/api/requests');state.requests=d.requests||[];renderRequests()}catch(e){$('#requestsList').innerHTML=empty('Could not load requests',e.message)}}
 function renderRequests(){const box=$('#requestsList');box.innerHTML=state.requests.length?state.requests.map(r=>`<article class="request-card" data-request-id="${r.id}"><div class="request-card-top"><div><strong>${esc(r.subject)}</strong><p>${esc(r.reference_number)} · ${fmtDate(r.updated_at)}</p></div><span class="status-pill ${r.status==='resolved'?'resolved':''}">${esc(humanStatus(r.status))}</span></div></article>`).join(''):empty('No requests yet','Use New request whenever you need help.','↗')}
@@ -683,7 +683,10 @@ function bindGlobalEvents(){
     if(e.target.closest('[data-menu-logout]')){closeStoreMenu();$('#signOutBtn')?.click();return;}
     const publicCat=e.target.closest('[data-public-t06-cat]');if(publicCat){state.publicCategory=publicCat.dataset.publicT06Cat;$$('[data-public-t06-cat]').forEach(b=>b.classList.toggle('active',b===publicCat));if(state.publicCatalog)renderPublicApps(state.publicCatalog.apps,state.publicCatalog.products,state.publicCatalog.services);return;}
     if(e.target.closest('[data-provider-registration]')){location.href='/provider?register=1';return;}
-    const svc=e.target.closest('[data-premium-service]');if(svc){if(!state.user)return openAuth('register');return openPremiumServiceDetail(Number(svc.dataset.premiumService));}
+    const svc=e.target.closest('[data-premium-service]');if(svc){if(!state.user)return openAuth('register');return openPremiumServiceDetail(Number(svc.dataset.premiumService),svc.dataset.premiumServiceSource||'provider');}
+    const serviceBuy=e.target.closest('[data-service-buy]');if(serviceBuy)return buyPremiumService(serviceBuy);
+    const serviceOpen=e.target.closest('[data-service-order-open]');if(serviceOpen)return openMyServiceOrder(Number(serviceOpen.dataset.serviceOrderOpen));
+    if(e.target.closest('[data-service-to-wallet]')){closeModals();return switchTab('wallet');}
     if(e.target.closest('[data-start-customer-tour]')){void startCustomerTour(true);return;}
     const auth=e.target.closest('[data-auth]');if(auth)return openAuth(auth.dataset.auth);
     const sw=e.target.closest('[data-auth-switch]');if(sw)return openAuth(sw.dataset.authSwitch);
@@ -772,13 +775,88 @@ window.addEventListener('pageshow',event=>{if(event.persisted&&state.user&&!$('#
 boot();
 
 // V1.60 managed service previews. Never invoke product checkout for service IDs.
+// ---------- V1.61 managed-service orders (separate from digital-product checkout) ----------
+const pendingServiceCheckout={key:null,source:null,id:null};
 function serviceCard(s,publicView=false){
-  return `<article class="tempo-merchant-card tempo-good-card tc-service-card" data-premium-service="${Number(s.id)}" role="button" tabindex="0" aria-label="View service ${esc(s.name)}"><div class="tempo-card-media tempo-product-media">${s.coverUrl?`<img src="${esc(s.coverUrl)}" alt="${esc(s.name)} cover" loading="eager" decoding="async">`:`<div class="tempo-product-placeholder"><small>TOOLCART / MANAGED SERVICES</small><strong>${esc(s.name)}</strong><i>PREMIUM SERVICE</i></div>`}</div><div class="tempo-card-info"><small class="tempo-card-type">${esc(s.shortDescription||'Premium service')}</small><h3>${esc(s.name)}</h3><strong class="tempo-card-price">${fmtMoney(s.customerPriceMinor,'NGN')}</strong></div><button type="button" class="tempo06-add" data-premium-service="${Number(s.id)}">${publicView?'Explore service':'View service'} ↗</button></article>`;
+  return `<article class="tempo-merchant-card tempo-good-card tc-service-card" data-premium-service="${Number(s.id)}" data-premium-service-source="${esc(s.source||'provider')}" role="button" tabindex="0" aria-label="View service ${esc(s.name)}"><div class="tempo-card-media tempo-product-media">${s.coverUrl?`<img src="${esc(s.coverUrl)}" alt="${esc(s.name)} cover" loading="eager" decoding="async">`:`<div class="tempo-product-placeholder"><small>TOOLCART / MANAGED SERVICES</small><strong>${esc(s.name)}</strong><i>PREMIUM SERVICE</i></div>`}</div><div class="tempo-card-info"><small class="tempo-card-type">${esc(s.shortDescription||'Premium service')}</small><h3>${esc(s.name)}</h3><strong class="tempo-card-price">${fmtMoney(s.customerPriceMinor,'NGN')}</strong></div><button type="button" class="tempo06-add" data-premium-service="${Number(s.id)}" data-premium-service-source="${esc(s.source||'provider')}">${publicView?'Explore service':'View service'} ↗</button></article>`;
 }
-function openPremiumServiceDetail(id){
-  const s=state.premiumServices.find(x=>Number(x.id)===id);if(!s)return toast('This service is unavailable.','error');
-  showDetail(`<div class="tc-managed-detail"><span class="eyebrow">PREMIUM SERVICES / MANAGED BY TOOLCART</span><h2>${esc(s.name)}</h2>${s.coverUrl?`<img class="tc-managed-image" src="${esc(s.coverUrl)}" alt="">`:''}<p>${esc(s.description||s.shortDescription)}</p><strong>${fmtMoney(s.customerPriceMinor,'NGN')}</strong><h3>Information required after purchase</h3><ul>${(s.requirements||[]).map(f=>`<li>${esc(f.label)}${f.required?' *':''}</li>`).join('')}</ul><p class="tc-managed-notice">Secure service checkout is being prepared. No payment or personal information is collected for this service yet.</p><button class="btn btn-secondary" data-close-modal>Continue browsing</button></div>`);
+function openPremiumServiceDetail(id,source='provider'){
+  const s=state.premiumServices.find(x=>Number(x.id)===id&&(x.source||'provider')===source);
+  if(!s)return toast('This service is unavailable.','error');
+  showDetail(`<div class="tc-managed-detail"><span class="eyebrow">PREMIUM SERVICES / TOOLCART</span><h2>${esc(s.name)}</h2>${s.coverUrl?`<img class="tc-managed-image" src="${esc(s.coverUrl)}" alt="">`:''}<p>${esc(s.description||s.shortDescription)}</p><div class="tc-service-price"><span>Customer price</span><strong>${fmtMoney(s.customerPriceMinor,'NGN')}</strong></div><h3>Information required after payment</h3><ul>${(s.requirements||[]).map(f=>`<li>${esc(f.label)}${f.required?' *':''}</li>`).join('')}</ul><div class="tc-service-price"><span>Your wallet balance</span><strong>${fmtMoney(state.wallet?.balanceMinor||0,'NGN')}</strong></div><p class="tc-managed-notice">Your wallet will be charged only after you confirm. The provider receives the requirements after you submit them. Earnings remain pending until a later delivery and acceptance stage.</p><button class="btn btn-primary" type="button" data-service-buy data-source="${esc(source)}" data-id="${id}">Pay ${fmtMoney(s.customerPriceMinor,'NGN')} from wallet</button><button class="btn btn-secondary" type="button" data-service-to-wallet>Fund wallet</button></div>`);
 }
+async function buyPremiumService(button){
+  if(state.servicePurchasePending)return;
+  const id=Number(button.dataset.id),source=button.dataset.source;
+  const s=state.premiumServices.find(x=>Number(x.id)===id&&x.source===source);
+  if(!s)return toast('This service is no longer available.','error');
+  if(!confirm(`Purchase ${s.name} for ${fmtMoney(s.customerPriceMinor,'NGN')} from your ToolCart wallet? This charge creates a service order.`))return;
+  state.servicePurchasePending=true;button.disabled=true;button.textContent='Confirming payment…';
+  if(pendingServiceCheckout.id!==id||pendingServiceCheckout.source!==source||!pendingServiceCheckout.key){
+    pendingServiceCheckout.id=id;pendingServiceCheckout.source=source;
+    pendingServiceCheckout.key=crypto.randomUUID?.()||`tc${Date.now()}${Math.random().toString(36).slice(2)}`;
+  }
+  try{
+    const result=await api('/api/service-orders',{method:'POST',body:{source,id,idempotencyKey:pendingServiceCheckout.key}});
+    state.wallet=result.wallet||state.wallet;updateBadges();renderWalletView();
+    pendingServiceCheckout.key=null;pendingServiceCheckout.id=null;pendingServiceCheckout.source=null;
+    toast(result.reused?'Your existing order is ready.':'Payment confirmed.');
+    await openMyServiceOrder(result.order.id);
+  }catch(err){
+    if(err.data?.code==='INSUFFICIENT_FUNDS'){
+      button.textContent='Insufficient balance · Fund wallet';button.disabled=false;
+    }else{button.textContent=`Pay ${fmtMoney(s.customerPriceMinor,'NGN')} from wallet`;button.disabled=false;}
+    toast(err.message,'error');
+  }finally{state.servicePurchasePending=false;}
+}
+async function loadServiceOrders(){
+  const box=$('#serviceOrdersList');if(!box)return;
+  box.innerHTML='<p class="tc-service-muted" role="status">Loading your private service orders…</p>';
+  try{const d=await api('/api/service-orders');state.serviceOrders=d.orders||[];
+    box.innerHTML=state.serviceOrders.length?state.serviceOrders.map(o=>`<article class="tc-order-item"><div><small>${esc(o.orderNumber)} · ${fmtDate(o.createdAt)}</small><h3>${esc(o.serviceName)}</h3><p>${o.status==='awaiting_requirements'?'Add the required information to begin fulfillment.':o.status==='submitted'?'Your details are with the provider.':'Your provider is working on your request.'}</p></div><div><span class="status-badge">${esc(humanStatus(o.status))}</span><strong>${fmtMoney(o.customerPriceMinor,'NGN')}</strong><button type="button" class="btn btn-secondary compact" data-service-order-open="${o.id}">${o.status==='awaiting_requirements'?'Complete requirements':'View progress'}</button></div></article>`).join(''):'<div class="tc-order-empty">No service requests yet. Browse Premium Tools to get started.</div>';
+  }catch(e){box.textContent=e.message;}
+}
+function serviceInputMarkup(f){
+  const key=esc(f.key),label=esc(f.label)+(f.required?' *':''),req=f.required?'required':'',help=f.help?`<small>${esc(f.help)}</small>`:'';
+  const attrs=`name="${key}" ${req} autocomplete="off"`;
+  let control='';
+  if(f.type==='long_text')control=`<textarea ${attrs} maxlength="4000" rows="4"></textarea>`;
+  else if(f.type==='select')control=`<select ${attrs}><option value="">Choose an option</option>${(f.options||[]).map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;
+  else if(f.type==='image'||f.type==='file')control=`<input ${attrs} type="file" accept="${f.type==='image'?'image/jpeg,image/png,image/webp':'image/jpeg,image/png,image/webp,application/pdf'}"><small>Private upload, maximum 8 MB per file.</small>`;
+  else {const t=({phone:'tel',email:'email',number:'number',date:'date'})[f.type]||'text';control=`<input ${attrs} type="${t}" ${f.type==='long_text'?'':f.type==='short_text'?'maxlength="320"':''}>`;}
+  return `<label class="tc-service-field"><span>${label}</span>${control}${help}</label>`;
+}
+async function openMyServiceOrder(id){
+  try{
+    const d=await api(`/api/service-orders/${id}`);const order=d.order;
+    if(order.status==='awaiting_requirements'){
+      showDetail(`<div class="tc-managed-detail"><span class="eyebrow">PAID / ${esc(order.orderNumber)}</span><h2>Complete your service details</h2><p>${esc(order.serviceName)} · ${fmtMoney(order.customerPriceMinor,'NGN')} paid</p><p class="tc-managed-notice">Only your assigned approved provider and authorized ToolCart administrators can view the details you submit. Please supply only information required for this service.</p><form id="serviceRequirementsForm" class="tc-service-form" data-order-id="${id}">${order.requirements.map(serviceInputMarkup).join('')}<button class="btn btn-primary" type="submit">Submit to provider</button></form><p class="tc-service-muted">Your payment has been confirmed. You can return here from My service requests to finish this form.</p></div>`);
+      $('#serviceRequirementsForm').addEventListener('submit',submitMyServiceRequirements);
+    }else{
+      showDetail(`<div class="tc-managed-detail"><span class="eyebrow">${esc(order.orderNumber)}</span><h2>${esc(order.serviceName)}</h2><div class="tc-service-status-step">${order.status==='in_progress'?'In progress':'Waiting for provider'}</div><p>Your requirements were submitted securely on ${fmtDate(order.submittedAt)}. ${order.status==='submitted'?'Your provider will review them and begin working.':'Your provider has started the service.'}</p><p class="tc-managed-notice">Delivery, watermarked previews, acceptance and withdrawals will be introduced in a later update. Provider earnings remain pending.</p><button class="btn btn-secondary" type="button" data-close-modal>Done</button></div>`);
+    }
+  }catch(e){toast(e.message,'error')}
+}
+async function submitMyServiceRequirements(event){
+  event.preventDefault();const form=event.currentTarget,button=form.querySelector('[type=submit]');if(button.disabled)return;
+  const id=Number(form.dataset.orderId);button.disabled=true;button.textContent='Uploading and submitting…';
+  try{
+    const order=(await api(`/api/service-orders/${id}`)).order;
+    const answers={};
+    for(const field of order.requirements){const input=form.elements.namedItem(field.key);if(!input)continue;
+      if(field.type==='image'||field.type==='file'){
+        const file=input.files?.[0];if(!file){if(field.required)throw new Error(`${field.label} is required.`);continue}
+        if(file.size>8*1024*1024)throw new Error(`${field.label} must be smaller than 8 MB.`);
+        const fd=new FormData();fd.append('file',file);
+        const result=await api(`/api/service-orders/${id}/uploads/${encodeURIComponent(field.key)}`,{method:'POST',body:fd});answers[field.key]=result.uploadId;
+      }else answers[field.key]=input.value;
+    }
+    await api(`/api/service-orders/${id}/submit`,{method:'POST',body:{answers}});
+    toast('Details sent to your service provider.');
+    await openMyServiceOrder(id);
+  }catch(e){toast(e.message,'error');}finally{button.disabled=false;button.textContent='Submit to provider';}
+}
+
 let tcTour=null;
 async function maybeCustomerTour(){
   if(!state.user||tcTour)return;

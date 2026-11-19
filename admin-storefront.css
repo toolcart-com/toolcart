@@ -521,3 +521,14 @@ html[data-theme="midnight"] .admin-mobile-dock{background:var(--admin-ui-card)!i
 
 /* V1.60 moderation cards, no redesign of the administrator panels */
 .premium-moderation-actions{display:flex;flex-wrap:wrap;gap:8px}.premium-moderation-actions button{min-width:0}.premium-service-list{margin-bottom:20px}
+
+/* V1.61 administrator service-order oversight. */
+.tc-admin-order{min-width:0}
+.tc-admin-order-facts{display:grid;grid-template-columns:minmax(90px,.6fr) minmax(0,1.4fr);gap:12px;padding:16px;border:1px solid var(--line,#e5ded0);border-radius:15px;margin:16px 0}
+.tc-admin-order-facts span{overflow-wrap:anywhere}
+.tc-admin-order-facts strong{font-size:12px}
+.provider-requirements-readonly{display:grid;gap:12px;margin:14px 0}
+.provider-service-response{min-width:0;padding:13px;border-radius:12px;background:rgba(155,135,101,.06);border:1px solid #ded5c5}
+.provider-service-response small{display:block;margin-bottom:6px;color:#80776b;font-size:11px;font-weight:750}
+.provider-service-response p{margin:0;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.provider-service-response a{display:block;overflow-wrap:anywhere;color:#94713b}

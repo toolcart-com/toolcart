@@ -26,3 +26,13 @@
 .provider-price-breakdown>div{display:flex;justify-content:space-between;gap:12px;align-items:start}.provider-price-breakdown strong{font-variant-numeric:tabular-nums;text-align:right}.provider-price-breakdown small{color:var(--muted);line-height:1.4}
 .provider-tour{position:fixed;inset:0;z-index:1500;pointer-events:none}.provider-tour-dim{position:absolute;inset:0;background:rgba(14,13,11,.33)}.provider-tour-card{pointer-events:auto;position:fixed;left:clamp(12px,5vw,32px);right:clamp(12px,5vw,32px);max-width:370px;margin:auto;background:#fff;border:1px solid #ddd1bd;box-shadow:0 18px 60px #0003;border-radius:19px;padding:20px;z-index:1502}.provider-tour-card small{font-size:10px;font-weight:800;letter-spacing:.16em;color:#a48651}.provider-tour-card h3{font-size:20px;margin:10px 0 7px}.provider-tour-card p{font-size:13px;line-height:1.55;color:#675e51;margin:0 0 17px}.provider-tour-card>div{display:flex;justify-content:space-between;gap:10px}.provider-tour-card button{min-height:40px;padding:9px 16px;border-radius:10px;border:1px solid #ded8cd;background:#fff;color:#222;font-weight:700}.provider-tour-card [data-provider-tour-next]{background:#161616;color:#fff;border-color:#161616}.provider-tour-highlight{position:relative;z-index:1501;outline:3px solid #ae8a4e;outline-offset:4px;background-color:#fff}
 @media(max-width:500px){.provider-service-actions button{flex:1}.provider-price-pair{display:grid}.provider-tour-card{max-width:none}}
+
+/* V1.61 assigned service inbox and privacy-scoped answers. */
+#providerOrderInbox{display:grid;gap:10px;min-width:0}
+.provider-requirements-readonly{display:grid;gap:12px;margin:15px 0;min-width:0}
+.provider-service-response{padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);min-width:0}
+.provider-service-response small{display:block;font-size:11px;font-weight:750;color:var(--muted);margin-bottom:7px}
+.provider-service-response p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;margin:0}
+.provider-service-response a{display:block;overflow-wrap:anywhere;color:#9f7a36;font-weight:750}
+#providerOrderDetail{display:grid;gap:10px}
+#providerOrderDetail.hidden{display:none}

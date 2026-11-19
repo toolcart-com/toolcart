@@ -93,6 +93,15 @@ async function handleUserApi(request, env, ctx, url, auth) {
   if (path.match(/^\/api\/provider\/services\/\d+$/) && method === 'PATCH') return providerSaveService(request,env,user,Number(path.split('/')[4]));
   if (path.match(/^\/api\/provider\/services\/\d+\/status$/) && method === 'POST') return providerToggleService(request,env,user,Number(path.split('/')[4]));
   if (path === '/api/provider/service-cover' && method === 'POST') return providerUploadServiceCover(request,env,user);
+  if (path === '/api/provider/orders' && method === 'GET') return providerServiceOrders(env,user);
+  if (path.match(/^\/api\/provider\/orders\/\d+$/) && method === 'GET') return providerServiceOrderDetail(env,user,Number(path.split('/')[4]));
+  if (path.match(/^\/api\/provider\/orders\/\d+\/start$/) && method === 'POST') return providerStartServiceOrder(env,user,Number(path.split('/')[4]));
+  if (path === '/api/service-orders' && method === 'GET') return listMyServiceOrders(env,user);
+  if (path === '/api/service-orders' && method === 'POST') return serviceCheckout(request,env,user);
+  if (path.match(/^\/api\/service-orders\/\d+$/) && method === 'GET') return readMyServiceOrder(env,user,Number(path.split('/')[3]));
+  if (path.match(/^\/api\/service-orders\/\d+\/submit$/) && method === 'POST') return submitServiceRequirements(request,env,user,Number(path.split('/')[3]));
+  if (path.match(/^\/api\/service-orders\/\d+\/uploads\/[a-z][a-z0-9_]{1,39}$/) && method === 'POST') return uploadServiceRequirement(request,env,user,Number(path.split('/')[3]),path.split('/')[5]);
+  if (path.match(/^\/api\/service-orders\/\d+\/files\/\d+$/) && method === 'GET') return serviceRequirementFile(request,env,user,Number(path.split('/')[3]),Number(path.split('/')[5]));
   if (path === '/api/tour/status' && method === 'GET') return tourStatus(env,user,url.searchParams.get('context'));
   if (path === '/api/tour/complete' && method === 'POST') { const b=await readJson(request);return tourComplete(env,user,b?.context); }
   if (path === '/api/profile' && method === 'GET') return getProfile(env, user.id);
@@ -163,6 +172,9 @@ async function handleAdminApi(request, env, ctx, url, admin) {
   // V1.57 managed-service definitions are administrator-only, and never enter product checkout.
   // Owner-only provider approvals. No provider wallet or customer requests exist in V1.58.
   if (path === '/api/admin/providers' && method === 'GET') return adminProviderList(env, admin, url.searchParams);
+  if (path === '/api/admin/service-orders' && method === 'GET') return adminServiceOrders(env,admin);
+  if (path.match(/^\/api\/admin\/service-orders\/\d+$/) && method === 'GET') return adminServiceOrderDetail(env,admin,Number(path.split('/')[4]));
+  if (path.match(/^\/api\/admin\/service-orders\/\d+\/files\/\d+$/) && method === 'GET') {const denied=requirePremiumServiceOwner(admin);if(denied)return denied;return serviceRequirementFile(request,env,admin.user,Number(path.split('/')[4]),Number(path.split('/')[6]),true);}
   if (path === '/api/admin/provider-services' && method === 'GET') return adminProviderServices(env,admin);
   if (path.match(/^\/api\/admin\/provider-services\/\d+\/status$/) && method === 'POST') return adminProviderServiceModerate(request,env,admin,Number(path.split('/')[4]));
   if (path.match(/^\/api\/admin\/providers\/\d+\/review$/) && method === 'POST') return adminReviewProvider(request, env, admin, Number(path.split('/')[4]));
@@ -1624,7 +1636,7 @@ async function serveMedia(request,env,key,ctx){
   if(!env.MEDIA)return new Response('Media unavailable',{status:503});
   if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
   try{key=decodeURIComponent(key)}catch{return new Response('Not found',{status:404})}
-  if(key.includes('..')||key.startsWith('product-files/'))return new Response('Not found',{status:404});
+  if(key.includes('..')||key.startsWith('product-files/')||key.startsWith('service-private/'))return new Response('Not found',{status:404});
   const isAvatar=key.startsWith('avatars/');
   if(isAvatar){
     const ownerId=Number(key.split('/')[1]);
@@ -1716,7 +1728,7 @@ function servicePublicShape(row){
   return {id:Number(row.id),source:row.source||'provider',name:row.name,shortDescription:row.short_description,
     description:row.description,coverUrl:row.cover_key?`/media/${row.cover_key}`:null,
     customerPriceMinor:Number(row.customer_price_minor),currency:'NGN',requirements:safeJson(row.requirements_json,[]),
-    providerCode:undefined,orderingEnabled:false};
+    providerCode:undefined,orderingEnabled:true};
 }
 async function publicPremiumServices(env){
   const provider=await env.DB.prepare(`SELECT s.*, 'provider' AS source FROM provider_service_listings s
@@ -1816,4 +1828,184 @@ async function tourComplete(env,user,context){
   if(!['customer','provider'].includes(context))return apiError('Invalid tour.',400);
   await env.DB.prepare(`INSERT INTO user_onboarding_tours(user_id,context) VALUES(?,?) ON CONFLICT(user_id,context) DO NOTHING`).bind(user.id,context).run();
   return privateOk({complete:true});
+}
+
+// ---------- V1.61: atomic service checkout and private requirement routing ----------
+function serviceOrderView(r, includeAnswers=false){
+  const result={id:Number(r.id),orderNumber:r.order_number,serviceName:r.service_name,listingSource:r.listing_source,
+    customerPriceMinor:Number(r.customer_price_minor),providerEarningsMinor:Number(r.provider_earnings_minor),currency:r.currency,
+    status:r.status,createdAt:r.created_at,submittedAt:r.submitted_at,startedAt:r.started_at,
+    requirements:safeJson(r.requirements_json,[])};
+  if(includeAnswers)result.answers=safeJson(r.answers_json,{});
+  return result;
+}
+async function activeServiceListing(env,source,id){
+  if(source==='provider'){
+    return env.DB.prepare(`SELECT s.*,p.id AS matched_provider_id FROM provider_service_listings s
+      JOIN provider_profiles p ON p.id=s.provider_id JOIN users u ON u.id=p.user_id
+      WHERE s.id=? AND s.status='published' AND p.status='approved' AND u.status='active'`).bind(id).first();
+  }
+  if(source==='admin'){
+    return env.DB.prepare(`SELECT d.*,p.id AS matched_provider_id,d.provider_price_minor AS provider_earnings_minor,
+      (d.customer_price_minor-d.provider_price_minor) AS platform_margin_minor
+      FROM premium_service_definitions d JOIN provider_profiles p ON p.provider_code=d.provider_code
+      JOIN users u ON u.id=p.user_id
+      WHERE d.id=? AND d.archived_at IS NULL AND d.status='configured' AND p.status='approved' AND u.status='active'`).bind(id).first();
+  }
+  return null;
+}
+async function serviceCheckout(request,env,user){
+  const b=await readJson(request),source=b?.source,id=Number(b?.id),key=String(b?.idempotencyKey||'');
+  if(!['admin','provider'].includes(source)||!Number.isSafeInteger(id)||id<=0||!/^[a-zA-Z0-9_-]{16,96}$/.test(key))return apiError('Invalid service checkout request.',400);
+  const previous=await env.DB.prepare('SELECT * FROM service_orders WHERE user_id=? AND idempotency_key=?').bind(user.id,key).first();
+  if(previous)return privateOk({order:serviceOrderView(previous),reused:true,wallet:await getWallet(env,user.id)});
+  const listing=await activeServiceListing(env,source,id);
+  if(!listing)return apiError('This service is unavailable. Please choose another.',409);
+  const price=Number(listing.customer_price_minor),providerNet=Number(listing.provider_earnings_minor),margin=price-providerNet;
+  if(!Number.isSafeInteger(price)||price<100||!Number.isSafeInteger(providerNet)||providerNet<0||margin<0)return apiError('Service pricing is invalid.',409);
+  const requirements=safeJson(listing.requirements_json,[]);
+  if(!Array.isArray(requirements)||requirements.length<1)return apiError('This service has no requirements configured.',409);
+  const number=`TCS-${Date.now()}-${randomToken(10).replace(/[^a-zA-Z0-9]/g,'').slice(0,10)}`;
+  try{
+    const result=await env.DB.prepare(`INSERT INTO service_orders(order_number,user_id,provider_id,listing_source,listing_id,idempotency_key,service_name,customer_price_minor,provider_earnings_minor,platform_margin_minor,requirements_json)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?)`).bind(number,user.id,listing.matched_provider_id,source,id,key,listing.name,price,providerNet,margin,JSON.stringify(requirements)).run();
+    const order=await env.DB.prepare('SELECT * FROM service_orders WHERE id=? AND user_id=?').bind(result.meta.last_row_id,user.id).first();
+    return privateOk({order:serviceOrderView(order),wallet:await getWallet(env,user.id),message:'Payment confirmed. Complete the requirements to send your request.'},201);
+  }catch(error){
+    const again=await env.DB.prepare('SELECT * FROM service_orders WHERE user_id=? AND idempotency_key=?').bind(user.id,key).first();
+    if(again)return privateOk({order:serviceOrderView(again),reused:true,wallet:await getWallet(env,user.id)});
+    const str=String(error);
+    if(str.includes('insufficient_service_wallet'))return apiError('Insufficient wallet balance. Fund your wallet before purchasing this service.',409,{code:'INSUFFICIENT_FUNDS'});
+    if(str.includes('service_provider_unavailable')||str.includes('service_listing_unavailable'))return apiError('This service changed or is no longer available. Please refresh.',409);
+    throw error;
+  }
+}
+async function listMyServiceOrders(env,user){
+  const rows=await env.DB.prepare('SELECT * FROM service_orders WHERE user_id=? ORDER BY id DESC LIMIT 100').bind(user.id).all();
+  return privateOk({orders:rows.results.map(r=>serviceOrderView(r))});
+}
+async function readMyServiceOrder(env,user,id){
+  const r=await env.DB.prepare('SELECT * FROM service_orders WHERE id=? AND user_id=?').bind(id,user.id).first();
+  if(!r)return apiError('Order not found.',404);
+  return privateOk({order:serviceOrderView(r,true)});
+}
+function validateServiceAnswers(fields,raw,uploads){
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return{error:'Enter the required details.'};
+  const clean={},keys=new Set(fields.map(f=>f.key));
+  if(Object.keys(raw).some(k=>!keys.has(k)))return{error:'An unknown field was submitted.'};
+  for(const f of fields){
+    let answer=raw[f.key];
+    if(f.type==='file'||f.type==='image'){
+      if(answer==null||answer===''){if(f.required)return{error:`${f.label} is required.`};continue;}
+      if(!Number.isSafeInteger(Number(answer)))return{error:`Upload a valid file for ${f.label}.`};
+      const uploaded=uploads.find(u=>u.id===Number(answer)&&u.field_key===f.key);
+      if(!uploaded)return{error:`The upload for ${f.label} is unavailable.`};
+      if(f.type==='image'&&!uploaded.mime_type.startsWith('image/'))return{error:`${f.label} requires an image.`};
+      clean[f.key]={uploadId:uploaded.id,fileName:uploaded.file_name};continue;
+    }
+    answer=String(answer??'').trim();
+    if(!answer){if(f.required)return{error:`${f.label} is required.`};continue;}
+    if(answer.length>(f.type==='long_text'?4000:320))return{error:`${f.label} is too long.`};
+    if(f.type==='email'&&!isEmail(answer))return{error:`Enter a valid email for ${f.label}.`};
+    if(f.type==='phone'&&!/^[+\d][\d\s()+-]{5,31}$/.test(answer))return{error:`Enter a valid number for ${f.label}.`};
+    if(f.type==='number'&&(!/^-?\d+(\.\d+)?$/.test(answer)||!Number.isFinite(Number(answer))))return{error:`Enter a number for ${f.label}.`};
+    if(f.type==='date'&&(!/^\d{4}-\d{2}-\d{2}$/.test(answer)||Number.isNaN(Date.parse(answer+'T00:00:00Z'))))return{error:`Enter a date for ${f.label}.`};
+    if(f.type==='select'&&!(f.options||[]).includes(answer))return{error:`Choose a valid option for ${f.label}.`};
+    clean[f.key]=answer;
+  }
+  return {answers:clean};
+}
+async function submitServiceRequirements(request,env,user,id){
+  const order=await env.DB.prepare('SELECT * FROM service_orders WHERE id=? AND user_id=?').bind(id,user.id).first();
+  if(!order)return apiError('Order not found.',404);
+  if(order.status!=='awaiting_requirements')return apiError('Requirements have already been submitted.',409);
+  const fields=safeJson(order.requirements_json,[]),b=await readJson(request);
+  const uploadRows=await env.DB.prepare('SELECT id,field_key,mime_type,file_name FROM service_requirement_uploads WHERE order_id=?').bind(id).all();
+  const v=validateServiceAnswers(fields,b?.answers,uploadRows.results);
+  if(v.error)return apiError(v.error,400);
+  const result=await env.DB.prepare(`UPDATE service_orders SET answers_json=?,status='submitted',submitted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+    WHERE id=? AND user_id=? AND status='awaiting_requirements'`).bind(JSON.stringify(v.answers),id,user.id).run();
+  if(Number(result.meta.changes||0)!==1)return apiError('Requirements were already submitted. Refresh your order.',409);
+  const updated=await env.DB.prepare('SELECT * FROM service_orders WHERE id=?').bind(id).first();
+  return privateOk({order:serviceOrderView(updated,true),message:'Your details have been securely submitted to the assigned provider.'});
+}
+async function uploadServiceRequirement(request,env,user,id,fieldKey){
+  if(!env.MEDIA)return apiError('Secure file storage is unavailable.',503);
+  const order=await env.DB.prepare('SELECT * FROM service_orders WHERE id=? AND user_id=?').bind(id,user.id).first();
+  if(!order)return apiError('Order not found.',404);
+  if(order.status!=='awaiting_requirements')return apiError('This order is no longer accepting uploads.',409);
+  const f=safeJson(order.requirements_json,[]).find(x=>x.key===fieldKey&&(x.type==='image'||x.type==='file'));
+  if(!f)return apiError('This service does not accept an upload for that field.',400);
+  let fd;try{fd=await request.formData()}catch{return apiError('Invalid upload request.',400)}
+  const file=fd.get('file');if(!(file instanceof File))return apiError('Choose a file to upload.',400);
+  const allowed=['image/jpeg','image/png','image/webp','application/pdf'];
+  if(!allowed.includes(file.type)||(f.type==='image'&&!file.type.startsWith('image/')))return apiError('Only JPEG, PNG, WebP or PDF files are accepted for this field.',400);
+  if(file.size<1||file.size>8*1024*1024)return apiError('File must be 8 MB or smaller.',400);
+  // Minimal signature check protects against masquerading uploads. Files remain private.
+  const head=new Uint8Array(await file.slice(0,16).arrayBuffer());
+  const isPdf=head[0]===37&&head[1]===80&&head[2]===68&&head[3]===70&&head[4]===45;
+  const isPng=head[0]===137&&head[1]===80&&head[2]===78&&head[3]===71;
+  const isJpeg=head[0]===255&&head[1]===216&&head[2]===255;
+  const isWebp=head[0]===82&&head[1]===73&&head[2]===70&&head[3]===70&&head[8]===87&&head[9]===69&&head[10]===66&&head[11]===80;
+  if(!({ 'application/pdf':isPdf,'image/png':isPng,'image/jpeg':isJpeg,'image/webp':isWebp}[file.type]))return apiError('The file content does not match its format.',400);
+  const key=`service-private/${id}/${randomToken(18).replace(/[^a-zA-Z0-9]/g,'').slice(0,18)}`;
+  try{
+    await env.MEDIA.put(key,file.stream(),{httpMetadata:{contentType:'application/octet-stream',cacheControl:'private, no-store'}});
+    // If submit happened during upload, don't link a late object.
+    const existing=await env.DB.prepare('SELECT status FROM service_orders WHERE id=? AND user_id=?').bind(id,user.id).first();
+    if(existing?.status!=='awaiting_requirements'){await env.MEDIA.delete(key);return apiError('This order has already been submitted.',409)}
+    const out=await env.DB.prepare('INSERT INTO service_requirement_uploads(order_id,field_key,r2_key,file_name,mime_type,file_size) VALUES(?,?,?,?,?,?)')
+      .bind(id,fieldKey,key,cleanText(file.name,160)||'attachment',file.type,file.size).run();
+    return privateOk({uploadId:Number(out.meta.last_row_id),fileName:cleanText(file.name,160)||'attachment'});
+  }catch(error){try{await env.MEDIA.delete(key)}catch{}throw error}
+}
+async function serviceRequirementFile(request,env,auth,orderId,uploadId,asAdmin=false){
+  if(!env.MEDIA)return new Response('Unavailable',{status:503});
+  const row=await env.DB.prepare(`SELECT f.*,o.user_id,o.provider_id,o.status FROM service_requirement_uploads f
+    JOIN service_orders o ON o.id=f.order_id WHERE o.id=? AND f.id=?`).bind(orderId,uploadId).first();
+  if(!row)return new Response('Not found',{status:404});
+  if(!asAdmin){
+    const permitted=Number(row.user_id)===Number(auth.id) ||
+      (row.status!=='awaiting_requirements' && !!(await env.DB.prepare(`SELECT 1 FROM provider_profiles p JOIN users u ON u.id=p.user_id
+        WHERE p.id=? AND p.user_id=? AND p.status='approved' AND u.status='active'`).bind(row.provider_id,auth.id).first()));
+    if(!permitted)return new Response('Forbidden',{status:403});
+    // Providers can only retrieve uploads actually included in the submitted answers.
+    if(Number(row.user_id)!==Number(auth.id)){
+      const orderAnswers=await env.DB.prepare('SELECT answers_json FROM service_orders WHERE id=?').bind(orderId).first();
+      const referenced=Object.values(safeJson(orderAnswers?.answers_json,{})).some(v=>v&&typeof v==='object'&&Number(v.uploadId)===Number(uploadId));
+      if(!referenced)return new Response('Forbidden',{status:403});
+    }
+  }
+  const object=await env.MEDIA.get(row.r2_key);
+  if(!object)return new Response('Not found',{status:404});
+  const disposition=`attachment; filename="${row.file_name.replace(/["\\\r\n]/g,'_')}"`;
+  return new Response(request.method==='HEAD'?null:object.body,{headers:{'content-type':'application/octet-stream','content-disposition':disposition,'cache-control':'no-store, private','x-content-type-options':'nosniff','content-security-policy':'sandbox','referrer-policy':'no-referrer'}});
+}
+async function providerServiceOrders(env,user){
+  const p=await requireApprovedServiceProvider(env,user);if(!p)return apiError('Approved provider access required.',403);
+  const rows=await env.DB.prepare(`SELECT * FROM service_orders WHERE provider_id=? AND status IN ('submitted','in_progress') ORDER BY submitted_at DESC,id DESC LIMIT 100`).bind(p.id).all();
+  return privateOk({orders:rows.results.map(r=>serviceOrderView(r))});
+}
+async function providerServiceOrderDetail(env,user,id){
+  const p=await requireApprovedServiceProvider(env,user);if(!p)return apiError('Approved provider access required.',403);
+  const order=await env.DB.prepare(`SELECT * FROM service_orders WHERE id=? AND provider_id=? AND status IN ('submitted','in_progress')`).bind(id,p.id).first();
+  if(!order)return apiError('Request unavailable.',404);
+  return privateOk({order:serviceOrderView(order,true)});
+}
+async function providerStartServiceOrder(env,user,id){
+  const p=await requireApprovedServiceProvider(env,user);if(!p)return apiError('Approved provider access required.',403);
+  const result=await env.DB.prepare(`UPDATE service_orders SET status='in_progress',started_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND provider_id=? AND status='submitted'`).bind(id,p.id).run();
+  if(!result.meta.changes)return apiError('Request is unavailable or already in progress.',409);
+  return providerServiceOrderDetail(env,user,id);
+}
+async function adminServiceOrders(env,admin){
+  const denied=requirePremiumServiceOwner(admin);if(denied)return denied;
+  const rows=await env.DB.prepare(`SELECT o.*,p.provider_code,p.full_name AS provider_name,u.email AS customer_email FROM service_orders o JOIN provider_profiles p ON p.id=o.provider_id JOIN users u ON u.id=o.user_id ORDER BY o.id DESC LIMIT 150`).all();
+  return privateOk({orders:rows.results.map(r=>({...serviceOrderView(r),providerCode:r.provider_code,providerName:r.provider_name,customerEmail:r.customer_email}))});
+}
+async function adminServiceOrderDetail(env,admin,id){
+  const denied=requirePremiumServiceOwner(admin);if(denied)return denied;
+  const r=await env.DB.prepare(`SELECT o.*,p.provider_code,p.full_name AS provider_name,u.email AS customer_email FROM service_orders o JOIN provider_profiles p ON p.id=o.provider_id JOIN users u ON u.id=o.user_id WHERE o.id=?`).bind(id).first();
+  if(!r)return apiError('Service order not found.',404);
+  return privateOk({order:{...serviceOrderView(r,true),providerCode:r.provider_code,providerName:r.provider_name,customerEmail:r.customer_email}});
 }
