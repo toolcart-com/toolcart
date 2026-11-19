@@ -88,6 +88,13 @@ async function handleUserApi(request, env, ctx, url, auth) {
   if (path === '/api/provider/me' && method === 'GET') return providerMe(env, user);
   if (path === '/api/provider/apply' && method === 'POST') return providerApply(request, env, user);
   if (path === '/api/provider/application' && method === 'PATCH') return providerUpdateApplication(request, env, user);
+  if (path === '/api/provider/services' && method === 'GET') return providerListServices(env,user);
+  if (path === '/api/provider/services' && method === 'POST') return providerSaveService(request,env,user);
+  if (path.match(/^\/api\/provider\/services\/\d+$/) && method === 'PATCH') return providerSaveService(request,env,user,Number(path.split('/')[4]));
+  if (path.match(/^\/api\/provider\/services\/\d+\/status$/) && method === 'POST') return providerToggleService(request,env,user,Number(path.split('/')[4]));
+  if (path === '/api/provider/service-cover' && method === 'POST') return providerUploadServiceCover(request,env,user);
+  if (path === '/api/tour/status' && method === 'GET') return tourStatus(env,user,url.searchParams.get('context'));
+  if (path === '/api/tour/complete' && method === 'POST') { const b=await readJson(request);return tourComplete(env,user,b?.context); }
   if (path === '/api/profile' && method === 'GET') return getProfile(env, user.id);
   if (path === '/api/profile' && method === 'PATCH') return updateProfile(request, env, user.id);
   if (path === '/api/profile/avatar' && method === 'POST') return uploadProfileAvatar(request, env, user.id);
@@ -156,6 +163,8 @@ async function handleAdminApi(request, env, ctx, url, admin) {
   // V1.57 managed-service definitions are administrator-only, and never enter product checkout.
   // Owner-only provider approvals. No provider wallet or customer requests exist in V1.58.
   if (path === '/api/admin/providers' && method === 'GET') return adminProviderList(env, admin, url.searchParams);
+  if (path === '/api/admin/provider-services' && method === 'GET') return adminProviderServices(env,admin);
+  if (path.match(/^\/api\/admin\/provider-services\/\d+\/status$/) && method === 'POST') return adminProviderServiceModerate(request,env,admin,Number(path.split('/')[4]));
   if (path.match(/^\/api\/admin\/providers\/\d+\/review$/) && method === 'POST') return adminReviewProvider(request, env, admin, Number(path.split('/')[4]));
   if (path === '/api/admin/premium-services' && method === 'GET') return adminPremiumServices(env, admin);
   if (path === '/api/admin/premium-services' && method === 'POST') return adminCreatePremiumService(request, env, admin);
@@ -446,7 +455,8 @@ async function publicBootstrap(env) {
   const goods = await env.DB.prepare(`SELECT id,name,short_description,display_image_key,price_minor,currency,access_type,stock_mode,stock_quantity,featured,display_order,store_section
     FROM products WHERE active=1 AND archived_at IS NULL ORDER BY featured DESC,display_order,name LIMIT 24`).all();
   const settings = await getPublicSettings(env);
-  return apiOk({ apps: apps.results.map(mapAppMedia), products: goods.results.map(mapProductMedia), settings });
+  const premiumServices=await publicPremiumServices(env);
+  return apiOk({ apps: apps.results.map(mapAppMedia), products: goods.results.map(mapProductMedia), premiumServices, settings });
 }
 
 async function userBootstrap(env, user, csrfToken) {
@@ -459,7 +469,8 @@ async function userBootstrap(env, user, csrfToken) {
     getPublicSettings(env),
     getCartData(env, user.id),
   ]);
-  return apiOk({user:sanitizeUser(user),csrfToken,apps,products,currentPlan:plan,settings,
+  const premiumServices=await publicPremiumServices(env);
+  return apiOk({user:sanitizeUser(user),csrfToken,apps,products,premiumServices,currentPlan:plan,settings,
     wallet:cart.wallet,cartCount:cart.cartCount,cartItems:cart.items,
     cartTotalMinor:cart.totalMinor,cartCurrency:cart.currency});
 }
@@ -686,7 +697,7 @@ async function listProductsData(env,userId){
   const rows=await env.DB.prepare(`SELECT p.*,CASE WHEN EXISTS(SELECT 1 FROM product_entitlements e WHERE e.user_id=? AND e.product_id=p.id) THEN 1 ELSE 0 END AS owned FROM products p WHERE p.active=1 AND p.archived_at IS NULL ORDER BY p.featured DESC,p.display_order,p.name`).bind(userId).all();
   return rows.results.map(mapProductMedia);
 }
-async function listProducts(env,userId){return apiOk({products:await listProductsData(env,userId),wallet:await getWallet(env,userId),cartCount:await getCartCount(env,userId)})}
+async function listProducts(env,userId){return apiOk({products:await listProductsData(env,userId),premiumServices:await publicPremiumServices(env),wallet:await getWallet(env,userId),cartCount:await getCartCount(env,userId)})}
 async function getProductDetail(env,userId,productId){
   const p=await env.DB.prepare(`SELECT p.*,COALESCE((SELECT SUM(quantity) FROM product_entitlements e WHERE e.user_id=? AND e.product_id=p.id),0) AS owned_quantity FROM products p WHERE p.id=?`).bind(userId,productId).first();
   if(!p||!p.active||p.archived_at)return apiError('Product not found.',404);
@@ -1622,7 +1633,7 @@ async function serveMedia(request,env,key,ctx){
   }
   // Only publicly accessible catalog covers have a shared edge cache.
   // Private avatars, protected products, and all other media bypass it.
-  const cacheable=request.method==='GET'&&/^(?:product-covers|app-icons)\//.test(key)&&!request.headers.has('range');
+  const cacheable=request.method==='GET'&&/^(?:product-covers|service-covers|app-icons)\//.test(key)&&!request.headers.has('range');
   const cache=cacheable?globalThis.caches?.default:null;
   let cacheRequest;
   if(cache){
@@ -1692,3 +1703,117 @@ function sanitizeUser(u){return{id:u.id,customerId:u.customer_id,email:u.email,f
 function sanitizeAdmin(a){return{id:a.id,email:a.email,fullName:a.full_name,role:a.role,lastLoginAt:a.last_login_at};}
 async function uniqueCustomerId(env){for(let i=0;i<6;i++){const id=`TC${new Date().getUTCFullYear()}${Math.floor(100000+Math.random()*900000)}`;if(!(await env.DB.prepare('SELECT 1 FROM users WHERE customer_id=?').bind(id).first()))return id;}return`TC${Date.now()}`;}
 async function uniqueRequestRef(env){for(let i=0;i<6;i++){const id=`REQ-${new Date().getUTCFullYear()}-${Math.floor(100000+Math.random()*900000)}`;if(!(await env.DB.prepare('SELECT 1 FROM requests WHERE reference_number=?').bind(id).first()))return id;}return`REQ-${Date.now()}`;}
+
+
+// ---------- V1.60: provider-owned service catalog and one-time guided tours ----------
+// Provider's quotation is the pricing base. Customer +15%; provider -15%.
+// Both shares are calculated by the Worker, never trusted from a browser.
+function servicePriceSplit(quoteMinor){
+  const fee=Math.round(quoteMinor*15/100);
+  return {quoteMinor,customerPriceMinor:quoteMinor+fee,providerEarningsMinor:quoteMinor-fee,platformMarginMinor:fee*2};
+}
+function servicePublicShape(row){
+  return {id:Number(row.id),source:row.source||'provider',name:row.name,shortDescription:row.short_description,
+    description:row.description,coverUrl:row.cover_key?`/media/${row.cover_key}`:null,
+    customerPriceMinor:Number(row.customer_price_minor),currency:'NGN',requirements:safeJson(row.requirements_json,[]),
+    providerCode:undefined,orderingEnabled:false};
+}
+async function publicPremiumServices(env){
+  const provider=await env.DB.prepare(`SELECT s.*, 'provider' AS source FROM provider_service_listings s
+    JOIN provider_profiles p ON p.id=s.provider_id JOIN users u ON u.id=p.user_id
+    WHERE s.status='published' AND p.status='approved' AND u.status='active'
+    ORDER BY s.id DESC LIMIT 40`).all();
+  const owner=await env.DB.prepare(`SELECT d.*, 'admin' AS source FROM premium_service_definitions d
+    JOIN provider_profiles p ON p.provider_code=d.provider_code JOIN users u ON u.id=p.user_id
+    WHERE d.archived_at IS NULL AND d.status='configured' AND p.status='approved' AND u.status='active'
+    ORDER BY d.display_order,d.id DESC LIMIT 40`).all();
+  return [...(provider.results||[]),...(owner.results||[])].map(servicePublicShape);
+}
+async function requireApprovedServiceProvider(env,user){
+  const profile=await env.DB.prepare(`SELECT p.* FROM provider_profiles p JOIN users u ON u.id=p.user_id
+    WHERE p.user_id=? AND p.status='approved' AND u.status='active'`).bind(user.id).first();
+  return profile||null;
+}
+function validateProviderService(body,providerId){
+  if(!body||typeof body!=='object'||Array.isArray(body))return {error:'Enter a service description.'};
+  const name=cleanText(body.name,120),shortDescription=cleanText(body.shortDescription,280),description=cleanText(body.description,12000);
+  if(name.length<3||shortDescription.length<8||description.length<20)return {error:'Enter a service name, short description and detailed explanation.'};
+  const quoteMinor=Number(body.quoteMinor);
+  if(!Number.isSafeInteger(quoteMinor)||quoteMinor<100||quoteMinor>1000000000)return {error:'Provider price must be between ₦1 and ₦10,000,000.'};
+  const coverKey=cleanText(body.coverKey,500)||null;
+  if(coverKey&&!new RegExp(`^service-covers/${providerId}/[a-zA-Z0-9_.-]+$`).test(coverKey))return {error:'Upload a cover belonging to your provider account.'};
+  const fields=body.requirements;
+  if(!Array.isArray(fields)||fields.length<1||fields.length>25)return {error:'Add between 1 and 25 customer requirement fields.'};
+  const valid=new Set(['short_text','long_text','phone','email','number','select','date','image','file']);
+  const keys=new Set(),requirements=[];
+  for(let i=0;i<fields.length;i++){
+    const f=fields[i];if(!f||typeof f!=='object'||Array.isArray(f))return {error:'Invalid requirement field.'};
+    const label=cleanText(f.label,100),help=cleanText(f.help,280),type=cleanText(f.type,32),key=`field_${i+1}`;
+    if(label.length<2||!valid.has(type))return {error:`Requirement ${i+1} needs a label and a valid answer type.`};
+    if(keys.has(label.toLowerCase()))return {error:'Do not repeat a requirement label.'};keys.add(label.toLowerCase());
+    const options=type==='select'&&Array.isArray(f.options)?f.options.map(o=>cleanText(o,100)):[];
+    if(type==='select'&&(options.length<2||options.length>30||options.some(o=>!o)))return {error:'Dropdowns require 2–30 valid choices.'};
+    requirements.push({key,label,help,type,required:f.required===true,options});
+  }
+  const pricing=servicePriceSplit(quoteMinor);
+  return {name,shortDescription,description,coverKey,requirementsJson:JSON.stringify(requirements),...pricing};
+}
+async function providerListServices(env,user){
+  const p=await requireApprovedServiceProvider(env,user);if(!p)return apiError('Approved providers only.',403);
+  const rows=await env.DB.prepare("SELECT * FROM provider_service_listings WHERE provider_id=? AND status!='removed' ORDER BY id DESC LIMIT 100").bind(p.id).all();
+  return privateOk({services:rows.results.map(r=>({...r,requirements:safeJson(r.requirements_json,[])}))});
+}
+async function providerSaveService(request,env,user,id=null){
+  const p=await requireApprovedServiceProvider(env,user);if(!p)return apiError('Your provider account must be approved and active.',403);
+  const x=validateProviderService(await readJson(request),p.id);if(x.error)return apiError(x.error,400);
+  if(id!==null){
+    const result=await env.DB.prepare(`UPDATE provider_service_listings SET name=?,short_description=?,description=?,cover_key=?,quote_minor=?,customer_price_minor=?,provider_earnings_minor=?,platform_margin_minor=?,requirements_json=?,updated_at=CURRENT_TIMESTAMP
+      WHERE id=? AND provider_id=? AND status NOT IN ('removed','restricted')`).bind(x.name,x.shortDescription,x.description,x.coverKey,x.quoteMinor,x.customerPriceMinor,x.providerEarningsMinor,x.platformMarginMinor,x.requirementsJson,id,p.id).run();
+    if(!result.meta.changes)return apiError('This service is not available in your account.',404);
+    return privateOk({message:'Service updated.',pricing:servicePriceSplit(x.quoteMinor)});
+  }
+  const existing=await env.DB.prepare(`SELECT COUNT(*) AS n FROM provider_service_listings WHERE provider_id=? AND status!='removed'`).bind(p.id).first();
+  if(Number(existing?.n||0)>=30)return apiError('Maximum 30 active services per provider.',409);
+  const result=await env.DB.prepare(`INSERT INTO provider_service_listings(provider_id,name,short_description,description,cover_key,quote_minor,customer_price_minor,provider_earnings_minor,platform_margin_minor,requirements_json)
+    VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(p.id,x.name,x.shortDescription,x.description,x.coverKey,x.quoteMinor,x.customerPriceMinor,x.providerEarningsMinor,x.platformMarginMinor,x.requirementsJson).run();
+  return privateOk({id:result.meta.last_row_id,message:'Your service is now visible under Premium Tools. Customer checkout is not enabled yet.',pricing:servicePriceSplit(x.quoteMinor)},201);
+}
+async function providerToggleService(request,env,user,id){
+  const p=await requireApprovedServiceProvider(env,user);if(!p)return apiError('Approved providers only.',403);
+  const b=await readJson(request),status=b?.status;
+  if(!['paused','published','removed'].includes(status))return apiError('Invalid service status.',400);
+  const result=await env.DB.prepare(`UPDATE provider_service_listings SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND provider_id=? AND status NOT IN ('removed','restricted')`).bind(status,id,p.id).run();
+  if(!result.meta.changes)return apiError('Service not found in your account.',404);
+  return privateOk({message:status==='published'?'Service is visible.':status==='paused'?'Service hidden.':'Service removed.'});
+}
+async function providerUploadServiceCover(request,env,user){
+  const p=await requireApprovedServiceProvider(env,user);if(!p)return apiError('Approved providers only.',403);
+  const uploaded=await readImageUpload(request,env,`service-covers/${p.id}`);
+  if(uploaded.response)return uploaded.response;
+  return privateOk({key:uploaded.key,url:`/media/${uploaded.key}`});
+}
+async function adminProviderServices(env,admin){
+  const denied=requirePremiumServiceOwner(admin);if(denied)return denied;
+  const rows=await env.DB.prepare(`SELECT s.*,p.provider_code,p.full_name,p.status AS provider_status FROM provider_service_listings s JOIN provider_profiles p ON p.id=s.provider_id
+    WHERE s.status!='removed' ORDER BY s.id DESC LIMIT 200`).all();
+  return privateOk({services:rows.results.map(r=>({...r,requirements:safeJson(r.requirements_json,[])}))});
+}
+async function adminProviderServiceModerate(request,env,admin,id){
+  const denied=requirePremiumServiceOwner(admin);if(denied)return denied;
+  const body=await readJson(request),status=body?.status;
+  if(!['paused','published','restricted','removed'].includes(status))return apiError('Invalid action.',400);
+  const result=await env.DB.prepare(`UPDATE provider_service_listings SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status!='removed'`).bind(status,id).run();
+  if(!result.meta.changes)return apiError('Service does not exist.',404);
+  await audit(env,admin.user.id,'provider_service_moderated','provider_service',String(id),{status},request);
+  return privateOk({message:'Service status updated.'});
+}
+async function tourStatus(env,user,context){
+  if(!['customer','provider'].includes(context))return apiError('Invalid tour.',400);
+  const found=await env.DB.prepare('SELECT 1 FROM user_onboarding_tours WHERE user_id=? AND context=?').bind(user.id,context).first();
+  return privateOk({complete:!!found});
+}
+async function tourComplete(env,user,context){
+  if(!['customer','provider'].includes(context))return apiError('Invalid tour.',400);
+  await env.DB.prepare(`INSERT INTO user_onboarding_tours(user_id,context) VALUES(?,?) ON CONFLICT(user_id,context) DO NOTHING`).bind(user.id,context).run();
+  return privateOk({complete:true});
+}

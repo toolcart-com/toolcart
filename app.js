@@ -1,4 +1,4 @@
-const state={user:null,csrf:null,apps:[],products:[],wallet:{balanceMinor:0,currency:'NGN'},cartCount:0,cartItems:[],cartTotalMinor:0,cartCurrency:'NGN',cartReady:false,cartRevision:0,cartRenderSignature:null,updates:[],notifications:[],requests:[],recentApps:[],currentPlan:null,settings:{},promos:[],activeTab:'home',appCategory:'all',updateFilter:'all',notifFilter:'unread',purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0,purchasesRevision:0,checkoutInProgress:false};
+const state={user:null,csrf:null,apps:[],products:[],premiumServices:[],wallet:{balanceMinor:0,currency:'NGN'},cartCount:0,cartItems:[],cartTotalMinor:0,cartCurrency:'NGN',cartReady:false,cartRevision:0,cartRenderSignature:null,updates:[],notifications:[],requests:[],recentApps:[],currentPlan:null,settings:{},promos:[],activeTab:'home',appCategory:'all',updateFilter:'all',notifFilter:'unread',purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0,purchasesRevision:0,checkoutInProgress:false};
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtDate=v=>{if(!v)return'';const d=new Date(v);return Number.isNaN(d)?'':new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:d.getFullYear()!==new Date().getFullYear()?'numeric':undefined}).format(d)};
@@ -96,16 +96,17 @@ async function boot(){
 
 async function enterPublic(){
   $('#appShell').classList.add('hidden');$('#signedOut').classList.remove('hidden');
-  try{const data=await api('/api/public/bootstrap');state.settings=data.settings||{};setTheme(preferredVisualTheme(null,state.settings.default_theme||'pearl'));renderPublicApps(data.apps||[],data.products||[])}catch{setTheme(preferredVisualTheme(null,'pearl'));renderPublicApps([],[])}
+  try{const data=await api('/api/public/bootstrap');state.settings=data.settings||{};setTheme(preferredVisualTheme(null,state.settings.default_theme||'pearl'));renderPublicApps(data.apps||[],data.products||[],data.premiumServices||[])}catch{setTheme(preferredVisualTheme(null,'pearl'));renderPublicApps([],[])}
 }
-function renderPublicApps(apps,products=[]){
- state.publicCatalog={apps,products};
+function renderPublicApps(apps,products=[],services=state.publicCatalog?.services||[]){
+ state.publicCatalog={apps,products,services};
  const selected=state.publicCategory||'all';
  products=products.filter(p=>selected==='all'||(selected!=='web_tools'&&(p.store_section||'formats')===selected));
  apps=selected==='all'||selected==='web_tools'?apps:[];
  const productCards=products.map((p,i)=>`<article class="tempo-merchant-card tempo-good-card" data-auth="register"><div class="tempo-card-media tempo-product-media">${p.display_image_url?`<img src="${esc(p.display_image_url)}" alt="${esc(p.name)}" loading="${i<8?'eager':'lazy'}" decoding="async" ${i<4?'fetchpriority="high"':''}>`:`<div class="tempo-product-placeholder"><small>DIGITAL GOODS / TOOLCART</small><strong>${esc(p.name)}</strong><i>DESIGNED FOR EVERYDAY USE</i></div>`}<button class="tempo06-save" data-auth="register" aria-label="Sign in to save ${esc(p.name)}">${T06_HEART}</button></div><div class="tempo-card-info"><small class="tempo-card-type">${esc(p.short_description||productAvailability(p))}</small><h3>${esc(p.name)}</h3><strong class="tempo-card-price">${esc(productPrice(p))}</strong></div><button class="tempo06-add" data-auth="register"><span>+</span> Add to cart</button></article>`);
  const toolCards=apps.map((a,i)=>`<article class="tempo-merchant-card tempo-tool-card" data-auth="register"><div class="tempo-card-media tempo-tool-media">${tempoToolCover(a,products.length+i<8,products.length+i<4)}</div><div class="tempo-card-info"><small class="tempo-card-type">WORKING TOOL</small><h3>${esc(a.name)}</h3><strong class="tempo-online ${appAvailability(a)}">${esc(humanStatus(a.status)||'AVAILABLE')}</strong></div><button class="tempo06-add" data-auth="register">Explore tool ↗</button></article>`);
- const all=[...productCards,...toolCards];$('#publicApps').innerHTML=all.length?all.slice(0,24).join(''):empty('New goods on the way','New digital products and working tools appear here when published.');
+ const serviceCards=(selected==='all'||selected==='premium_tools'?services:[]).map(x=>serviceCard(x,true));
+ const all=[...productCards,...toolCards,...serviceCards];$('#publicApps').innerHTML=all.length?all.slice(0,24).join(''):empty('New goods on the way','New digital products and working tools appear here when published.');
  warmStorefrontCovers([...products.slice(8,24).map(p=>p.display_image_url),...apps.slice(Math.max(0,8-products.length),12).map(a=>a.icon_url)]);
 }
 const T06_HEART='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 5.4a5.1 5.1 0 0 0-7.2 0L12 6.8l-1.4-1.4a5.1 5.1 0 0 0-7.2 7.2L12 21l8.6-8.4a5.1 5.1 0 0 0 0-7.2z"/></svg>';
@@ -152,13 +153,14 @@ async function enterApp(preloaded){
   // Nonessential updates, notifications and promotions are loaded separately later.
   const data=preloaded||await api('/api/bootstrap');
   state.csrf=data.csrfToken||state.csrf;
-  Object.assign(state,{user:data.user,apps:data.apps||[],products:data.products||[],wallet:data.wallet||{balanceMinor:0,currency:'NGN'},cartCount:Number(data.cartCount||0),updates:data.updates||[],notifications:data.notifications||[],recentApps:data.recentApps||[],currentPlan:data.currentPlan,settings:data.settings||{},promos:data.promos||[],cartItems:data.cartItems||[],cartTotalMinor:Number(data.cartTotalMinor||0),cartCurrency:data.cartCurrency||'NGN',cartReady:Array.isArray(data.cartItems),cartRevision:state.cartRevision+1,cartRenderSignature:null,purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0,purchasesRevision:0,checkoutInProgress:false});
+  Object.assign(state,{user:data.user,apps:data.apps||[],products:data.products||[],premiumServices:data.premiumServices||[],wallet:data.wallet||{balanceMinor:0,currency:'NGN'},cartCount:Number(data.cartCount||0),updates:data.updates||[],notifications:data.notifications||[],recentApps:data.recentApps||[],currentPlan:data.currentPlan,settings:data.settings||{},promos:data.promos||[],cartItems:data.cartItems||[],cartTotalMinor:Number(data.cartTotalMinor||0),cartCurrency:data.cartCurrency||'NGN',cartReady:Array.isArray(data.cartItems),cartRevision:state.cartRevision+1,cartRenderSignature:null,purchases:[],purchasesLoaded:false,purchasesLoading:false,purchasesLastLoad:0,purchasesRevision:0,checkoutInProgress:false});
   setTheme(preferredVisualTheme(state.user.preferredTheme,state.settings.default_theme||'pearl'));
   renderApp();
   renderCart();
   switchTab('home');
   $('#signedOut').classList.add('hidden');$('#appShell').classList.remove('hidden');
   void loadDeferredBootstrap();
+  void maybeCustomerTour();
 }
 async function loadDeferredBootstrap(){
   const userId=state.user?.id;
@@ -183,19 +185,19 @@ function appCard(a,featured=false,priority=false,highPriority=false){const avail
 function productAvailability(p){return p.stock_mode==='unlimited'?'UNLIMITED':Number(p.stock_quantity||0)>0?`${Number(p.stock_quantity)} IN STOCK`:'SOLD OUT'}
 function productCard(p,priority=false,highPriority=false){const price=productPrice(p),stock=productAvailability(p),soldOut=stock==='SOLD OUT',saved=t06Saved().includes(Number(p.id));return `<article class="tempo-merchant-card tempo-good-card" data-product-id="${p.id}" tabindex="0" role="button" aria-label="View ${esc(p.name)}"><div class="tempo-card-media tempo-product-media">${p.display_image_url?`<img src="${esc(p.display_image_url)}" loading="${priority?'eager':'lazy'}" decoding="async" ${highPriority?'fetchpriority="high"':''} alt="${esc(p.name)} cover">`:`<div class="tempo-product-placeholder"><small>THE TOOLCART COLLECTION</small><strong>${esc(p.name)}</strong><i>DIGITAL GOODS / ${esc(stock)}</i></div>`}<button type="button" class="tempo06-save ${saved?'saved':''}" data-t06-save="${p.id}" aria-label="${saved?'Remove':'Save'} ${esc(p.name)} ${saved?'from':'to'} wishlist">${T06_HEART}</button></div><div class="tempo-card-info"><small class="tempo-card-type">${esc(p.short_description||stock)}</small><h3>${esc(p.name)}</h3><strong class="tempo-card-price">${esc(price)}</strong></div><button type="button" class="tempo06-add" data-card-add="${p.id}" ${soldOut?'disabled':''}><span>+</span> ${soldOut?'Out of stock':p.access_type==='free'?'Get free product':'Add to cart'}</button></article>`}
 
-function launcherItems(){const tools=state.apps.map(x=>({...x,_kind:'app',_order:Number(x.display_order||0)}));const products=state.products.map(x=>({...x,_kind:'product',_order:Number(x.display_order||0)}));return [...products,...tools].sort((a,b)=>(b.badge_featured||b.featured||0)-(a.badge_featured||a.featured||0)||a._order-b._order||String(a.name).localeCompare(String(b.name)))}
-function launcherCard(x){return x._kind==='product'?productCard(x):appCard(x)}
+function launcherItems(){const tools=state.apps.map(x=>({...x,_kind:'app',_order:Number(x.display_order||0)}));const products=state.products.map(x=>({...x,_kind:'product',_order:Number(x.display_order||0)}));const services=state.premiumServices.map(x=>({...x,_kind:'service',_order:10}));return [...products,...tools,...services].sort((a,b)=>(b.badge_featured||b.featured||0)-(a.badge_featured||a.featured||0)||a._order-b._order||String(a.name).localeCompare(String(b.name)))}
+function launcherCard(x){return x._kind==='product'?productCard(x):x._kind==='service'?serviceCard(x):appCard(x)}
 function renderApps(){
   const goods=state.products.slice().filter(tempo06CategoryMatches).sort((a,b)=>{const sort=$('#tempo06Sort')?.value||'featured';if(sort==='low')return Number(a.price_minor||0)-Number(b.price_minor||0);if(sort==='high')return Number(b.price_minor||0)-Number(a.price_minor||0);if(sort==='newest')return Number(b.id)-Number(a.id);return (Number(b.featured||0)-Number(a.featured||0))||(Number(a.display_order||0)-Number(b.display_order||0))});
   // Match the public storefront: products followed by working tools in one two-column lineup.
   // Category-specific selections only show matching products; the separate Working Tools shelf remains below.
-  const lineup=[...goods.map((p,i)=>productCard(p,i<8,i<4)),...(['all','web_tools'].includes(state.tempo06Category||'all')?state.apps.map((a,i)=>appCard(a,true,goods.length+i<8,goods.length+i<4)):[])];
+  const lineup=[...goods.map((p,i)=>productCard(p,i<8,i<4)),...(['all','web_tools'].includes(state.tempo06Category||'all')?state.apps.map((a,i)=>appCard(a,true,goods.length+i<8,goods.length+i<4)):[]),...(['all','premium_tools'].includes(state.tempo06Category||'all')?state.premiumServices.map(x=>serviceCard(x)):[])];
   $('#homeProducts').innerHTML=lineup.length?lineup.join(''):empty('No products in this selection','Try Everything to browse all current goods.');
   $('#homeApps').innerHTML=state.apps.length?state.apps.map(appCard).join(''):empty('Working tools, coming soon','New tools will appear here when available.');
   warmStorefrontCovers([...goods.slice(8,24).map(p=>p.display_image_url),...state.apps.slice(Math.max(0,8-goods.length),12).map(a=>a.icon_url)]);
   const categories=[['all','Everything'],['formats','Formats'],['web_tools','Web Tools'],['premium_tools','Premium Tools'],['announcements','Free Tools']];$('#categoryChips').innerHTML=categories.map(([c,label])=>`<button class="chip ${state.appCategory===c?'active':''}" data-category="${c}">${label}</button>`).join('');renderAppsPage();renderWishlist();
 }
-function renderAppsPage(){const q=($('#appSearch')?.value||'').toLowerCase().trim();let items=launcherItems();items=items.filter(x=>{const catOk=state.appCategory==='all'||(['tools','web_tools'].includes(state.appCategory)&&x._kind==='app')||(state.appCategory==='products'&&x._kind==='product')||(x._kind==='product'&&(x.store_section||'formats')===state.appCategory);const hay=`${x.name} ${x.short_description||''} ${x.description||''} ${x.category||''}`.toLowerCase();return catOk&&(!q||hay.includes(q))});$('#appCount').textContent=`${items.length} find${items.length===1?'':'s'}`;$('#appsGrid').innerHTML=items.length?items.map(launcherCard).join(''):empty('Nothing on this shelf','Try another keyword or browse a different category.','⌕')}
+function renderAppsPage(){const q=($('#appSearch')?.value||'').toLowerCase().trim();let items=launcherItems();items=items.filter(x=>{const catOk=state.appCategory==='all'||(['tools','web_tools'].includes(state.appCategory)&&x._kind==='app')||(state.appCategory==='products'&&x._kind==='product')||(x._kind==='product'&&(x.store_section||'formats')===state.appCategory)||(x._kind==='service'&&state.appCategory==='premium_tools');const hay=`${x.name} ${x.short_description||''} ${x.description||''} ${x.category||''}`.toLowerCase();return catOk&&(!q||hay.includes(q))});$('#appCount').textContent=`${items.length} find${items.length===1?'':'s'}`;$('#appsGrid').innerHTML=items.length?items.map(launcherCard).join(''):empty('Nothing on this shelf','Try another keyword or browse a different category.','⌕')}
 function renderRecent(){const sec=$('#recentSection');if(!state.recentApps.length){sec.classList.add('hidden');return}sec.classList.remove('hidden');$('#recentApps').innerHTML=state.recentApps.slice(0,5).map(a=>{const availability=appAvailability(a);return `<article class="recent-card" data-app-id="${a.id}">${iconHtml(a,'app-icon')}<div><strong>${esc(a.name)}</strong><span class="availability ${availability}"><i></i>${availability.toUpperCase()}</span></div></article>`}).join('')}
 function updateCard(u){const unread=!u.is_read;return `<article class="update-card" data-update-id="${u.id}"><div class="update-type">${u.update_type==='security'?'!' : u.update_type==='maintenance'?'M':'U'}</div><div><h3>${esc(u.title)}</h3><p>${esc(u.summary||u.content?.slice(0,120)||'')}</p></div><div>${unread?'<i class="unread-mark"></i>':`<time>${fmtDate(u.publish_at)}</time>`}</div></article>`}
 function renderUpdates(){const home=state.updates.slice(0,3);$('#homeUpdates').innerHTML=home.length?home.map(updateCard).join(''):empty('You are up to date','New product and service updates will appear here.');renderUpdatesPage()}
@@ -371,7 +373,7 @@ async function openProduct(id){
     toast(e.message,'error');
   }
 }
-async function refreshMarketplaceState(){try{const d=await api('/api/products');state.products=d.products||[];state.wallet=d.wallet||state.wallet;state.cartCount=Number(d.cartCount||0);renderApps();updateBadges()}catch{}}
+async function refreshMarketplaceState(){try{const d=await api('/api/products');state.products=d.products||[];state.premiumServices=d.premiumServices||state.premiumServices;state.wallet=d.wallet||state.wallet;state.cartCount=Number(d.cartCount||0);renderApps();updateBadges()}catch{}}
 async function addCurrentProductToCart(id){
   if(cartAddPending.has(id)||cartCheckoutPending)return;
   if(cartQuantityWrites.size){toast('Finishing your cart changes. Please try again.');return;}
@@ -612,7 +614,7 @@ function closeModals(){$$('.modal').forEach(m=>m.classList.add('hidden'));$('#mo
 
 function authForm(mode='login',token=''){
   if(mode==='login')return `<h2>Welcome back.</h2><p class="modal-sub">Sign in to open your ToolCart collection.</p><form id="loginForm" class="form-grid"><div class="field"><label>Email</label><input name="email" type="email" autocomplete="email" required></div><div class="field"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div><button class="btn btn-primary">Sign in</button></form><div class="form-foot"><button data-auth-switch="forgot">Forgot password?</button> · <button data-auth-switch="register">Create account</button></div>`;
-  if(mode==='register')return `<h2>Create your account.</h2><p class="modal-sub">One secure account for the products and services in your ToolCart collection.</p><form id="registerForm" class="form-grid"><div class="field"><label>Full name</label><input name="fullName" autocomplete="name" required></div><div class="field"><label>Email</label><input name="email" type="email" autocomplete="email" required></div><div class="field"><label>Password</label><input name="password" type="password" autocomplete="new-password" minlength="10" required></div><button class="btn btn-primary">Create account</button></form><div class="form-foot">Already a member? <button data-auth-switch="login">Sign in</button></div>`;
+  if(mode==='register')return `<h2>Create your account.</h2><p class="modal-sub">One secure account for the products and services in your ToolCart collection.</p><div class="tc-account-role"><strong>What brings you to ToolCart?</strong><p>Choose how you want to use your account.</p><div class="tc-account-role-grid"><span class="tc-role-selected">Shopping / buying</span><button type="button" data-provider-registration>Offer services ↗</button></div></div><form id="registerForm" class="form-grid"><div class="field"><label>Full name</label><input name="fullName" autocomplete="name" required></div><div class="field"><label>Email</label><input name="email" type="email" autocomplete="email" required></div><div class="field"><label>Password</label><input name="password" type="password" autocomplete="new-password" minlength="10" required></div><button class="btn btn-primary">Create account</button></form><div class="form-foot">Already a member? <button data-auth-switch="login">Sign in</button></div>`;
   if(mode==='forgot')return `<h2>Reset password.</h2><p class="modal-sub">Enter your email and ToolCart will send a secure reset link if the account exists.</p><form id="forgotForm" class="form-grid"><div class="field"><label>Email</label><input name="email" type="email" required></div><button class="btn btn-primary">Send reset link</button></form><div class="form-foot"><button data-auth-switch="login">Back to sign in</button></div>`;
   if(mode==='reset')return `<h2>Choose a new password.</h2><p class="modal-sub">Your new password must be at least 10 characters.</p><form id="resetForm" class="form-grid" data-token="${esc(token)}"><div class="field"><label>New password</label><input name="password" type="password" minlength="10" required></div><button class="btn btn-primary">Update password</button></form>`;
   return '';
@@ -679,7 +681,10 @@ function bindGlobalEvents(){
     if(e.target.closest('[data-menu-cart]')){closeStoreMenu();return openCart();}
     const menuSetting=e.target.closest('[data-menu-setting]');if(menuSetting){closeStoreMenu();return openSetting(menuSetting.dataset.menuSetting);}
     if(e.target.closest('[data-menu-logout]')){closeStoreMenu();$('#signOutBtn')?.click();return;}
-    const publicCat=e.target.closest('[data-public-t06-cat]');if(publicCat){state.publicCategory=publicCat.dataset.publicT06Cat;$$('[data-public-t06-cat]').forEach(b=>b.classList.toggle('active',b===publicCat));if(state.publicCatalog)renderPublicApps(state.publicCatalog.apps,state.publicCatalog.products);return;}
+    const publicCat=e.target.closest('[data-public-t06-cat]');if(publicCat){state.publicCategory=publicCat.dataset.publicT06Cat;$$('[data-public-t06-cat]').forEach(b=>b.classList.toggle('active',b===publicCat));if(state.publicCatalog)renderPublicApps(state.publicCatalog.apps,state.publicCatalog.products,state.publicCatalog.services);return;}
+    if(e.target.closest('[data-provider-registration]')){location.href='/provider?register=1';return;}
+    const svc=e.target.closest('[data-premium-service]');if(svc){if(!state.user)return openAuth('register');return openPremiumServiceDetail(Number(svc.dataset.premiumService));}
+    if(e.target.closest('[data-start-customer-tour]')){void startCustomerTour(true);return;}
     const auth=e.target.closest('[data-auth]');if(auth)return openAuth(auth.dataset.auth);
     const sw=e.target.closest('[data-auth-switch]');if(sw)return openAuth(sw.dataset.authSwitch);
     if(e.target.closest('[data-close-modal]')||e.target.id==='modalBackdrop')return closeModals();
@@ -765,3 +770,55 @@ function setupViewportDock(){if(!window.visualViewport)return;const vv=window.vi
 window.addEventListener('pageshow',event=>{if(event.persisted&&state.user&&!$('#appShell').classList.contains('hidden')){if(state.activeTab==='cart')void refreshCart();}})
 
 boot();
+
+// V1.60 managed service previews. Never invoke product checkout for service IDs.
+function serviceCard(s,publicView=false){
+  return `<article class="tempo-merchant-card tempo-good-card tc-service-card" data-premium-service="${Number(s.id)}" role="button" tabindex="0" aria-label="View service ${esc(s.name)}"><div class="tempo-card-media tempo-product-media">${s.coverUrl?`<img src="${esc(s.coverUrl)}" alt="${esc(s.name)} cover" loading="eager" decoding="async">`:`<div class="tempo-product-placeholder"><small>TOOLCART / MANAGED SERVICES</small><strong>${esc(s.name)}</strong><i>PREMIUM SERVICE</i></div>`}</div><div class="tempo-card-info"><small class="tempo-card-type">${esc(s.shortDescription||'Premium service')}</small><h3>${esc(s.name)}</h3><strong class="tempo-card-price">${fmtMoney(s.customerPriceMinor,'NGN')}</strong></div><button type="button" class="tempo06-add" data-premium-service="${Number(s.id)}">${publicView?'Explore service':'View service'} ↗</button></article>`;
+}
+function openPremiumServiceDetail(id){
+  const s=state.premiumServices.find(x=>Number(x.id)===id);if(!s)return toast('This service is unavailable.','error');
+  showDetail(`<div class="tc-managed-detail"><span class="eyebrow">PREMIUM SERVICES / MANAGED BY TOOLCART</span><h2>${esc(s.name)}</h2>${s.coverUrl?`<img class="tc-managed-image" src="${esc(s.coverUrl)}" alt="">`:''}<p>${esc(s.description||s.shortDescription)}</p><strong>${fmtMoney(s.customerPriceMinor,'NGN')}</strong><h3>Information required after purchase</h3><ul>${(s.requirements||[]).map(f=>`<li>${esc(f.label)}${f.required?' *':''}</li>`).join('')}</ul><p class="tc-managed-notice">Secure service checkout is being prepared. No payment or personal information is collected for this service yet.</p><button class="btn btn-secondary" data-close-modal>Continue browsing</button></div>`);
+}
+let tcTour=null;
+async function maybeCustomerTour(){
+  if(!state.user||tcTour)return;
+  try{const data=await api('/api/tour/status?context=customer');if(!data.complete&&state.user)startCustomerTour(false)}catch{}
+}
+async function startCustomerTour(force=false){
+  if(!state.user)return;
+  if(tcTour)closeCustomerTour(false);
+  const steps=[
+    {selector:'.tempo06-brand-row',title:'Welcome to ToolCart',body:'Your shopping home. Explore our tools and digital goods.'},
+    {selector:'.tempo06-categories [data-t06-cat="premium_tools"]',title:'Browse categories',body:'Switch among Formats, Web Tools, Premium Tools and Free Tools without leaving the page.'},
+    {selector:'#homeProducts',title:'Explore the lineup',body:'Open a listing to read details and check what is included.'},
+    {selector:'#dock [data-tab="wishlist"]',title:'Save your favorites',body:'Your wishlist keeps interesting products in one place.'},
+    {selector:'#dock [data-open-cart],#dock [data-tab="cart"]',title:'Your shopping cart',body:'Manage your cart and see purchased items after checkout.'},
+    {selector:'#menuBtn',title:'More account options',body:'Find your profile, wallet and account settings in the menu.'}
+  ];
+  tcTour={steps,index:0};switchTab('home');
+  const host=document.createElement('div');host.id='tcCustomerTour';host.className='tc-tour-host';host.innerHTML='<div class="tc-tour-dim"></div><div class="tc-tour-card" role="dialog" aria-modal="true" aria-label="ToolCart introduction"><div class="tc-tour-count"></div><h2></h2><p></p><div class="tc-tour-controls"><button type="button" data-tour-skip>Skip tour</button><button type="button" data-tour-next>Next →</button></div></div>';
+  document.body.append(host);
+  host.addEventListener('click',e=>{if(e.target.closest('[data-tour-skip]'))closeCustomerTour();if(e.target.closest('[data-tour-next]')){tcTour.index++;tcTour.index>=steps.length?closeCustomerTour():positionCustomerTour();}});
+  positionCustomerTour();
+}
+function positionCustomerTour(){
+  if(!tcTour)return;
+  const step=tcTour.steps[tcTour.index];
+  document.querySelector('.tc-tour-highlight')?.classList.remove('tc-tour-highlight');
+  const target=document.querySelector(step.selector);
+  if(target){target.scrollIntoView({block:'center',behavior:'auto'});target.classList.add('tc-tour-highlight');}
+  const panel=document.querySelector('#tcCustomerTour .tc-tour-card');
+  panel.querySelector('.tc-tour-count').textContent=`STEP ${tcTour.index+1} / ${tcTour.steps.length}`;
+  panel.querySelector('h2').textContent=step.title;
+  panel.querySelector('p').textContent=step.body;
+  panel.querySelector('[data-tour-next]').textContent=tcTour.index===tcTour.steps.length-1?'Finish':'Next →';
+  const rect=target?.getBoundingClientRect();
+  const cardHeight=panel.offsetHeight||220;
+  const top=rect&&rect.bottom+cardHeight+20<innerHeight?Math.max(16,rect.bottom+12):rect&&rect.top-cardHeight-12>12?rect.top-cardHeight-12:Math.max(16,innerHeight-cardHeight-25);
+  panel.style.top=`${Math.round(top)}px`;
+}
+function closeCustomerTour(save=true){
+  document.querySelector('.tc-tour-highlight')?.classList.remove('tc-tour-highlight');
+  document.querySelector('#tcCustomerTour')?.remove();tcTour=null;
+  if(save&&state.user)void api('/api/tour/complete',{method:'POST',body:{context:'customer'}}).catch(()=>{});
+}

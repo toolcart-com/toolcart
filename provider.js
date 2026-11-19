@@ -2,7 +2,7 @@
 // Uses existing ToolCart accounts. No customer orders or payouts in this release.
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-const state={csrf:null,user:null,profile:null,mode:'login'};
+const state={csrf:null,user:null,profile:null,mode:'login',services:[],editingService:null,requirements:[],tour:null};
 async function api(path,options={}){
   const method=options.method||'GET',headers=new Headers(options.headers||{});
   if(options.body!==undefined){headers.set('content-type','application/json');options.body=JSON.stringify(options.body);}
@@ -12,7 +12,7 @@ async function api(path,options={}){
   if(!response.ok){const error=new Error(data.error||'Request failed.');error.status=response.status;throw error;}
   return data;
 }
-function show(id){for(const key of ['providerLoading','providerAuth','providerApply','providerDashboard'])$('#'+key).classList.toggle('hidden',key!==id);}
+function show(id){for(const key of ['providerLoading','providerAuth','providerApply','providerDashboard','providerServiceEditor'])$('#'+key).classList.toggle('hidden',key!==id);}
 function notify(message,error=false){const box=$('#providerStatus');box.className='provider-alert'+(error?' error':'');box.textContent=message;}
 function clearNotice(){const box=$('#providerStatus');box.textContent='';box.classList.add('hidden');}
 function setMode(mode){state.mode=mode;$('#providerLoginPane').classList.toggle('hidden',mode!=='login');$('#providerRegisterPane').classList.toggle('hidden',mode!=='register');$('#providerShowLogin').classList.toggle('active',mode==='login');$('#providerShowRegister').classList.toggle('active',mode==='register');clearNotice();}
@@ -25,7 +25,8 @@ function renderProvider(){
   const icon=approved?'✓':pending?'◷':'!';
   const headline=approved?'Welcome to your provider dashboard':pending?'Application under review':p.status==='banned'?'Provider account permanently banned':p.status==='restricted'?'Provider account restricted':'Application not approved';
   const info=approved?'Your provider account has been approved. Order fulfillment and withdrawals will be introduced in later releases.':pending?'Your application is being reviewed. Our support team will contact you if further information is needed.':p.status==='banned'?'You cannot receive assignments or apply again using this account. Contact ToolCart support if you believe this decision was incorrect.':p.status==='restricted'?'Provider access has been restricted. Contact ToolCart support to resolve the issue.':'Your application was not approved. Contact ToolCart support for more information.';
-  $('#providerDashboard').innerHTML=`<div class="provider-panel-head"><span class="eyebrow">TOOLCART PROVIDER ACCOUNT</span><button class="provider-outline" type="button" data-provider-logout>Sign out</button></div><div class="provider-approval ${esc(p.status)}"><div class="provider-state-icon" aria-hidden="true">${icon}</div><span class="provider-state-label">${esc(escapeStatus(p.status))}</span><h2>${esc(headline)}</h2><p>${esc(info)}</p>${p.reviewMessage?`<p class="provider-decision-note">Message from ToolCart: ${esc(p.reviewMessage)}</p>`:''}</div><div class="provider-id-card"><div><span class="eyebrow">YOUR UNIQUE PROVIDER ID</span><strong id="providerCode">${esc(p.providerCode)}</strong><small>Used by ToolCart to identify and assign approved service partners. This is not a password.</small></div><button type="button" class="provider-outline" id="providerCopyCode">Copy ID</button></div><div class="provider-details"><div><small>Full name</small><strong>${esc(p.fullName)}</strong></div><div><small>WhatsApp (private)</small><strong>${esc(p.whatsapp)}</strong></div><div><small>Account status</small><strong>${esc(escapeStatus(p.status))}</strong></div></div>${pending?`<div class="provider-note">You can correct your application while it is pending.</div><button type="button" class="provider-outline full" id="providerRefreshStatus">Check approval status</button><button type="button" class="provider-outline full" id="providerEditApplication">Edit pending application</button>`:''}${approved?`<div class="provider-service-workspace"><h3>Service workspace</h3><p>Assigned requests and deliveries will appear here once secure order routing is enabled.</p><div class="provider-stats"><div><small>Assigned requests</small><strong>0</strong></div><div><small>Available earnings</small><strong>₦0.00</strong></div></div><button type="button" class="provider-primary" disabled>Withdrawals coming soon</button><small>No customer information is accessible in this release.</small></div>`:''}`;
+  $('#providerDashboard').innerHTML=`<div class="provider-panel-head"><span class="eyebrow">TOOLCART PROVIDER ACCOUNT</span><button class="provider-outline" type="button" data-provider-logout>Sign out</button></div><div class="provider-approval ${esc(p.status)}"><div class="provider-state-icon" aria-hidden="true">${icon}</div><span class="provider-state-label">${esc(escapeStatus(p.status))}</span><h2>${esc(headline)}</h2><p>${esc(info)}</p>${p.reviewMessage?`<p class="provider-decision-note">Message from ToolCart: ${esc(p.reviewMessage)}</p>`:''}</div><div class="provider-id-card" id="providerIdCard"><div><span class="eyebrow">YOUR UNIQUE PROVIDER ID</span><strong id="providerCode">${esc(p.providerCode)}</strong><small>Used by ToolCart to identify and assign approved service partners. This is not a password.</small></div><button type="button" class="provider-outline" id="providerCopyCode">Copy ID</button></div><div class="provider-details"><div><small>Full name</small><strong>${esc(p.fullName)}</strong></div><div><small>WhatsApp (private)</small><strong>${esc(p.whatsapp)}</strong></div><div><small>Account status</small><strong>${esc(escapeStatus(p.status))}</strong></div></div>${pending?`<div class="provider-note">You can correct your application while it is pending.</div><button type="button" class="provider-outline full" id="providerRefreshStatus">Check approval status</button><button type="button" class="provider-outline full" id="providerEditApplication">Edit pending application</button>`:''}${approved?`<div class="provider-service-workspace" id="providerWorkspace"><h3>Service workspace</h3><p>Publish your own Premium Services. ToolCart handles the pricing calculation. Orders and withdrawals will be introduced in a later release.</p><button type="button" class="provider-primary" id="providerNewService">＋ Add a service</button><div id="providerServiceList"></div><div class="provider-stats"><div><small>Assigned requests</small><strong>0</strong></div><div><small>Available earnings</small><strong>₦0.00</strong></div></div><button type="button" class="provider-primary" disabled>Withdrawals coming soon</button><small>No customer information is accessible in this release.</small></div>`:''}`;
+  if(approved){$('#providerNewService')?.addEventListener('click',()=>openProviderServiceEditor());void loadProviderServices();}
   $('#providerCopyCode')?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(p.providerCode);notify('Provider ID copied.');}catch{notify('Copy the provider ID shown above.');}});
   $('#providerRefreshStatus')?.addEventListener('click',()=>{void loadProfile();});
   $('#providerEditApplication')?.addEventListener('click',()=>{show('providerApply');const f=$('#providerApplyForm');f.elements.namedItem('fullName').value=p.fullName;f.elements.namedItem('whatsapp').value=p.whatsapp;f.elements.namedItem('serviceSummary').value=p.serviceSummary||'';f.dataset.edit='yes';f.querySelector('button[type=submit]').textContent='Save pending application';});
@@ -34,9 +35,9 @@ async function loadProfile(){
   show('providerLoading');clearNotice();
   try{
     const session=await api('/api/session');state.csrf=session.csrfToken;state.user=session.user;
-    const data=await api('/api/provider/me');state.profile=data.profile;renderProvider();
+    const data=await api('/api/provider/me');state.profile=data.profile;renderProvider();void maybeProviderTour();
   }catch(error){
-    if(error.status===401){state.csrf=null;state.user=null;state.profile=null;show('providerAuth');setMode('login');}
+    if(error.status===401){state.csrf=null;state.user=null;state.profile=null;show('providerAuth');setMode(new URLSearchParams(location.search).get('register')==='1'?'register':'login');}
     else{show('providerAuth');setMode('login');notify(error.message,true);}
   }
 }
@@ -73,3 +74,96 @@ document.addEventListener('click',async event=>{
   }
 });
 loadProfile();
+
+// ---------- V1.60 provider-managed services ----------
+const serviceTypes=[['short_text','Short text'],['long_text','Paragraph'],['phone','Phone'],['email','Email'],['number','Number'],['select','Dropdown'],['date','Date'],['image','Image upload'],['file','PDF / image file']];
+const formatNgn=minor=>new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:2}).format(Number(minor)/100);
+function previewSplit(){
+  const input=$('#providerServiceForm [name="quote"]'),out=$('#providerPriceBreakdown');if(!input||!out)return;
+  const n=Number(input.value);if(!Number.isFinite(n)||n<1){out.textContent='Enter your base quote to see the automatic split.';return;}
+  const q=Math.round(n*100),fee=Math.round(q*.15);
+  out.innerHTML=`<div><span>Your quote</span><strong>${formatNgn(q)}</strong></div><div><span>Customer price (+15%)</span><strong>${formatNgn(q+fee)}</strong></div><div><span>Your earnings after acceptance (−15%)</span><strong>${formatNgn(q-fee)}</strong></div><div><span>ToolCart gross share (30% of quote)</span><strong>${formatNgn(2*fee)}</strong></div><small>No service payment or earnings are collected in this version.</small>`;
+}
+async function loadProviderServices(){
+  const container=$('#providerServiceList');if(!container||state.profile?.status!=='approved')return;
+  try{const d=await api('/api/provider/services');state.services=d.services||[];renderProviderServiceList();}
+  catch(e){container.textContent=e.message;}
+}
+function renderProviderServiceList(){
+  const el=$('#providerServiceList');if(!el)return;
+  el.innerHTML=state.services.length?state.services.map(s=>`<article class="provider-service-item"><div class="provider-service-title"><strong>${esc(s.name)}</strong><span>${esc(s.status)}</span></div><p>${esc(s.short_description)}</p><div class="provider-price-pair"><span>Customer: <b>${formatNgn(s.customer_price_minor)}</b></span><span>Provider earnings: <b>${formatNgn(s.provider_earnings_minor)}</b></span></div><div class="provider-service-actions"><button type="button" class="provider-outline" data-provider-edit="${Number(s.id)}">Edit</button>${s.status!=='restricted'?`<button type="button" class="provider-outline" data-provider-status="${Number(s.id)}" data-next-status="${s.status==='published'?'paused':'published'}">${s.status==='published'?'Hide':'Show'}</button><button type="button" class="provider-outline" data-provider-status="${Number(s.id)}" data-next-status="removed">Remove</button>`:'<span class="provider-hint">Restricted by ToolCart. Contact support.</span>'}</div></article>`).join(''):'<p class="provider-hint">You have not published a service yet. Add one above to display it in Premium Tools.</p>';
+  el.querySelectorAll('[data-provider-edit]').forEach(b=>b.addEventListener('click',()=>openProviderServiceEditor(state.services.find(s=>Number(s.id)===Number(b.dataset.providerEdit)))));
+  el.querySelectorAll('[data-provider-status]').forEach(b=>b.addEventListener('click',async()=>{
+    const id=Number(b.dataset.providerStatus),status=b.dataset.nextStatus;
+    if(status==='removed'&&!confirm('Remove this service from ToolCart?'))return;
+    b.disabled=true;try{await api(`/api/provider/services/${id}/status`,{method:'POST',body:{status}});notify('Service updated.');await loadProviderServices();}
+    catch(e){notify(e.message,true);b.disabled=false;}
+  }));
+}
+function createRequirement(){const id=String(Date.now())+Math.random().toString(16).slice(2,5);state.requirements.push({id,key:'field_'+(state.requirements.length+1),label:'',type:'short_text',required:true,help:'',options:[]});renderProviderRequirementEditor();}
+function renderProviderRequirementEditor(){
+  const list=$('#providerRequirementList');if(!list)return;
+  list.innerHTML=state.requirements.map((f,i)=>`<div class="provider-requirement" data-req-id="${esc(f.id)}"><div class="provider-service-title"><strong>Requirement ${i+1}</strong><button class="provider-outline" type="button" data-req-remove="${esc(f.id)}" aria-label="Remove requirement ${i+1}">Remove</button></div><label>Field label<input data-req-property="label" value="${esc(f.label)}" maxlength="100" placeholder="Full name"></label><label>Answer type<select data-req-property="type">${serviceTypes.map(([v,label])=>`<option value="${v}" ${v===f.type?'selected':''}>${label}</option>`).join('')}</select></label><label>Help text (optional)<input data-req-property="help" value="${esc(f.help)}" maxlength="280"></label>${f.type==='select'?`<label>Dropdown choices, one per line<textarea rows="3" data-req-property="options">${esc((f.options||[]).join('\n'))}</textarea></label>`:''}<label class="provider-required"><input type="checkbox" data-req-property="required" ${f.required?'checked':''}> Required</label></div>`).join('');
+  list.querySelectorAll('[data-req-remove]').forEach(b=>b.addEventListener('click',()=>{state.requirements=state.requirements.filter(f=>f.id!==b.dataset.reqRemove);renderProviderRequirementEditor();}));
+  list.querySelectorAll('[data-req-property]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
+    const row=el.closest('[data-req-id]'),f=state.requirements.find(v=>v.id===row.dataset.reqId),key=el.dataset.reqProperty;
+    if(!f)return;f[key]=key==='required'?el.checked:key==='options'?el.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean):el.value;
+    if(key==='type'){if(f.type==='select'&&f.options.length<2)f.options=['Option 1','Option 2'];renderProviderRequirementEditor();}
+  }));
+}
+function openProviderServiceEditor(item=null){
+  if(state.profile?.status!=='approved')return;
+  state.editingService=item?.id||null;
+  state.requirements=(item?.requirements||[]).map((f,i)=>({...f,id:String(i+1),options:[...(f.options||[])]}));
+  const editing=$('#providerServiceEditor');if(!editing)return;
+  editing.classList.remove('hidden');
+  editing.innerHTML=`<div class="provider-panel-head"><div><span class="eyebrow">PREMIUM SERVICES</span><h2>${item?'Edit service':'Create a service'}</h2></div><button class="provider-outline" type="button" id="providerServiceCancel">Close</button></div><p class="provider-subtitle">Describe what you offer. The platform calculates customer pricing and your earnings. Only approved providers can publish.</p><form id="providerServiceForm" class="provider-form"><label>Service name<input name="name" required maxlength="120" value="${esc(item?.name||'')}" placeholder="e.g. Custom business flyer design"></label><label>Short description<input name="shortDescription" required maxlength="280" value="${esc(item?.short_description||'')}" placeholder="What customers receive"></label><label>Full description<textarea name="description" minlength="20" required maxlength="12000" rows="5">${esc(item?.description||'')}</textarea></label><label>Cover image (optional)<input id="providerCoverFile" type="file" accept="image/webp,image/png,image/jpeg"><input type="hidden" name="coverKey" value="${esc(item?.cover_key||'')}"></label><p id="providerCoverStatus" class="provider-hint">${item?.cover_key?'Existing cover retained.':'Use a clear image that represents your service.'}</p><label>My base service quote (₦)<input name="quote" type="number" min="1" max="10000000" step="0.01" inputmode="decimal" value="${item?(Number(item.quote_minor)/100).toFixed(2):''}" required></label><div class="provider-price-breakdown" id="providerPriceBreakdown" aria-live="polite"></div><div class="provider-panel-head"><div><h3>Customer information required</h3><p class="provider-subtitle">Choose the fields customers will fill after secure checkout becomes available.</p></div><button type="button" class="provider-outline" id="providerAddRequirement">＋ Add</button></div><div id="providerRequirementList"></div><button type="submit" class="provider-primary" id="providerServiceSubmit">${item?'Save service':'Publish service'}</button></form>`;
+  renderProviderRequirementEditor();previewSplit();
+  $('#providerServiceCancel').addEventListener('click',()=>editing.classList.add('hidden'));
+  $('#providerAddRequirement').addEventListener('click',createRequirement);
+  $('#providerServiceForm [name="quote"]').addEventListener('input',previewSplit);
+  $('#providerCoverFile').addEventListener('change',async e=>{
+    const f=e.target.files?.[0];if(!f)return;
+    const status=$('#providerCoverStatus');status.textContent='Uploading cover…';
+    const form=new FormData();form.append('file',f);
+    try{const d=await api('/api/provider/service-cover',{method:'POST',body:form});$('#providerServiceForm [name="coverKey"]').value=d.key;status.textContent='Cover uploaded.';}
+    catch(err){status.textContent=err.message;}e.target.value='';
+  });
+  $('#providerServiceForm').addEventListener('submit',async e=>{
+    e.preventDefault();const f=e.currentTarget,b=$('#providerServiceSubmit');if(b.disabled)return;
+    const quote=String(f.elements.namedItem('quote').value).trim();
+    if(!/^\d+(?:\.\d{1,2})?$/.test(quote)){notify('Enter a price with up to two decimal places.',true);return;}
+    const payload={name:f.elements.namedItem('name').value,shortDescription:f.elements.namedItem('shortDescription').value,description:f.elements.namedItem('description').value,quoteMinor:Math.round(Number(quote)*100),coverKey:f.elements.namedItem('coverKey').value,requirements:state.requirements};
+    b.disabled=true;b.textContent='Saving service…';
+    try{const id=state.editingService;const d=await api(id?`/api/provider/services/${id}`:'/api/provider/services',{method:id?'PATCH':'POST',body:payload});notify(d.message||'Service saved.');editing.classList.add('hidden');await loadProviderServices();}
+    catch(error){notify(error.message,true);}finally{b.disabled=false;b.textContent=item?'Save service':'Publish service';}
+  });
+  editing.scrollIntoView({block:'start',behavior:'auto'});
+}
+// Per-account, server-persisted provider walkthrough. Both Next and Skip are optional.
+async function maybeProviderTour(){
+  if(!state.profile||state.tour)return;
+  try{const d=await api('/api/tour/status?context=provider');if(!d.complete&&state.profile)startProviderTour();}catch{}
+}
+function startProviderTour(){
+  if(state.tour)return;
+  const steps=[
+    {sel:'#providerIdCard',title:'Your unique provider ID',desc:'Use this code when speaking to ToolCart support. It is not a password.'},
+    {sel:'.provider-details',title:'Your account details',desc:'Your contact information is private. Your approval status appears here.'},
+    ...(state.profile?.status==='approved'?[{sel:'#providerNewService',title:'Publish your service',desc:'Create your listings and define the required customer information.'},{sel:'#providerServiceList',title:'Manage your listings',desc:'Edit, hide or remove services at any time.'}]:[])
+  ];
+  state.tour={steps,index:0};const host=document.createElement('div');host.id='providerTour';host.className='provider-tour';host.innerHTML='<div class="provider-tour-dim"></div><div class="provider-tour-card" role="dialog" aria-label="Service provider guide"><small></small><h3></h3><p></p><div><button type="button" data-provider-tour-skip>Skip</button><button type="button" data-provider-tour-next>Next →</button></div></div>';document.body.append(host);
+  host.addEventListener('click',e=>{if(e.target.closest('[data-provider-tour-skip]'))finishProviderTour();if(e.target.closest('[data-provider-tour-next]')){state.tour.index++;state.tour.index>=steps.length?finishProviderTour():positionProviderTour();}});
+  positionProviderTour();
+}
+function positionProviderTour(){
+  if(!state.tour)return;
+  const step=state.tour.steps[state.tour.index],host=$('#providerTour'),card=host.querySelector('.provider-tour-card');
+  document.querySelector('.provider-tour-highlight')?.classList.remove('provider-tour-highlight');
+  const el=$(step.sel);el?.scrollIntoView({block:'center',behavior:'auto'});el?.classList.add('provider-tour-highlight');
+  card.querySelector('small').textContent=`STEP ${state.tour.index+1} / ${state.tour.steps.length}`;card.querySelector('h3').textContent=step.title;card.querySelector('p').textContent=step.desc;
+  card.querySelector('[data-provider-tour-next]').textContent=state.tour.index===state.tour.steps.length-1?'Finish':'Next →';
+  const r=el?.getBoundingClientRect(),h=card.offsetHeight||205;
+  card.style.top=`${Math.max(16,Math.round(r&&r.bottom+h+20<innerHeight?r.bottom+12:r&&r.top-h>12?r.top-h-12:innerHeight-h-18))}px`;
+}
+function finishProviderTour(){document.querySelector('.provider-tour-highlight')?.classList.remove('provider-tour-highlight');$('#providerTour')?.remove();state.tour=null;void api('/api/tour/complete',{method:'POST',body:{context:'provider'}}).catch(()=>{});}
